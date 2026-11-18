@@ -37,12 +37,6 @@ jest.mock("../../src/modules/sales/lead/lead.service", () => ({
   list: jest.fn(),
   get: jest.fn(),
 }));
-jest.mock("../../src/modules/sales/opportunity/opportunity.service", () => ({
-  list: jest.fn(),
-  board: jest.fn(),
-  metrics: jest.fn(),
-  get: jest.fn(),
-}));
 jest.mock("../../src/modules/procurement/purchase_request/purchase_request.service", () => ({
   createDraft: jest.fn(async () => ({ pr_id: "pr-1" })),
   transition: jest.fn(),
@@ -103,8 +97,8 @@ describe("the named create actions run with the FULL actor and correct payload",
     });
   });
 
-  it("the opportunity has no writes left: a deal is moved and won on its request (lean revamp PR 2)", () => {
-    expect(buildCatalogue().filter((r) => r.is_write && /opportunit/.test(r.action_key))).toEqual([]);
+  it("the opportunity is gone from the catalogue: a deal is moved and won on its request (lean revamp PR 7)", () => {
+    expect(buildCatalogue().filter((r) => /opportunit|pipeline/.test(r.action_key))).toEqual([]);
   });
 
   it("create_purchase_request (C3: snake→camel mismatch) maps fields and forwards the actor", async () => {

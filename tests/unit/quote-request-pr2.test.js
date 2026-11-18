@@ -157,12 +157,12 @@ describe("Incoterms", () => {
   });
 
   test("an edit that leaves a legacy term untouched is not re-checked", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", service_type_id: HINTERLAND, incoterm: "FOB" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "NEW", service_type_id: HINTERLAND, incoterm: "FOB" });
     await expect(service.update(client, { id: QR, patch: { cargo_description: "two crates" } })).resolves.toBeTruthy();
   });
 
   test("moving a request to a service that does not offer its term is refused", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", service_type_id: SEA, incoterm: "CIF" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "NEW", service_type_id: SEA, incoterm: "CIF" });
     const e = await refusal(() => service.update(client, { id: QR, patch: { service_type_id: HINTERLAND } }));
     expect(e.code).toBe("INCOTERM_NOT_OFFERED");
   });
@@ -213,34 +213,29 @@ describe("client link", () => {
   });
 
   test("linking an open request later applies the same rule", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "UNDER_REVIEW", service_type_id: SEA, incoterm: "FOB", owner_user_id: null, requester_company: "" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "CONTACTED", service_type_id: SEA, incoterm: "FOB", owner_user_id: null, requester_company: "" });
     const row = await service.update(client, { id: QR, patch: { client_id: CLIENT } });
     expect(repo.update).toHaveBeenCalledWith(client, QR, expect.objectContaining({ client_id: CLIENT, owner_user_id: AM, requester_company: "Tema Shipping SARL" }));
     expect(row.client_id).toBe(CLIENT);
   });
 
-  test.each([["WON", "CONVERTED_TO_OPPORTUNITY"], ["LOST", "CLOSED_NO_ACTION"]])("a %s request keeps the client it had", async (stage, status) => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, stage, status, client_id: OTHER_CLIENT, settled_at: "2026-11-01" });
+  test.each([["WON"], ["LOST"]])("a %s request keeps the client it had", async (stage) => {
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage, client_id: OTHER_CLIENT, settled_at: "2026-11-01" });
     const e = await refusal(() => service.update(client, { id: QR, patch: { client_id: CLIENT } }));
     expect(e.code).toBe("LOCKED");
     expect(repo.update).not.toHaveBeenCalled();
   });
 });
 
-/* ── "Start review" takes an unowned request ──────────────────────────────── */
+/* ── "Start review" went with the intake transitions ─────────────────────── */
 
-describe("owner on Start review", () => {
-  test("the reviewer becomes the owner of a prospect's request", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", owner_user_id: null });
-    await service.transition(client, { id: QR, to: "UNDER_REVIEW", actor: { user_id: REVIEWER } });
-    expect(repo.update).toHaveBeenCalledWith(client, QR, { status: "UNDER_REVIEW", owner_user_id: REVIEWER });
-    expect(emitEvent).toHaveBeenCalledWith(client, expect.objectContaining({ eventTypeKey: "quote_request.under_review" }));
-  });
-
-  test("an owner already set — the account manager — is not replaced", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", owner_user_id: AM });
-    await service.transition(client, { id: QR, to: "UNDER_REVIEW", actor: { user_id: REVIEWER } });
-    expect(repo.update).toHaveBeenCalledWith(client, QR, { status: "UNDER_REVIEW" });
+describe("the old intake transition", () => {
+  // `POST /quote-requests/:id/transition` ("Start review" and the other intake
+  // statuses) was removed in lean revamp PR 7 with the `status` column; the
+  // stage bar is the only lifecycle, and nothing on a screen called it since PR 3.
+  test("is gone from the service and the shared shapes", () => {
+    expect(service.transition).toBeUndefined();
+    expect(require("@praxis/shared").quoteRequest.transition).toBeUndefined();
   });
 });
 
@@ -304,7 +299,7 @@ describe("documents", () => {
 /* ── "File on a quote request" from a client conversation ─────────────────── */
 
 describe("filing a chat file", () => {
-  const open = { quote_request_id: QR, status: "UNDER_REVIEW", client_id: CLIENT };
+  const open = { quote_request_id: QR, stage: "CONTACTED", client_id: CLIENT };
 
   test("the client's own file is linked — the same vault row — PRIMARY when the request has none", async () => {
     repo.get.mockResolvedValue(open);
@@ -390,7 +385,7 @@ describe("the client's view", () => {
 
   test("scope, documents and a timeline — no owner, no notes", async () => {
     repo.get.mockResolvedValue({
-      quote_request_id: QR, client_id: CLIENT, status: "UNDER_REVIEW", stage: "CONTACTED", service_type_id: SEA, public_ref: "SQ-2026-0007",
+      quote_request_id: QR, client_id: CLIENT, stage: "CONTACTED", service_type_id: SEA, public_ref: "SQ-2026-0007",
       owner_user_id: AM, internal_notes: "margin is thin", created_at: "2026-09-01T08:00:00Z", updated_at: "2026-09-02T08:00:00Z",
     });
     repo.listAttachments.mockResolvedValue([{ id: "att-1", original_name: "invoice.pdf", document_kind: "COMMERCIAL_INVOICE", kind: "PRIMARY", created_at: "x" }]);
@@ -411,7 +406,7 @@ describe("the client's view", () => {
   // Meeting 6, PR 4 — the place PR 2 left: the quotation that answers it.
   test("shows the quotation that answers it", async () => {
     repo.get.mockResolvedValue({
-      quote_request_id: QR, client_id: CLIENT, status: "CONVERTED_TO_OPPORTUNITY", stage: "WON", service_type_id: SEA, public_ref: "SQ-2026-0003",
+      quote_request_id: QR, client_id: CLIENT, stage: "WON", service_type_id: SEA, public_ref: "SQ-2026-0003",
       created_at: "2026-09-29T08:00:00Z", updated_at: "2026-10-01T08:00:00Z",
     });
     repo.listAttachments.mockResolvedValue([]);

@@ -67,7 +67,7 @@ function makeClient({ request, lead = { lead_id: LEAD, company_name: "Sahel Trad
 }
 
 const openRequest = (extra = {}) => ({
-  quote_request_id: QR, lead_id: LEAD, stage: "QUOTED", status: "QUOTED", dossier_id: null,
+  quote_request_id: QR, lead_id: LEAD, stage: "QUOTED", dossier_id: null,
   client_id: null, entity_id: null, service_type_id: null, title: "Reefers to Douala",
   incoterm: "CIF", origin_location: "Antwerp", destination_location: "Douala",
   estimated_weight: "12000", cargo_description: "Frozen fish", owner_user_id: "U1", ...extra,
@@ -90,7 +90,9 @@ describe("the win", () => {
     const c = makeClient({ request: openRequest() });
     const out = await win(c, { id: QR, via: "QUOTATION", quotationId: "Q1", actor: {} });
 
-    expect(repo.update.mock.calls[0][2]).toMatchObject({ stage: "WON", status: "CONVERTED_TO_OPPORTUNITY", lost_reason_code: null });
+    expect(repo.update.mock.calls[0][2]).toMatchObject({ stage: "WON", lost_reason_code: null });
+    // No intake status kept in step any more (PR 7 dropped the column).
+    expect(repo.update.mock.calls[0][2]).not.toHaveProperty("status");
     expect(leads.makeClient).toHaveBeenCalledWith(c, expect.objectContaining({ id: LEAD, strict: false }));
     const data = dossierSvc.insertForCreate.mock.calls[0][1].data;
     expect(data).toMatchObject({

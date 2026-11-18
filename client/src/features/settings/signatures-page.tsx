@@ -40,12 +40,15 @@ type Preset = {
 
 type Policy = { allowed: string[]; default: string };
 
-/** The doc types that can carry a signature, mirroring SIGNATURE_CEILING. */
+/**
+ * The doc types that can carry a signature, mirroring SIGNATURE_CEILING, less
+ * PROPOSAL: the ceiling keeps it so a proposal signed before the Sales lean
+ * revamp still verifies, but nothing produces a new one to set a policy for.
+ */
 const DOC_TYPES = [
   "FINAL_INVOICE",
   "PROFORMA_ADVANCE",
   "QUOTATION",
-  "PROPOSAL",
   "PURCHASE_ORDER",
   "DELIVERY_NOTE",
   "TRANSIT_ORDER",

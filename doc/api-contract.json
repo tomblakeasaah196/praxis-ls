@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 141,
-  "route_count": 1885,
+  "modules_mounted": 140,
+  "route_count": 1878,
   "tiers": {
     "public": 80,
     "self-scoped": 117,
-    "gated": 1688
+    "gated": 1681
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3376,42 +3376,6 @@
       "tier": "gated"
     },
     "GET /api/tenant/operations/:id/shipment-details": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/opportunities/": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/opportunities/:id": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/opportunities/board": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/opportunities/export.csv": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/opportunities/metrics": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "GET /api/tenant/opportunities/stages": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -9610,12 +9574,6 @@
       "tier": "gated"
     },
     "POST /api/tenant/quote-requests/:id/stage": {
-      "auth": true,
-      "rbac": true,
-      "validated": false,
-      "tier": "gated"
-    },
-    "POST /api/tenant/quote-requests/:id/transition": {
       "auth": true,
       "rbac": true,
       "validated": false,

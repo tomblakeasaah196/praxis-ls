@@ -11,9 +11,7 @@
  * thing end to end, through the SQL.
  *
  * Since the Sales lean revamp (PR 6) the tiles read `stage`, the request's
- * lifecycle; `status` is written in step until PR 7 drops it and is read by
- * nothing, so the rows below carry a status only because the column is still
- * there.
+ * lifecycle, and since PR 7 (14593) it is the only one: `status` is dropped.
  *
  * It goes through `service.list`, which is also what the controller calls: the
  * repo returns the raw GROUP BY (`kpiRows`) and the fold happens in the service.
@@ -57,8 +55,8 @@ d("F6 quote_request KPI partition (real Postgres)", () => {
     const lead = (await pool.query("INSERT INTO lead (company_name, status) VALUES ($1, 'OPEN') RETURNING lead_id", [marker])).rows[0].lead_id;
     for (const r of rows) {
       await pool.query(
-        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, stage, status, lead_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-        [r.ref, r.channel, "Test " + r.ref, "FOB", r.stage, rules.statusForStage(r.stage) || "RECEIVED", lead],
+        "INSERT INTO quote_request (public_ref, intake_channel, requester_name, incoterm, stage, lead_id) VALUES ($1, $2, $3, $4, $5, $6)",
+        [r.ref, r.channel, "Test " + r.ref, "FOB", r.stage, lead],
       );
     }
   }
@@ -102,7 +100,7 @@ d("F6 quote_request KPI partition (real Postgres)", () => {
       expect(sumTiles(fresh.kpi)).toBe(7);
       expect(fresh.kpi).toMatchObject({ NEW: 2, CONTACTED: 1, LOST: 1 });
 
-      // 4. The retired intake status filters nothing.
+      // 4. The retired intake status (a column no more) filters nothing.
       const old = await service.list(pool, { q: marker, status: "RECEIVED" });
       expect(old.total).toBe(7);
     } finally {

@@ -17,7 +17,6 @@ const { AppError } = require("../../../utils/errors");
 const schemas = {
   create: quoteRequest.staffCreate,
   update: quoteRequest.staffUpdate,
-  transition: quoteRequest.transition,
   moveStage: quoteRequest.moveStage,
   markWon: quoteRequest.markWon,
   attachment: quoteRequest.attachment,
@@ -49,7 +48,6 @@ const mwQuery = (k) => (req, _res, next) => {
 module.exports = {
   create: mw("create"),
   update: mw("update"),
-  transition: mw("transition"),
   moveStage: mw("moveStage"),
   markWon: mw("markWon"),
   attachment: mw("attachment"),

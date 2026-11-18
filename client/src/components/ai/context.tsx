@@ -243,12 +243,12 @@ const AREA_STARTERS: Record<string, Suggestion[]> = {
         "How is the pipeline moving this month, and where is it stalling?",
     },
     {
-      label: "Stale opportunities",
-      prompt: "Which opportunities have had no activity in the last two weeks?",
+      label: "Stale requests",
+      prompt: "Which open requests have had no activity in the last two weeks?",
     },
     {
       label: "Draft a follow-up",
-      prompt: "Draft a follow-up note for my oldest open proposal.",
+      prompt: "Draft a follow-up note for my oldest open quotation.",
     },
   ],
   commercial: [

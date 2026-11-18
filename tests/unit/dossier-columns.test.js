@@ -1,8 +1,9 @@
 "use strict";
 /**
  * Reconcile what the code believes `dossier` looks like against what the
- * migrations actually declare — and check that every literal payload the two
- * dossier-opening call sites build names real columns.
+ * migrations actually declare — and check that every literal payload the
+ * dossier-opening call site builds names real columns. (There were two; the
+ * opportunity's went with it in the Sales lean revamp, PR 7.)
  *
  * WHY THIS TEST EXISTS
  *
@@ -11,7 +12,8 @@
  * passed `title: opp.name` anyway:
  *
  *   src/modules/sales/quote_request/quote_request.win.js
- *   src/modules/sales/opportunity/opportunity.service.js   (win({createDossier}))
+ *   src/modules/sales/opportunity/opportunity.service.js   (win({createDossier});
+ *                                                           deleted in lean revamp PR 7)
  *
  * `insertOne` builds its column list from `Object.keys(data)` and validates each
  * key as an IDENTIFIER — which `title` is. It has no idea what columns the table

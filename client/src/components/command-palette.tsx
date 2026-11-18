@@ -154,8 +154,8 @@ const JUMP: { to: string; label: string; Icon: (p: IP) => React.JSX.Element }[] 
 
 /** Record groups in the order a desk reads them: who, what moves, what it costs. */
 const TYPE_ORDER = [
-  "client", "contact", "supplier", "supplier_contact", "lead", "quote_request", "opportunity", "proposal",
-  "quotation", "file", "transit_order", "delivery_note", "costing", "cash_request", "invoice", "proforma",
+  "client", "contact", "supplier", "supplier_contact", "lead", "quote_request", "quotation",
+  "file", "transit_order", "delivery_note", "costing", "cash_request", "invoice", "proforma",
   "credit_note", "receipt", "purchase_order", "supplier_invoice", "employee", "treasury_account",
   "dictionary_item", "service_type", "corporate_entity", "document", "vehicle",
 ];

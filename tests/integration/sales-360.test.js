@@ -5,10 +5,13 @@
  * The unit suite mocks the client and proves the JUDGEMENT — what is gated,
  * what is counted, what a brand-new record renders as. It cannot prove the
  * queries, and the queries are the part that breaks silently: every one of them
- * names columns across seven tables (`lead`, `meeting`,
- * `meeting_discovery_section`, `quote_request`, `proposal`, `proposal_line`,
- * `opportunity`, `contact_enquiry`, `immutable_ledger`), and a column renamed
- * in a later migration surfaces as a 500 nobody's mocked test can see.
+ * names columns across the tables of the company row (`lead`, `meeting`,
+ * `meeting_discovery_section`, `quote_request`, `quotation`, `lead_activity`,
+ * `company_profile_share`, `contact_enquiry`, `immutable_ledger`), and a
+ * column renamed or a table dropped in a later migration surfaces as a 500
+ * nobody's mocked test can see. PR 7 of the lean revamp dropped `opportunity`,
+ * `pipeline_stage` and the `proposal` tables; running both dossiers here is the
+ * proof that nothing still reads them.
  *
  * So this runs each dossier against a live schema. It asserts shape, not
  * content — the tenant it points at may have any amount of data in it, or none
@@ -46,19 +49,40 @@ d("Sales 360 aggregations (real Postgres)", () => {
     return rows[0].lead_id;
   }
 
+  /** A request on the lead (the deal, D3) and, with `total`, its quotation. */
+  async function makeDeal(leadId, { value, total = null, stage = "QUOTED", title = "360 request" }) {
+    const q = (
+      await client.query(
+        `INSERT INTO quote_request (lead_id, title, stage, estimated_value, currency)
+         VALUES ($1, $2, $3, $4, 'XAF') RETURNING quote_request_id`,
+        [leadId, title, stage, value],
+      )
+    ).rows[0].quote_request_id;
+    if (total !== null) {
+      await client.query(
+        `INSERT INTO quotation (lead_id, quote_request_id, status, total_ht, total_ttc, currency)
+         VALUES ($1, $2, 'DRAFT', $3, $3, 'XAF')`,
+        [leadId, q, total],
+      );
+    }
+    return q;
+  }
+
   test("every query in the lead dossier executes against the real schema", async () => {
     const leadId = await makeLead();
     const dossier = await svc.leadDossier(client, { leadId, canSeeFinancials: true });
 
     expect(dossier.lead.lead_id).toBe(leadId);
-    for (const k of ["meetings", "quote_requests", "proposals", "opportunities", "enquiries", "timeline"]) {
+    for (const k of ["meetings", "quote_requests", "enquiries", "timeline", "activity", "requests", "quotations"]) {
       expect(Array.isArray(dossier[k])).toBe(true);
     }
+    expect(dossier).not.toHaveProperty("proposals");
+    expect(dossier).not.toHaveProperty("opportunities");
     // A lead created a second ago has nothing hanging off it, which is the
     // "renders for a brand-new record" gate — proven here against real SQL
     // rather than against a mock that returns whatever it was told to.
     expect(dossier.kpis.meetings).toBe(0);
-    expect(dossier.kpis.open_pipeline_value).toBe(0);
+    expect(dossier.kpis.open_value).toBe(0);
     expect(dossier.client).toBeNull();
   });
 
@@ -77,17 +101,8 @@ d("Sales 360 aggregations (real Postgres)", () => {
        VALUES ($1, 'OPERATIONS', 'Reefer imports, 30 TEU a month.')`,
       [meeting],
     );
-    const proposal = (
-      await client.query(
-        `INSERT INTO proposal (lead_id, title, status, currency) VALUES ($1, '360 proposal', 'DRAFT', 'XAF')
-         RETURNING proposal_id`,
-        [leadId],
-      )
-    ).rows[0].proposal_id;
-    await client.query(
-      `INSERT INTO proposal_line (proposal_id, label, qty, unit_price) VALUES ($1, 'Freight', 2, 750000)`,
-      [proposal],
-    );
+    await makeDeal(leadId, { value: 1500000, total: 1785000 });
+    await makeDeal(leadId, { value: 900000, stage: "LOST" });
 
     const dossier = await svc.leadDossier(client, { leadId, canSeeFinancials: true });
 
@@ -96,33 +111,27 @@ d("Sales 360 aggregations (real Postgres)", () => {
     expect(dossier.meetings[0].sections[0].has_body).toBe(true);
     expect(dossier.kpis.discovery_sections_captured).toBe(1);
 
-    expect(dossier.proposals).toHaveLength(1);
-    // 2 × 750,000 — summed in SQL, which is the arithmetic a mock cannot check.
-    expect(dossier.proposals[0].total).toBe(1500000);
-    expect(dossier.kpis.proposals_value).toBe(1500000);
+    // The request carries the deal (D3): two requests, one of them lost, so
+    // the open value is the open one's only.
+    expect(dossier.requests).toHaveLength(2);
+    expect(dossier.kpis).toMatchObject({ open_requests: 1, won_requests: 0, open_value: 1500000 });
+    // Its quotation is the one priced document (D6).
+    expect(dossier.quotations).toHaveLength(1);
+    expect(dossier.quotations[0].total_ttc).toBe(1785000);
   });
 
   test("the same dossier hides money from a caller without finance visibility", async () => {
     const leadId = await makeLead();
-    const proposal = (
-      await client.query(
-        `INSERT INTO proposal (lead_id, title, status, currency) VALUES ($1, 'Gated', 'DRAFT', 'XAF')
-         RETURNING proposal_id`,
-        [leadId],
-      )
-    ).rows[0].proposal_id;
-    await client.query(
-      `INSERT INTO proposal_line (proposal_id, label, qty, unit_price) VALUES ($1, 'Freight', 1, 999)`,
-      [proposal],
-    );
+    await makeDeal(leadId, { value: 999, total: 1188, title: "Gated" });
 
     const hidden = await svc.leadDossier(client, { leadId, canSeeFinancials: false });
     expect(hidden.kpis.money_visible).toBe(false);
-    expect(hidden.kpis.proposals_value).toBeNull();
-    expect(hidden.proposals[0].total).toBeNull();
-    // The row itself is still there and still readable — only the figure is not.
-    expect(hidden.kpis.proposals).toBe(1);
-    expect(hidden.proposals[0].title).toBe("Gated");
+    expect(hidden.kpis.open_value).toBeNull();
+    expect(hidden.requests[0].estimated_value).toBeNull();
+    expect(hidden.quotations[0].total_ttc).toBeNull();
+    // The rows themselves are still there and still readable: only the figures are not.
+    expect(hidden.kpis.open_requests).toBe(1);
+    expect(hidden.requests[0].title).toBe("Gated");
   });
 
   test("the timeline reads the audit rows the lead's own service writes", async () => {
@@ -142,8 +151,8 @@ d("Sales 360 aggregations (real Postgres)", () => {
     const leadId = await makeLead();
     const q = (
       await client.query(
-        `INSERT INTO quote_request (incoterm, requester_name, status, entity_id, lead_id)
-         VALUES ('FOB', '360 Integration', 'RECEIVED', $1, $2) RETURNING quote_request_id`,
+        `INSERT INTO quote_request (incoterm, requester_name, entity_id, lead_id)
+         VALUES ('FOB', '360 Integration', $1, $2) RETURNING quote_request_id`,
         [entity ? entity.entity_id : null, leadId],
       )
     ).rows[0].quote_request_id;
@@ -152,8 +161,10 @@ d("Sales 360 aggregations (real Postgres)", () => {
     expect(dossier.request.quote_request_id).toBe(q);
     expect(Array.isArray(dossier.attachments)).toBe(true);
     expect(Array.isArray(dossier.timeline)).toBe(true);
-    expect(dossier.kpis.is_converted).toBe(false);
-    expect(dossier.converted_opportunity).toBeNull();
+    // The request has a stage and no status (14593), and no opportunity (14592).
+    expect(dossier.request.stage).toBe("NEW");
+    expect(dossier.request).not.toHaveProperty("status");
+    expect(dossier).not.toHaveProperty("converted_opportunity");
     // Every request sits on its company's row (14512): the dossier names it.
     expect(dossier.lead).toMatchObject({ lead_id: leadId, status: "OPEN" });
     expect(dossier.kpis.age_days).toBe(0);

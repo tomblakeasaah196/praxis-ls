@@ -14,9 +14,10 @@
  *   2. A brand-new record renders. Every figure 0, every collection [] — the
  *      same acceptance gate party-360 is built to (a fresh party must not throw
  *      or read as broken).
- *   3. "Is it converted" is read from `converted_opportunity_id`, never from
- *      the status value. The legacy computed it two ways and got two answers on
- *      one row: the list greyed it out while the drawer still offered Convert.
+ *   3. The deal is the request (lean revamp D3). The opportunity, the proposal
+ *      and the pipeline stages were dropped in PR 7, so nothing here reads
+ *      them: the deal's figures (open requests, won requests, open value) come
+ *      from the requests themselves, and the open value counts open stages only.
  *
  * The client is mocked by matching on SQL text rather than by call order, so
  * adding a query to the service does not silently shift every later assertion
@@ -43,7 +44,10 @@ function clientOf(routes = []) {
   };
 }
 
-const LEAD_ROW = { lead_id: "L1", company_name: "Tema Shipping", status: "QUALIFIED" };
+const LEAD_ROW = { lead_id: "L1", company_name: "Tema Shipping", status: "OPEN" };
+
+/** The tables PR 7 dropped. No query of a 360 may name one. */
+const RETIRED = /\b(opportunity|pipeline_stage|proposal|proposal_line|proposal_narrative)\b/i;
 
 describe("money gating", () => {
   test("money() hides a figure as null rather than zero", () => {
@@ -55,32 +59,25 @@ describe("money gating", () => {
     expect(svc.money(null, true)).toBe(0);
   });
 
-  test("proposal totals are null for a caller without finance visibility", async () => {
-    const rows = [{ proposal_id: "P1", status: "SENT", total: "4000000", currency: "XAF" }];
-    const c = clientOf([[/FROM proposal p/, rows]]);
-    expect((await svc.leadProposals(c, "L1", true))[0].total).toBe(4000000);
-    expect((await svc.leadProposals(c, "L1", false))[0].total).toBeNull();
+  test("a request's value is null for a caller without finance visibility, and its stage is not", async () => {
+    const rows = [{ quote_request_id: "Q1", stage: "QUOTED", estimated_value: "8000000", currency: "XAF" }];
+    const c = clientOf([[/FROM quote_request q/, rows]]);
+    expect((await svc.leadRequests(c, "L1", true))[0].estimated_value).toBe(8000000);
+    const [hidden] = await svc.leadRequests(c, "L1", false);
+    expect(hidden.estimated_value).toBeNull();
+    expect(hidden.stage).toBe("QUOTED");
   });
 
-  test("opportunity value and its weighting are gated together", async () => {
-    const rows = [
-      { opportunity_id: "O1", status: "OPEN", estimated_value: "8000000", probability: "10.00" },
-    ];
-    const c = clientOf([[/FROM opportunity o/, rows]]);
+  test("a request with no value stays null either way: unknown is not zero", async () => {
+    const c = clientOf([[/FROM quote_request q/, [{ quote_request_id: "Q1", stage: "NEW", estimated_value: null }]]]);
+    expect((await svc.leadRequests(c, "L1", true))[0].estimated_value).toBeNull();
+  });
 
-    const [visible] = await svc.leadOpportunities(c, "L1", true);
-    expect(visible.estimated_value).toBe(8000000);
-    expect(visible.weighted_value).toBe(800000);
-    // pg hands back numerics as strings; the board coerces, so this must too or
-    // the client ends up with two formatters for one field.
-    expect(visible.probability).toBe(10);
-
-    const [hidden] = await svc.leadOpportunities(c, "L1", false);
-    expect(hidden.estimated_value).toBeNull();
-    expect(hidden.weighted_value).toBeNull();
-    // The stage and the odds are not money and stay readable.
-    expect(hidden.probability).toBe(10);
-    expect(hidden.status).toBe("OPEN");
+  test("a quotation's total is gated like every other figure", async () => {
+    const rows = [{ quotation_id: "QT1", status: "SENT", total_ttc: "4000000", valid_until: "2999-01-01" }];
+    const c = clientOf([[/FROM quotation qt/, rows]]);
+    expect((await svc.leadQuotations(c, { lead_id: "L1" }, true))[0].total_ttc).toBe(4000000);
+    expect((await svc.leadQuotations(c, { lead_id: "L1" }, false))[0].total_ttc).toBeNull();
   });
 });
 
@@ -89,17 +86,6 @@ describe("lead KPIs", () => {
     meetings: [
       { sections: [{ has_body: true }, { has_body: true }, { has_body: false }] },
       { sections: [{ has_body: true }] },
-    ],
-    proposals: [
-      { status: "SENT", total: 4000000 },
-      { status: "ACCEPTED", total: 1000000 },
-      { status: "DRAFT", total: 0 },
-    ],
-    opportunities: [
-      { status: "OPEN", estimated_value: 8000000, weighted_value: 800000 },
-      { status: "OPEN", estimated_value: 2000000, weighted_value: 600000 },
-      { status: "WON", estimated_value: 5000000, weighted_value: 5000000 },
-      { status: "LOST", estimated_value: 1000000, weighted_value: 0 },
     ],
     quoteRequests: [{}, {}],
     enquiries: [{}],
@@ -110,45 +96,42 @@ describe("lead KPIs", () => {
     expect(k.meetings).toBe(2);
     expect(k.discovery_sections_captured).toBe(3);
     expect(k.quote_requests).toBe(2);
-    expect(k.proposals).toBe(3);
-    expect(k.proposals_sent).toBe(1);
-    expect(k.proposals_accepted).toBe(1);
     expect(k.enquiries).toBe(1);
+    expect(k.money_visible).toBe(true);
   });
 
-  test("pipeline value counts OPEN deals only, so it agrees with the board", () => {
+  test("the retired opportunity and proposal figures are gone, not zeroed", () => {
     const k = svc.leadKpis({ ...base, canSee: true });
-    expect(k.open_opportunities).toBe(2);
-    expect(k.won_opportunities).toBe(1);
-    expect(k.lost_opportunities).toBe(1);
-    // 8,000,000 + 2,000,000 — the won and lost deals are excluded.
-    expect(k.open_pipeline_value).toBe(10000000);
-    expect(k.weighted_pipeline_value).toBe(1400000);
-    expect(k.proposals_value).toBe(5000000);
-  });
-
-  test("without finance visibility the counts survive and the money is null", () => {
-    const k = svc.leadKpis({ ...base, canSee: false });
-    expect(k.money_visible).toBe(false);
-    expect(k.open_opportunities).toBe(2);
-    expect(k.open_pipeline_value).toBeNull();
-    expect(k.weighted_pipeline_value).toBeNull();
-    expect(k.proposals_value).toBeNull();
+    for (const gone of [
+      "proposals", "proposals_sent", "proposals_accepted", "proposals_value",
+      "opportunities", "open_opportunities", "won_opportunities", "lost_opportunities",
+      "open_pipeline_value", "weighted_pipeline_value",
+    ]) {
+      expect(k).not.toHaveProperty(gone);
+    }
   });
 
   test("a lead with nothing on it produces zeros, not NaN or undefined", () => {
-    const k = svc.leadKpis({
-      meetings: [],
-      proposals: [],
-      opportunities: [],
-      quoteRequests: [],
-      enquiries: [],
-      canSee: true,
-    });
+    const k = svc.leadKpis({ meetings: [], quoteRequests: [], enquiries: [], canSee: true });
     for (const [key, v] of Object.entries(k)) {
       if (key === "money_visible") continue;
       expect(v).toBe(0);
     }
+  });
+
+  test("the deal's figures come from the requests: open value counts open stages only", async () => {
+    const requests = [
+      { quote_request_id: "Q1", stage: "QUOTED", estimated_value: "8000000" },
+      { quote_request_id: "Q2", stage: "NEW", estimated_value: "2000000" },
+      { quote_request_id: "Q3", stage: "WON", estimated_value: "5000000" },
+      { quote_request_id: "Q4", stage: "LOST", estimated_value: "1000000" },
+    ];
+    const routes = [[/FROM lead l/, [LEAD_ROW]], [/FROM quote_request q\s+LEFT JOIN service_type/, requests]];
+    const seen = await svc.leadDossier(clientOf(routes), { leadId: "L1", canSeeFinancials: true });
+    expect(seen.kpis).toMatchObject({ open_requests: 2, won_requests: 1, open_value: 10000000, money_visible: true });
+
+    const hidden = await svc.leadDossier(clientOf(routes), { leadId: "L1", canSeeFinancials: false });
+    expect(hidden.kpis).toMatchObject({ open_requests: 2, won_requests: 1, open_value: null, money_visible: false });
   });
 });
 
@@ -158,12 +141,22 @@ describe("leadDossier", () => {
     const d = await svc.leadDossier(c, { leadId: "L1", canSeeFinancials: true });
 
     expect(d.lead.company_name).toBe("Tema Shipping");
-    for (const k of ["meetings", "quote_requests", "proposals", "opportunities", "enquiries", "timeline"]) {
+    for (const k of ["meetings", "quote_requests", "enquiries", "timeline", "activity", "requests", "quotations"]) {
       expect(d[k]).toEqual([]);
     }
+    // The retired collections are gone from the payload, not sent empty.
+    expect(d).not.toHaveProperty("proposals");
+    expect(d).not.toHaveProperty("opportunities");
     expect(d.client).toBeNull();
     expect(d.kpis.meetings).toBe(0);
-    expect(d.kpis.open_pipeline_value).toBe(0);
+    expect(d.kpis.open_value).toBe(0);
+  });
+
+  test("no query of the Lead 360 names a table PR 7 dropped", async () => {
+    const c = clientOf([[/FROM lead l/, [LEAD_ROW]]]);
+    await svc.leadDossier(c, { leadId: "L1", canSeeFinancials: true, user: { user_id: "U1" } });
+    expect(c.calls.length).toBeGreaterThan(5);
+    for (const call of c.calls) expect([call.sql, RETIRED.test(call.sql)]).toEqual([call.sql, false]);
   });
 
   test("an unknown lead is a 404, not an empty dossier", async () => {
@@ -279,59 +272,44 @@ describe("intakeDossier", () => {
   const REQ = {
     quote_request_id: "Q1",
     public_ref: "SQ-2026-0001",
-    status: "RECEIVED",
+    stage: "NEW",
     created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
   };
 
-  test("conversion is read from the FK, never from the status value", async () => {
-    // A row whose STATUS claims conversion but which carries no opportunity id.
-    // The legacy believed the status; this must not.
-    const c = clientOf([
-      [/FROM quote_request q/, [{ ...REQ, status: "CONVERTED_TO_OPPORTUNITY", converted_opportunity_id: null }]],
-    ]);
-    const d = await svc.intakeDossier(c, { quoteRequestId: "Q1" });
-    expect(d.kpis.is_converted).toBe(false);
-    expect(d.converted_opportunity).toBeNull();
-  });
-
-  test("a converted request carries its opportunity", async () => {
-    const c = clientOf([
-      [/FROM quote_request q/, [{ ...REQ, converted_opportunity_id: "O9", converted_at: REQ.created_at }]],
-      [/FROM opportunity o/, [{ opportunity_id: "O9", name: "Tema lane", estimated_value: "5000000" }]],
-    ]);
+  test("the retired opportunity and proposal are gone from the Intake 360", async () => {
+    // A row 14512 made from an opportunity still carries the old id, for old
+    // links (quote_request.converted_opportunity_id). The 360 reads nothing
+    // through it: there is no opportunity to read.
+    const c = clientOf([[/FROM quote_request q/, [{ ...REQ, lead_id: "L1", converted_opportunity_id: "O9" }]]]);
     const d = await svc.intakeDossier(c, { quoteRequestId: "Q1", canSeeFinancials: true });
-    expect(d.kpis.is_converted).toBe(true);
-    expect(d.converted_opportunity.name).toBe("Tema lane");
-    expect(d.kpis.converted_value).toBe(5000000);
+    expect(d).not.toHaveProperty("converted_opportunity");
+    expect(d).not.toHaveProperty("proposals");
+    expect(d.kpis).not.toHaveProperty("is_converted");
+    expect(d.kpis).not.toHaveProperty("converted_value");
+    expect(d.kpis).not.toHaveProperty("proposals");
+    for (const call of c.calls) expect([call.sql, RETIRED.test(call.sql)]).toEqual([call.sql, false]);
   });
 
-  test("age counts days open, and stops counting once converted", async () => {
+  test("age counts days open, and stops counting once the request is settled", async () => {
     const open = clientOf([[/FROM quote_request q/, [REQ]]]);
     expect((await svc.intakeDossier(open, { quoteRequestId: "Q1" })).kpis.age_days).toBe(3);
 
-    const converted = clientOf([
+    const won = clientOf([
       [
         /FROM quote_request q/,
-        [{ ...REQ, converted_opportunity_id: "O9", converted_at: new Date(new Date(REQ.created_at).getTime() + 86400000).toISOString() }],
+        [{ ...REQ, stage: "WON", settled_at: new Date(new Date(REQ.created_at).getTime() + 86400000).toISOString() }],
       ],
     ]);
-    expect((await svc.intakeDossier(converted, { quoteRequestId: "Q1" })).kpis.age_days).toBe(1);
+    expect((await svc.intakeDossier(won, { quoteRequestId: "Q1" })).kpis.age_days).toBe(1);
   });
 
-  test("proposals are reached through the lead, and skipped when there is none", async () => {
+  test("the lead is a card when there is one", async () => {
     const noLead = clientOf([[/FROM quote_request q/, [REQ]]]);
-    const d = await svc.intakeDossier(noLead, { quoteRequestId: "Q1" });
-    expect(d.proposals).toEqual([]);
-    expect(d.lead).toBeNull();
-    expect(noLead.calls.some((x) => /FROM proposal p/.test(x.sql))).toBe(false);
+    expect((await svc.intakeDossier(noLead, { quoteRequestId: "Q1" })).lead).toBeNull();
 
-    const withLead = clientOf([
-      [/FROM quote_request q/, [{ ...REQ, lead_id: "L1", lead_company_name: "Tema Shipping" }]],
-      [/FROM proposal p/, [{ proposal_id: "P1", total: "100" }]],
-    ]);
-    const d2 = await svc.intakeDossier(withLead, { quoteRequestId: "Q1", canSeeFinancials: true });
-    expect(d2.lead).toEqual({ lead_id: "L1", company_name: "Tema Shipping", status: undefined });
-    expect(d2.proposals).toHaveLength(1);
+    const withLead = clientOf([[/FROM quote_request q/, [{ ...REQ, lead_id: "L1", lead_company_name: "Tema Shipping", lead_status: "OPEN" }]]]);
+    const d = await svc.intakeDossier(withLead, { quoteRequestId: "Q1" });
+    expect(d.lead).toEqual({ lead_id: "L1", company_name: "Tema Shipping", status: "OPEN" });
   });
 
   test("an unknown request is a 404", async () => {

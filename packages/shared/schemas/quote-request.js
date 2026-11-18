@@ -30,19 +30,6 @@
 const { z } = require("zod");
 const { HINTERLAND_DIRECTIONS } = require("../rules/service-scope");
 
-/** The intake lifecycle (0683). The API's rules module reads this list. */
-const STATUSES = [
-  "RECEIVED",
-  "UNDER_REVIEW",
-  "CLARIFICATION_REQUIRED",
-  "QUOTED",
-  "CONVERTED_TO_OPPORTUNITY",
-  "CLOSED_NO_ACTION",
-];
-
-/** States in which nothing may be edited, attached or re-linked any more. */
-const TERMINAL = ["CONVERTED_TO_OPPORTUNITY", "CLOSED_NO_ACTION"];
-
 /**
  * The deal's stage (14511, owner decision D3). Fixed, never configurable: New,
  * Contacted, Meeting, Quoted, then Won or Lost. Won comes from an accepted
@@ -93,13 +80,12 @@ const DOCUMENT_KINDS = [
 
 /**
  * Whether a request may be tied to a client, or moved to another one. Not once
- * it is won or lost (or, in the intake vocabulary before the revamp, converted
- * or closed): the file it opened, and the history the client read in their
- * portal, belong to the client it had then. Takes a stage or a status.
+ * it is won or lost: the file it opened, and the history the client read in
+ * their portal, belong to the client it had then.
  */
-const canRelink = (stageOrStatus) => {
-  const v = String(stageOrStatus || "");
-  return !TERMINAL.includes(v) && v !== "WON" && v !== "LOST";
+const canRelink = (stage) => {
+  const v = String(stage || "");
+  return v !== "WON" && v !== "LOST";
 };
 
 const text = (max) => z.string().trim().max(max).optional();
@@ -177,8 +163,6 @@ const staffCreate = z.object({ ...staffFields }).superRefine((v, ctx) => {
 });
 /** Edit one. Every field optional; the service refuses a terminal request. */
 const staffUpdate = z.object({ ...staffFields });
-
-const transition = z.object({ to: z.enum(STATUSES) });
 
 /** A lost deal says why: one of five reasons, and a line. */
 const lostReason = {
@@ -370,8 +354,6 @@ const portalCreate = z.object({
 const portalDocumentUpload = z.object({ document_kind: z.enum(DOCUMENT_KINDS).optional() });
 
 module.exports = {
-  STATUSES,
-  TERMINAL,
   STAGES,
   OPEN_STAGES,
   MOVABLE_STAGES,
@@ -387,7 +369,6 @@ module.exports = {
   canRelink,
   staffCreate,
   staffUpdate,
-  transition,
   moveStage,
   markWon,
   attachment,

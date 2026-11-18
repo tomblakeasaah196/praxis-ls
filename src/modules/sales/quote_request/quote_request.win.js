@@ -6,7 +6,7 @@
  * Mark Won pressed by hand all end here, and do the same things in the same
  * order:
  *
- *   1. the request is WON (stage, settle date, the old status kept in step);
+ *   1. the request is WON (stage and settle date);
  *   2. a prospect becomes a client: Make Client from the row's own facts, as
  *      the DRAFT client_master starts as, and the row keeps going as a Client;
  *   3. the operations file opens from the request (its client, service type,
@@ -38,7 +38,6 @@
 
 const repo = require("./quote_request.repo");
 const events = require("./quote_request.events");
-const rules = require("./quote_request.rules");
 const dossierSvc = require("../../operations/operations_file/operations_file.service");
 const { incoterms } = require("@praxis/shared");
 const { emitEvent, audit } = require("../../../shared/events/emit");
@@ -157,7 +156,6 @@ async function win(client, { id, via = "MANUAL", quotationId = null, entityId = 
     if (firstWin) {
       request = await repo.update(client, id, {
         stage: "WON",
-        status: rules.statusForStage("WON", before.status),
         settled_at: new Date().toISOString(),
         lost_reason_code: null,
         lost_reason: null,

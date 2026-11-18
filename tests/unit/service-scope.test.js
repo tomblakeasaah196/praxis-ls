@@ -207,14 +207,12 @@ describe("email domains — never suggest a client from public webmail", () => {
 });
 
 describe("the shared quote-request rules", () => {
-  test("a won or lost request (or a converted or closed one) cannot be re-linked to another client", () => {
-    expect(quoteRequest.canRelink("RECEIVED")).toBe(true);
-    expect(quoteRequest.canRelink("UNDER_REVIEW")).toBe(true);
-    expect(quoteRequest.canRelink("QUOTED")).toBe(true);
-    expect(quoteRequest.canRelink("CONVERTED_TO_OPPORTUNITY")).toBe(false);
-    expect(quoteRequest.canRelink("CLOSED_NO_ACTION")).toBe(false);
+  test("a won or lost request cannot be re-linked to another client", () => {
+    // Read from the stage: the intake status it once also took went in PR 7.
+    for (const open of ["NEW", "CONTACTED", "MEETING", "QUOTED"]) expect(quoteRequest.canRelink(open)).toBe(true);
     expect(quoteRequest.canRelink("WON")).toBe(false);
     expect(quoteRequest.canRelink("LOST")).toBe(false);
+    expect(quoteRequest.STATUSES).toBeUndefined();
   });
 
   test("a phone request may wait for its Incoterm; the website and the portal owe one — TBD is a valid answer", () => {

@@ -1,7 +1,7 @@
 "use strict";
 const lead = require("../../src/modules/sales/lead/lead.rules");
-const opp = require("../../src/modules/sales/opportunity/opportunity.events");
 const qr = require("../../src/modules/sales/quote_request/quote_request.rules");
+const qrEvents = require("../../src/modules/sales/quote_request/quote_request.events");
 
 describe("Sales funnel rules (MOD-20–26)", () => {
   test("a lead is OPEN or ARCHIVED, and every open one owes a next step but a client with nothing open", () => {
@@ -32,45 +32,46 @@ describe("Sales funnel rules (MOD-20–26)", () => {
     // Before opening → the clock starts at 08:00.
     expect(at("2026-11-17T06:00:00Z")).toBe("2026-11-17T12:00:00.000Z");
   });
-  test("opportunity emits stage/won/lost events", () => {
-    expect(opp.WON).toBe("opportunity.won");
-    expect(opp.STAGE_MOVED).toBe("opportunity.stage_moved");
+  test("the deal's events are the request's: a stage move, a win, a loss", () => {
+    // The opportunity and its events were retired (lean revamp PR 7): the deal
+    // is the request, and these are the only keys a deal raises.
+    expect(qrEvents.STAGE_MOVED).toBe("quote_request.stage_moved");
+    expect(qrEvents.WON).toBe("quote_request.won");
+    expect(qrEvents.LOST).toBe("quote_request.lost");
+    expect(qrEvents.transition).toBeUndefined();
   });
 });
 
 /**
- * F6 (SALES_CRM_FEATURES.md#F6) — quote_request intake lifecycle.
- *
- * The architectural correction that defines this feature: intake status
- * values are a separate state machine from the pipeline stages on
- * `opportunity`. They share NO states. The rules below are the
- * quote_request-side half; the pipeline side is tested in
- * `tests/unit/opportunity.test.js` (if it exists) and is governed by
- * `opportunity.rules`.
+ * The request's lifecycle is its stage (lean revamp D3, guide §3.2). The six
+ * intake statuses of F6 (RECEIVED to CLOSED_NO_ACTION) and their transition
+ * guard were dropped with the `status` column in PR 7 (14593); the stage bar
+ * below is what replaced them.
  */
-describe("Quote request intake lifecycle (F6, MOD-20-intake)", () => {
-  test("happy path RECEIVED -> UNDER_REVIEW -> QUOTED -> CONVERTED", () => {
-    expect(qr.assertTransition("RECEIVED", "UNDER_REVIEW")).toBe(true);
-    expect(qr.assertTransition("UNDER_REVIEW", "QUOTED")).toBe(true);
-    expect(qr.assertTransition("QUOTED", "CONVERTED_TO_OPPORTUNITY")).toBe(true);
+describe("Quote request stage (the deal, MOD-20)", () => {
+  test("the six fixed stages, four of them open", () => {
+    expect(qr.STAGES).toEqual(["NEW", "CONTACTED", "MEETING", "QUOTED", "WON", "LOST"]);
+    expect(qr.OPEN_STAGES).toEqual(["NEW", "CONTACTED", "MEETING", "QUOTED"]);
+    expect(qr.isSettled("WON")).toBe(true);
+    expect(qr.isSettled("LOST")).toBe(true);
+    expect(qr.isSettled("QUOTED")).toBe(false);
   });
-  test("clarification loop", () => {
-    expect(qr.assertTransition("RECEIVED", "CLARIFICATION_REQUIRED")).toBe(true);
-    expect(qr.assertTransition("UNDER_REVIEW", "CLARIFICATION_REQUIRED")).toBe(true);
-    expect(qr.assertTransition("CLARIFICATION_REQUIRED", "UNDER_REVIEW")).toBe(true);
+  test("any open stage moves to any other, forwards or back (a click is often a correction)", () => {
+    expect(qr.assertMovable("NEW", "QUOTED")).toBe(true);
+    expect(qr.assertMovable("QUOTED", "CONTACTED")).toBe(true);
+    expect(qr.assertMovable("MEETING", "LOST")).toBe(true);
   });
-  test("terminal states cannot be re-opened", () => {
-    expect(() => qr.assertTransition("CONVERTED_TO_OPPORTUNITY", "UNDER_REVIEW")).toThrow();
-    expect(() => qr.assertTransition("CONVERTED_TO_OPPORTUNITY", "CLOSED_NO_ACTION")).toThrow();
-    expect(() => qr.assertTransition("CLOSED_NO_ACTION", "RECEIVED")).toThrow();
+  test("nothing leaves Won or Lost", () => {
+    expect(() => qr.assertMovable("WON", "QUOTED")).toThrow(/already won/);
+    expect(() => qr.assertMovable("LOST", "NEW")).toThrow(/already lost/);
   });
-  test("QUOTED can be closed without conversion", () => {
-    expect(qr.assertTransition("QUOTED", "CLOSED_NO_ACTION")).toBe(true);
+  test("Won is never a click: it is a win, which opens the operations file", () => {
+    expect(() => qr.assertMovable("QUOTED", "WON")).toThrow(/accepted quotation or Mark Won/);
   });
-  test("RECEIVED cannot skip straight to CONVERTED — the legacy bug", () => {
-    // The legacy let you write any status via POST with no guard; the new
-    // system refuses the skipped state explicitly.
-    expect(() => qr.assertTransition("RECEIVED", "CONVERTED_TO_OPPORTUNITY")).toThrow();
+  test("an unknown stage, such as an old intake status, is refused", () => {
+    expect(() => qr.assertMovable("NEW", "CLOSED_NO_ACTION")).toThrow(/Unknown stage/);
+    expect(qr.assertTransition).toBeUndefined();
+    expect(qr.statusForStage).toBeUndefined();
   });
   /**
    * THE TILES PARTITION THE SET — one tile per status, plus TOTAL, and they add
@@ -92,8 +93,8 @@ describe("Quote request intake lifecycle (F6, MOD-20-intake)", () => {
    * a tile, every tile gets a label, and the counts add up to TOTAL.
    */
   test("the KPI tiles are derived from the stage enum, and partition it", () => {
-    // Since the Sales lean revamp (PR 6) the tiles read the request's stage;
-    // `status` is written in step until PR 7 drops it, and read by nothing.
+    // Since the Sales lean revamp (PR 6) the tiles read the request's stage,
+    // the only lifecycle a request has (PR 7 dropped `status`).
     expect(qr.STAGES).toEqual(["NEW", "CONTACTED", "MEETING", "QUOTED", "WON", "LOST"]);
     // TOTAL plus one tile per stage — derived, not listed.
     expect(qr.KPI_TILES).toEqual(["TOTAL", ...qr.STAGES]);

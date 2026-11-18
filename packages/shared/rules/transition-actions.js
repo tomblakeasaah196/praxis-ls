@@ -99,14 +99,6 @@ const trainingStatus = Object.freeze({
   CANCELLED: "approve",
 });
 
-/** MOD-20 quote requests, field `to`. */
-const quoteRequestTransition = Object.freeze({
-  UNDER_REVIEW: "edit",
-  CLARIFICATION_REQUIRED: "edit",
-  QUOTED: "edit",
-  CLOSED_NO_ACTION: "approve",
-});
-
 /** MOD-20 quote requests, the pipeline `stage`. */
 const quoteRequestStage = Object.freeze({
   NEW: "edit",
@@ -114,14 +106,6 @@ const quoteRequestStage = Object.freeze({
   MEETING: "edit",
   QUOTED: "edit",
   LOST: "approve",
-});
-
-/** MOD-23 proposals, field `to`. */
-const proposalTransition = Object.freeze({
-  DRAFT: "edit",
-  IN_REVIEW: "edit",
-  SENT: "edit",
-  REJECTED: "approve",
 });
 
 /** MOD-25 inbound intake, field `to`. */
@@ -241,9 +225,7 @@ exports.workOrderStatus = workOrderStatus;
 exports.vacancyStatus = vacancyStatus;
 exports.contractStatus = contractStatus;
 exports.trainingStatus = trainingStatus;
-exports.quoteRequestTransition = quoteRequestTransition;
 exports.quoteRequestStage = quoteRequestStage;
-exports.proposalTransition = proposalTransition;
 exports.inboundIntakeTransition = inboundIntakeTransition;
 exports.quotationTransition = quotationTransition;
 exports.operationsFileTransition = operationsFileTransition;

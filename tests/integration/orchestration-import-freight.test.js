@@ -77,8 +77,8 @@ d("orchestration — import-freight lane (real Postgres)", () => {
         ["IMPORT FREIGHT lane " + stamp, "+237 6" + String(stamp).slice(-8), process.env.TEST_ENTITY_ID],
       )).rows[0];
       const request = (await c.query(
-        `INSERT INTO quote_request (lead_id, entity_id, intake_channel, title, stage, status)
-         VALUES ($1, $2, 'MANUAL', $3, 'QUOTED', 'QUOTED') RETURNING quote_request_id`,
+        `INSERT INTO quote_request (lead_id, entity_id, intake_channel, title, stage)
+         VALUES ($1, $2, 'MANUAL', $3, 'QUOTED') RETURNING quote_request_id`,
         [lead.lead_id, process.env.TEST_ENTITY_ID, "IMPORT FREIGHT lane " + stamp],
       )).rows[0];
       const quotation = (await c.query(

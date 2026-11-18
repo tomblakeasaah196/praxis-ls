@@ -68,7 +68,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = makeClient();
   repo.defaultEntityId.mockResolvedValue(ENTITY);
-  repo.get.mockResolvedValue({ quote_request_id: QR, status: "QUOTED", stage: "QUOTED", lead_id: "LEAD-1", owner_user_id: null, converted_opportunity_id: null });
+  repo.get.mockResolvedValue({ quote_request_id: QR, stage: "QUOTED", lead_id: "LEAD-1", owner_user_id: null, converted_opportunity_id: null });
   repo.insert.mockImplementation(async (_c, data) => ({ quote_request_id: QR, ...data }));
   repo.update.mockImplementation(async (_c, id, fields) => ({ quote_request_id: id, ...fields }));
   repo.addAttachment.mockImplementation(async (_c, d) => ({ quote_request_attachment_id: "att-1", ...d }));
@@ -123,12 +123,13 @@ describe("public reference", () => {
 /* ── 2. The KPI tiles must partition the set. ────────────────────────────── */
 
 describe("KPI tiles", () => {
-  // Since the Sales lean revamp (PR 6) the tiles are the request's STAGES:
-  // `status` is written in step until PR 7 drops it, and read by nothing.
+  // Since the Sales lean revamp (PR 6) the tiles are the request's STAGES, and
+  // since PR 7 the stage is its only lifecycle (`status` was dropped in 14593).
   test("every stage has a tile — the set is derived, not hand-listed", () => {
     for (const s of rules.STAGES) expect(rules.KPI_TILES).toContain(s);
     expect(rules.KPI_TILES).toContain("TOTAL");
-    for (const s of rules.STATUSES.filter((x) => !rules.STAGES.includes(x))) expect(rules.KPI_TILES).not.toContain(s);
+    expect(rules.KPI_TILES).toHaveLength(rules.STAGES.length + 1);
+    expect(rules.STATUSES).toBeUndefined();
   });
 
   test("the settled stages are counted beside the open ones", () => {
@@ -192,12 +193,13 @@ describe("KPI tiles", () => {
 /* ── 3. The request is the deal (lean revamp PR 2): its stage. ───────────── */
 
 describe("the deal's stage", () => {
-  const row = (stage, extra = {}) => ({ quote_request_id: QR, lead_id: "LEAD-1", stage, status: rules.statusForStage(stage), ...extra });
+  const row = (stage, extra = {}) => ({ quote_request_id: QR, lead_id: "LEAD-1", stage, ...extra });
 
-  test("a click on the bar moves the stage, and the old status follows it", async () => {
+  test("a click on the bar moves the stage, and writes nothing else", async () => {
     repo.get.mockResolvedValue(row("CONTACTED"));
     await service.moveStage(client, { id: QR, stage: "MEETING", actor: {} });
-    expect(repo.update).toHaveBeenCalledWith(client, QR, { stage: "MEETING", status: "UNDER_REVIEW" });
+    // The intake status kept in step until PR 7 is gone with its column.
+    expect(repo.update).toHaveBeenCalledWith(client, QR, { stage: "MEETING" });
   });
 
   test("an automatic move only goes forward, and is nothing on a request further along", async () => {
@@ -221,14 +223,13 @@ describe("the deal's stage", () => {
     await expect(service.markLost(client, { id: QR, reasonCode: null, actor: {} })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     await service.markLost(client, { id: QR, reasonCode: "PRICE", reason: "Cheaper elsewhere", actor: {} });
     const fields = repo.update.mock.calls[0][2];
-    expect(fields).toMatchObject({ stage: "LOST", status: "CLOSED_NO_ACTION", lost_reason_code: "PRICE", lost_reason: "Cheaper elsewhere" });
+    expect(fields).toMatchObject({ stage: "LOST", lost_reason_code: "PRICE", lost_reason: "Cheaper elsewhere" });
+    expect(fields).not.toHaveProperty("status");
     expect(fields.settled_at).toBeTruthy();
   });
 
-  test("an old intake transition moves the stage forward with it", async () => {
-    repo.get.mockResolvedValue(row("NEW", { status: "RECEIVED" }));
-    await service.transition(client, { id: QR, to: "UNDER_REVIEW", actor: {} });
-    expect(repo.update.mock.calls[0][2]).toMatchObject({ status: "UNDER_REVIEW", stage: "CONTACTED" });
+  test("the old intake transition is gone: the stage bar is the only way to move a request", () => {
+    expect(service.transition).toBeUndefined();
   });
 
   test("joining an outer transaction never commits it early", async () => {
@@ -249,7 +250,7 @@ describe("attachments", () => {
   const dataUrl = "data:application/pdf;base64," + Buffer.from("%PDF-1.4 hello").toString("base64");
 
   beforeEach(() => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "UNDER_REVIEW", converted_opportunity_id: null });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "CONTACTED", converted_opportunity_id: null });
     vault.createDocument.mockResolvedValue({ doc_id: "doc-1", storage_path: "tenant_x/vault/doc_ab.pdf", original_name: "packing.pdf", content_hash: "hash" });
     storage.delete.mockResolvedValue(undefined);
   });
@@ -292,7 +293,7 @@ describe("attachments", () => {
   });
 
   test("a won request refuses new attachments", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "CONVERTED_TO_OPPORTUNITY", stage: "WON" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "WON" });
     await expect(service.uploadAttachment(client, { id: QR, dataUrl, slug: "x", actor: {} }))
       .rejects.toMatchObject({ code: "LOCKED" });
     expect(vault.createDocument).not.toHaveBeenCalled();
@@ -304,8 +305,8 @@ describe("attachments", () => {
 describe("CSV export", () => {
   test("the export path is unpaginated — it does not go through the 200-row clamp", async () => {
     repo.listForExport.mockResolvedValue({ rows: [{ public_ref: "SQ-1" }], truncated: false });
-    await service.listForExport(client, { status: "QUOTED" });
-    expect(repo.listForExport).toHaveBeenCalledWith(client, { status: "QUOTED" }, service.EXPORT_CAP);
+    await service.listForExport(client, { stage: "QUOTED" });
+    expect(repo.listForExport).toHaveBeenCalledWith(client, { stage: "QUOTED" }, service.EXPORT_CAP);
     expect(repo.list).not.toHaveBeenCalled();
   });
 
@@ -316,28 +317,17 @@ describe("CSV export", () => {
   });
 });
 
-/* ── 6. The lifecycle stays an INTAKE lifecycle. ─────────────────────────── */
+/* ── 6. A settled deal is locked, and its history stays put. ────────────────── */
 
-describe("intake status is not a pipeline stage", () => {
-  test("no intake status is also a pipeline stage code", () => {
-    // The seeded pipeline stages (9030_seed_reference + F7's PRICING_IN_PROGRESS).
-    const PIPELINE = ["NEW", "QUALIFIED", "PROPOSAL", "PRICING_IN_PROGRESS", "QUOTATION_SENT", "NEGOTIATION", "WON", "LOST"];
-    for (const s of rules.STATUSES) expect(PIPELINE).not.toContain(s);
-  });
-
-  test("no intake status is also a lead funnel state", () => {
-    const LEAD = ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"];
-    for (const s of rules.STATUSES) expect(LEAD).not.toContain(s);
-  });
-
+describe("the request's record", () => {
   test("a settled deal (won or lost) is locked against edits", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "CLOSED_NO_ACTION", stage: "LOST" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "LOST" });
     await expect(service.update(client, { id: QR, patch: { incoterm: "CIF" }, actor: {} }))
       .rejects.toMatchObject({ code: "LOCKED" });
   });
 
   test("the reference and the entity are not patchable after allocation", async () => {
-    repo.get.mockResolvedValue({ quote_request_id: QR, status: "RECEIVED", stage: "NEW" });
+    repo.get.mockResolvedValue({ quote_request_id: QR, stage: "NEW" });
     await service.update(client, { id: QR, patch: { public_ref: "SQ-9999", entity_id: ENTITY, incoterm: "CIF" }, actor: {} });
     const fields = repo.update.mock.calls[0][2];
     expect(fields).not.toHaveProperty("public_ref");

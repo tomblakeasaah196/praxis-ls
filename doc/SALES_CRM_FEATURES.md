@@ -1,5 +1,11 @@
 # Sales & CRM — feature build
 
+> **Superseded by [`doc/SALES_CRM_LEAN_REVAMP_GUIDE.md`](SALES_CRM_LEAN_REVAMP_GUIDE.md)** (built
+> 18/11/2026). The Sales lean revamp folded the opportunity into the request, the proposal into the
+> quotation, removed Campaigns and Partnerships, and dropped the tables this document builds
+> (`opportunity`, `pipeline_stage`, `proposal`, `quote_request.status` and the rest, PR 7). Read it
+> as history; build from the guide.
+
 **Date:** 15 August 2026 · **Repo re-read at:** `9852d4c5`
 **Supersedes** `SALES_CRM_BUILD_SPLIT.md` and `SALES_CRM_SESSION_PROMPTS.md`.
 

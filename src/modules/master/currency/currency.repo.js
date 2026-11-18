@@ -169,7 +169,6 @@ const TABLE_LABELS = {
   journal_entry: "Journal entries",
   debt: "Debts / financing",
   asset: "Assets",
-  opportunity: "Opportunities",
   client_master: "Clients",
   supplier_master: "Suppliers",
   corporate_entity: "Corporate entities",

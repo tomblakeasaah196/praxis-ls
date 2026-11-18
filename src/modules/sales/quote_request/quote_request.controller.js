@@ -76,10 +76,6 @@ module.exports = {
     res.json({ data: await req.tenantDb((c) => service.update(c, { id: req.params.id, patch: req.body, actor: actor(req) })) }),
   ),
 
-  transition: asyncHandler(async (req, res) =>
-    res.json({ data: await req.tenantDb((c) => service.transition(c, { id: req.params.id, to: req.body.to, actor: actor(req) })) }),
-  ),
-
   /** Click a stage on the bar; Lost carries its reason. */
   moveStage: asyncHandler(async (req, res) =>
     res.json({

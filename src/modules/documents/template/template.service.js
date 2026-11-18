@@ -425,7 +425,6 @@ const SIMPLE = {
   PROFORMA_ADVANCE: { table: "advance", pk: "advance_id", label: null },
   QUOTATION: { table: "quotation", pk: "quotation_id", label: "doc_number" },
   PAYMENT_RECEIPT: { table: "payment_receipt", pk: "receipt_id", label: null },
-  PROPOSAL: { table: "proposal", pk: "proposal_id", label: "title" },
   SUPPLIER_INVOICE: { table: "supplier_invoice", pk: "supplier_invoice_id", label: "doc_number" },
   PURCHASE_ORDER: { table: "purchase_order", pk: "po_id", label: "doc_number" },
   PURCHASE_REQUEST: { table: "purchase_request", pk: "pr_id", label: "doc_number" },
@@ -968,25 +967,6 @@ async function loadRecord(client, docType, recordId, opts = {}) {
         lines: [{ label: "Acompte / Advance payment", qty: 1, unit: amount, amount }],
         totals: { service_ht: amount, vat_total: 0, total_ttc: amount },
         applied, currency: null,
-      },
-    };
-  }
-
-  if (docType === "PROPOSAL") {
-    const { rows } = await client.query("SELECT p.*, cm.name AS client_name FROM proposal p LEFT JOIN client_master cm ON cm.client_id = p.client_id WHERE p.proposal_id = $1", [recordId]);
-    const p = rows[0];
-    if (!p) return null;
-    const nr = await client.query("SELECT section, body FROM proposal_narrative WHERE proposal_id = $1 ORDER BY sort_order", [recordId]);
-    const lr = await client.query("SELECT label, qty, unit_price FROM proposal_line WHERE proposal_id = $1 ORDER BY proposal_line_id", [recordId]);
-    const sections = nr.rows.map((n) => ({ title: humanize(n.section), body: n.body || "" }));
-    const lines = lr.rows.map((l) => ({ label: l.label, qty: Number(l.qty), unit: Number(l.unit_price), amount: Number(l.qty) * Number(l.unit_price) }));
-    const ht = lines.reduce((s2, l) => s2 + l.amount, 0);
-    return {
-      entity_id: null,
-      data: {
-        number: p.doc_number || String(p.proposal_id).slice(0, 8), date: p.created_at, status: p.status, headline: p.title,
-        party: { name: p.client_name || "—", lines: [] }, sections, lines,
-        totals: ht ? { service_ht: ht, total_ttc: ht } : undefined, currency: null,
       },
     };
   }
@@ -1911,7 +1891,6 @@ const RECIPIENT_SQL = {
   QUOTATION: "SELECT cm.email FROM quotation q JOIN client_master cm ON cm.client_id = q.client_id WHERE q.quotation_id = $1",
   PAYMENT_RECEIPT: "SELECT cm.email FROM payment_receipt r JOIN client_master cm ON cm.client_id = r.client_id WHERE r.receipt_id = $1",
   PROFORMA_ADVANCE: "SELECT cm.email FROM advance a JOIN client_master cm ON cm.client_id = a.client_id WHERE a.advance_id = $1",
-  PROPOSAL: "SELECT COALESCE(l.email, cm.email) AS email FROM proposal p LEFT JOIN lead l ON l.lead_id = p.lead_id LEFT JOIN client_master cm ON cm.client_id = p.client_id WHERE p.proposal_id = $1",
   PURCHASE_ORDER: "SELECT sm.email FROM purchase_order po JOIN supplier_master sm ON sm.supplier_id = po.supplier_id WHERE po.po_id = $1",
   SUPPLIER_INVOICE: "SELECT sm.email FROM supplier_invoice si JOIN supplier_master sm ON sm.supplier_id = si.supplier_id WHERE si.supplier_invoice_id = $1",
   EMPLOYMENT_CONTRACT: "SELECT e.email FROM hr_contract c JOIN employee e ON e.employee_id = c.employee_id WHERE c.hr_contract_id = $1",

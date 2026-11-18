@@ -44,8 +44,6 @@ const NOTIFIABLE = {
   "lead.created": { action: "view", title: "New lead" },
   "lead.converted": { action: "view", title: "Lead converted" },
   "contact_enquiry.created": { action: "view", title: "New enquiry" },
-  "opportunity.won": { action: "view", title: "Opportunity won" },
-  "opportunity.lost": { action: "view", title: "Opportunity lost" },
   // Commercial quotations (meeting 6, PR 4, G4): accepted — signed in the
   // portal, or recorded by the team — and declined with a reason, HIGH because
   // a declined offer is usually a call to make. The client's own people are

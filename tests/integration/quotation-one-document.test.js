@@ -35,6 +35,7 @@ const hasDb = !!process.env.DATABASE_URL && !!process.env.TEST_ENTITY_ID;
 const d = hasDb ? describe : describe.skip;
 
 const MIGRATIONS = path.resolve(__dirname, "..", "..", "migrations", "tenant");
+const { restoreRetiredSalesShapes } = require("./helpers/retired-sales-shapes");
 const sqlOf = (name) => fs.readFileSync(path.join(MIGRATIONS, name), "utf8");
 const uid = () => crypto.randomUUID();
 const tag = () => crypto.randomBytes(3).toString("hex");
@@ -111,6 +112,9 @@ d("Sales lean revamp PR 4: quotations absorb proposals (real Postgres)", () => {
     beforeAll(async () => {
       c = await connect();
       await c.query("BEGIN");
+      // The proposal tables PR 7 dropped, rebuilt from the migrations that made
+      // them inside this transaction, so 14542 has something to migrate.
+      await restoreRetiredSalesShapes(c);
       await c.query("INSERT INTO client_master (client_id, name) VALUES ($1, $2)", [CLIENT, `Proposal Client ${t}`]);
       await c.query(
         "INSERT INTO lead (lead_id, company_name, status, source, intake_channel, entity_id) VALUES ($1, $2, 'OPEN', 'MANUAL', 'MANUAL', $3)",
