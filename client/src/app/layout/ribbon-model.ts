@@ -11,7 +11,7 @@
  *
  * WHY AN AREA GETS EXACTLY ONE FAMILY. Several areas span verbs at the module
  * level — the Tax center is filed under MOD-07 (a `configure` module) but lives
- * in Finance, and Journals under MOD-05. Placing each SECTION under its own
+ * in Finance, and the Chart of Accounts under MOD-06. Placing each SECTION under its own
  * module's verb would scatter one screen's tabs across two ribbon tabs, which
  * is worse than either alternative: you would open Finance and find two of its
  * ten sections missing, with no indication of where they went. So an area is
