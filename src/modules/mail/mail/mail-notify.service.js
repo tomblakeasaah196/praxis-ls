@@ -238,13 +238,17 @@ async function readPreviewMode(client) {
  * hat to put on. The body carries the subject and the snippet, which is the
  * order a human reads them in.
  */
+/** "Subject" -> "Subject."; a subject that already ends in punctuation is left alone. */
+const endSentence = (s) => (/[.?!:;…]$/.test(String(s || "").trim()) ? String(s).trim() : `${String(s || "").trim()}.`);
+
 function compose({ from, subject, bodyText, mailboxLabel = null, mode = "FULL" }) {
   const who = senderName(from);
   const title = clamp(mailboxLabel ? `${who} → ${mailboxLabel}` : who, TITLE_MAX);
   const subj = clamp(subject, 120) || "(no subject)";
   if (mode === "MINIMAL") return { title, body: subj };
   const snip = snippet(bodyText);
-  return { title, body: snip ? `${subj} — ${snip}` : subj };
+  // A full stop, not a dash: nothing a tenant reads carries one (CLAUDE.md rule six).
+  return { title, body: snip ? `${endSentence(subj)} ${snip}` : subj };
 }
 
 /**

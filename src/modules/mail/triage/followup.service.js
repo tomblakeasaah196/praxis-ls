@@ -72,7 +72,7 @@ async function sweep(client, { now = new Date(), limit = 200 } = {}) {
         userId: row.user_id,
         eventTypeKey: "mail.followup.due",
         title: copy.title,
-        body: row.note ? `${copy.body(subject)} — ${row.note}` : copy.body(subject),
+        body: row.note ? `${String(copy.body(subject)).replace(/[.\s]*$/, "")}. ${row.note}` : copy.body(subject),
         entityRef: `email_thread:${row.email_thread_id}`,
         // The row id, not the thread id: a user may legitimately set three
         // reminders on one thread and is entitled to all three.

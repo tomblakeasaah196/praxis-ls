@@ -86,7 +86,7 @@ function classify({ headers = null, fromAddress = null, subject = null, knownPar
   if (knownParty) {
     return {
       stream: HUMAN,
-      reason: `From ${knownParty.name || fromAddress} — a ${String(knownParty.kind || "party").toLowerCase()} on record, so never filed as system mail.`,
+      reason: `From ${knownParty.name || fromAddress}: a ${String(knownParty.kind || "party").toLowerCase()} on record, so never filed as system mail.`,
       rule_id: null,
     };
   }
