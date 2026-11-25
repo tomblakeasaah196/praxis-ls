@@ -5,7 +5,7 @@ import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { SectionHead } from "@/components/site/section-head";
 import { PhotoBand } from "@/components/site/photo-band";
 import { MembershipList } from "@/components/site/proof-bands";
-import { ContactForm } from "@/components/site/contact-form";
+import "@/components/site/brand.css";
 import { monogram } from "@/components/site/leader-card";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { ButtonLink } from "@/components/ui/button";
@@ -47,6 +47,12 @@ import { getLegalEntities, useSiteImages, type LegalEntity } from "@/lib/brand-a
  * Douala or Mannheim is written into this file; what the file supplies is the
  * structure and the furniture.
  */
+
+/** The form is the last band and carries the upload engine; it is its own
+ *  chunk so the page's first paint is the hero, not the form's code. */
+const ContactForm = React.lazy(() =>
+  import("@/components/site/contact-form").then((m) => ({ default: m.ContactForm })),
+);
 
 type Card = { title: string; text: string };
 
@@ -244,7 +250,9 @@ export function PartnersPage() {
         <PageContainer size="reading">
           <SectionHead as="h2" title={t("site.partnersPage.formTitle")} lead={t("site.partnersPage.formLead")} />
           <div className="mt-8">
-            <ContactForm defaultType="PARTNERSHIP" />
+            <React.Suspense fallback={<div className="h-96" aria-hidden />}>
+              <ContactForm defaultType="PARTNERSHIP" />
+            </React.Suspense>
           </div>
         </PageContainer>
       </section>

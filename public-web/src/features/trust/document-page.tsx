@@ -15,6 +15,7 @@ import {
   type PublicDocument,
 } from "@/lib/brand-api";
 import { NotFoundPage } from "@/features/not-found/not-found-page";
+import "@/components/site/brand.css";
 
 /**
  * One published trust document (`/trust/:key`), or the privacy policy

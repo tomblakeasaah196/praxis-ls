@@ -1,5 +1,8 @@
+import { SitePhoto } from "@/components/site/site-photo";
+import type { SiteImage } from "@/lib/brand-api";
 import * as React from "react";
 import { useScrollScrub } from "@/lib/motion";
+import "./brand.css";
 
 /**
  * How-we-work, as the journey's middle — §7.4.
@@ -39,7 +42,14 @@ import { useScrollScrub } from "@/lib/motion";
  * started.
  */
 
-export type Stage = { title: string; body: string };
+export type Stage = {
+  title: string;
+  body: string;
+  /** PR 4: the step's photograph from Settings › Website › Photographs
+   *  (`home-step-1` to `-3`). When present it replaces the drawn diagram: the
+   *  owner asked for "real imagery instead of icons" (meeting, item 10). */
+  image?: SiteImage | null;
+};
 
 /**
  * The diagrams. One per stage, drawn rather than photographed, and abstract by
@@ -139,9 +149,15 @@ export function StageSequence({ stages }: { stages: Stage[] }) {
                 §1.5's point is that the diagram replaces the sentences a
                 SIGHTED reader would have skimmed, not the ones that carry the
                 fact. */}
-            <div className="stage-figure">
-              <Diagram className="h-full w-full" />
-            </div>
+            {s.image && s.image.id ? (
+              <figure className="stage-figure stage-photo">
+                <SitePhoto image={s.image} sizes="(min-width: 768px) 20rem, 90vw" />
+              </figure>
+            ) : (
+              <div className="stage-figure">
+                <Diagram className="h-full w-full" />
+              </div>
+            )}
           </li>
         );
       })}

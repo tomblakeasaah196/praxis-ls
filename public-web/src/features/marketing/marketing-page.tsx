@@ -37,6 +37,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { usePointerLight, useProximity } from "@/lib/motion";
 import { afterPaint } from "@/lib/after-paint";
 import { useSiteSwitches } from "@/lib/site-switches";
+import { useSiteImages } from "@/lib/brand-api";
 
 /**
  * THE SET PIECE IS ITS OWN CHUNK, AND THE REASON IS A MEASUREMENT.
@@ -174,6 +175,12 @@ export function MarketingPage() {
       <ProofStrip />
       <ServicesBand />
       <HowBand block={how} />
+      {/* PR 4 (the CEO's review, 24 Nov 2026): no case studies; the clients
+          whose cargo the company has moved, as a moving band of their marks.
+          Draws nothing until a client is shown with a logo. */}
+      <React.Suspense fallback={null}>
+        <HomeClientBand />
+      </React.Suspense>
       {switches.case_notes ? <ProofBand lanesAllowed={switches.corridors} /> : null}
       {/* §7.5's set piece, between the proof and the portal.
  
@@ -368,6 +375,9 @@ function ServicesBand() {
 /** Three steps, three endpoints: `POST /public/intake/quote-requests`, the quote
  *  the desk writes back, and the milestone ledger `GET /public/tracking/:ref`
  *  reads. The band is a description of the product, not an invention about it. */
+/** Below the fold, so it is its own chunk (see home-client-band.tsx). */
+const HomeClientBand = React.lazy(() => import("@/components/site/home-client-band"));
+
 function HowBand({ block }: { block: FeatureListBlock | null }) {
   const { t } = useTranslation();
   const lang = getLang();
@@ -383,6 +393,9 @@ function HowBand({ block }: { block: FeatureListBlock | null }) {
         title: s.t,
         body: s.d,
       }));
+  // PR 4: a photograph per step when the tenant has uploaded one.
+  const images = useSiteImages();
+  const pictured = steps.map((s, i) => ({ ...s, image: images[`home-step-${i + 1}`] || null }));
   return (
     <Section
       id="how"
@@ -405,7 +418,7 @@ function HowBand({ block }: { block: FeatureListBlock | null }) {
           fading the whole block in as one object while its stages arrive
           individually would be two animations over one element — the same
           reason `PortalPreview` uses `useRevealed` rather than being wrapped. */}
-      <StageSequence stages={steps} />
+      <StageSequence stages={pictured} />
     </Section>
   );
 }

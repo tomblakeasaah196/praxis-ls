@@ -10,6 +10,7 @@ import {
 } from "@/lib/site-api";
 import { dateFmt } from "@/lib/format";
 import { useInView } from "@/components/ui/reveal";
+import "./brand.css";
 
 /**
  * Partners, clients and credentials — guide §9.4.

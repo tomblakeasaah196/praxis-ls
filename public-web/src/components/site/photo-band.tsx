@@ -3,6 +3,7 @@ import { PageContainer } from "@/components/site/page-shell";
 import { SitePhoto } from "@/components/site/site-photo";
 import { HERO_SCRIMS } from "@/components/site/hero-scrim";
 import type { SiteImage } from "@/lib/brand-api";
+import "./brand.css";
 
 /**
  * A dark photographic band: the "light pages with dark photographic bands"
