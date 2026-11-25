@@ -75,7 +75,7 @@ type Draft = {
   /* 14680. The byline as printed, and the article's date as a day. */
   byline_name: string;
   byline_role: string;
-  published_day: string;
+  published_at: string;
 };
 
 const EMPTY: Draft = {
@@ -89,7 +89,7 @@ const EMPTY: Draft = {
   kind: "article",
   byline_name: "",
   byline_role: "",
-  published_day: "",
+  published_at: "",
 };
 
 /** The stored instant as the day it prints as. Days are stored at noon UTC
@@ -119,7 +119,7 @@ function toDraft(row: api.InsightArticle): Draft {
     kind: row.kind === "announcement" ? "announcement" : "article",
     byline_name: s(row.byline_name),
     byline_role: s(row.byline_role),
-    published_day: toDay(row.published_at),
+    published_at: toDay(row.published_at),
   };
 }
 
@@ -185,7 +185,7 @@ export function WebsiteInsightEditorPage() {
       /* The date is sent only when the DAY changed. Sending it on every save
          would move an article first published at 14:23 to noon of the same
          day, which is harmless and also a write nobody asked for. */
-      const dayChanged = draft.published_day !== toDay(data?.published_at);
+      const dayChanged = draft.published_at !== toDay(data?.published_at);
       await api.updateInsight(articleId, {
         title_fr: orNull(draft.title_fr),
         title_en: orNull(draft.title_en),
@@ -204,7 +204,7 @@ export function WebsiteInsightEditorPage() {
         kind: draft.kind,
         byline_name: orNull(draft.byline_name),
         byline_role: orNull(draft.byline_role),
-        ...(dayChanged ? { published_at: draft.published_day || null } : {}),
+        ...(dayChanged ? { published_at: draft.published_at || null } : {}),
       });
       setDirty(false);
       reload();
@@ -572,14 +572,14 @@ export function WebsiteInsightEditorPage() {
               onChange={(e) => set("byline_role", e.target.value)} />
           </Field>
           <Field label={tr("Date")}>
-            <DateField value={draft.published_day}
-              onChange={(iso) => set("published_day", iso)} min="1990-01-01" />
+            <DateField value={draft.published_at}
+              onChange={(iso) => set("published_at", iso)} min="1990-01-01" />
           </Field>
         </div>
-        {draft.published_day && published &&
-          new Date(`${draft.published_day}T12:00:00Z`).getTime() > Date.now() && (
+        {draft.published_at && published &&
+          new Date(`${draft.published_at}T12:00:00Z`).getTime() > Date.now() && (
             <Callout className="mt-3" tone="info" title={tr("Scheduled")}>
-              {tr("Published, and shown on your site from") + " " + fmtDay(`${draft.published_day}T12:00:00Z`) + "."}
+              {tr("Published, and shown on your site from") + " " + fmtDay(`${draft.published_at}T12:00:00Z`) + "."}
             </Callout>
           )}
         <div className="mt-4">
@@ -589,7 +589,6 @@ export function WebsiteInsightEditorPage() {
             accept={IMAGE_ACCEPT}
             disabled={coverBusy || uploadBusy}
             label={bylinePhotoId ? tr("Replace the photo") : tr("Add a byline photo")}
-            hint={tr("Optional. A real photograph of the person, never a generated one.")}
           />
           {bylinePhotoId && (
             <div className="mt-3 flex flex-wrap items-center gap-3">

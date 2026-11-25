@@ -80,7 +80,9 @@ function inlineList(raw) {
  * person who dropped the file, because that is who reads it.
  */
 function parseFrontMatter(text) {
-  const src = String(text || "").replace(/^﻿/, "").replace(/\r\n?/g, "\n");
+  const raw = String(text || "");
+  // A byte-order mark (code point 0xFEFF) from a Windows editor is not part of the fence.
+  const src = (raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw).replace(/\r\n?/g, "\n");
   const lines = src.split("\n");
   if (!FENCE.test(lines[0] || "")) {
     throw new Error("The file does not start with front matter (a line of three hyphens).");
