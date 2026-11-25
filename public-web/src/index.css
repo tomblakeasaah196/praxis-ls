@@ -4090,6 +4090,27 @@
     background: var(--muted);
   }
 
+  /* The floating message button waits until the visitor is past the first
+     screen: on a phone it sat on the hero's own text (owner's review, 25 Nov
+     2026), and the hero already offers Contact Us. `visibility` takes it out of
+     the tab order and the accessibility tree while it waits, and flips at the
+     START of the fade in, so the button is focusable the moment it shows.
+     `data-instant` is a visitor who arrived mid-page: no fade, it is simply
+     there. Reduced motion is the umbrella above. */
+  .message-fab {
+    transition-property: opacity, transform;
+    transition-duration: var(--dur-response-max);
+    transition-timing-function: var(--ease-decelerate);
+  }
+  .message-fab[data-state="waiting"] {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  .message-fab[data-instant] {
+    transition: none;
+  }
+
 }
 
 @layer utilities {

@@ -4,7 +4,14 @@ import { getLang } from "@/lib/i18n";
 import { useBranding } from "@/app/branding";
 import { SiteHeader } from "./site-header";
 import { SiteFooter } from "./site-footer";
-import { MessageButton } from "./message-button";
+
+/**
+ * The message button is not on the first screen any more (it waits until the
+ * visitor is past the hero), so it is not in the first paint either. The
+ * fallback is the same phone-width spacer the button closes the page with, so
+ * nothing moves when it arrives.
+ */
+const MessageButton = React.lazy(() => import("./message-button").then((m) => ({ default: m.MessageButton })));
 
 /**
  * The chrome every stranger-facing page wears: skip link, header, main, footer.
@@ -80,7 +87,9 @@ export function PageShell({
         {children}
       </main>
       {footer ? <SiteFooter /> : null}
-      <MessageButton />
+      <React.Suspense fallback={<div aria-hidden="true" className="h-16 md:hidden" />}>
+        <MessageButton />
+      </React.Suspense>
     </div>
   );
 }
