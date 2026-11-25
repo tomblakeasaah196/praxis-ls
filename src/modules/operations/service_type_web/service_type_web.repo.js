@@ -227,7 +227,7 @@ async function lockProfile(client, serviceTypeId) {
  */
 async function serviceTypeForPublish(client, serviceTypeId) {
   const { rows } = await client.query(
-    `SELECT service_type_id, name_en, name_fr, is_active
+    `SELECT service_type_id, name_en, name_fr, is_active, key, transport_mode
        FROM service_type
       WHERE service_type_id = $1`,
     [serviceTypeId],

@@ -171,7 +171,7 @@ async function getTab(client, serviceTypeId) {
     readiness: computeReadiness({ profile: effective, serviceType, site: await siteSwitches.load(client) }),
     // The website service (14640): the other types it quotes for, its own
     // routing rules beside the generic ones, and what the engine warns about.
-    ...(await websiteSection(client, serviceTypeId, serviceType)),
+    ...(await websiteSection(client, serviceType)),
     service_type: { is_active: serviceType.is_active, name_fr: serviceType.name_fr, name_en: serviceType.name_en },
   };
 }
@@ -478,15 +478,15 @@ async function removeMedia(client, { serviceTypeId, documentId, actor = {} }) {
  * warnings, and a preview of where each picked Incoterm lands, so the person
  * editing it sees the consequence before a visitor does.
  */
-async function websiteSection(client, serviceTypeId) {
-  const [{ rows: anchorRows }, members, rules, listed] = await Promise.all([
-    client.query("SELECT service_type_id, key, transport_mode FROM service_type WHERE service_type_id = $1", [serviceTypeId]),
+async function websiteSection(client, serviceType) {
+  const serviceTypeId = serviceType.service_type_id;
+  const [members, rules, listed] = await Promise.all([
     repo.membersOf(client, [serviceTypeId]),
     repo.routeRules(client, [serviceTypeId]),
     repo.listMembers(client, serviceTypeId),
   ]);
-  const descriptor = websiteService.descriptorOf(anchorRows[0], members);
-  const forEngine = rules.map(websiteService.ruleOut);
+  const descriptor = websiteService.descriptorOf(serviceType, members || []);
+  const forEngine = (rules || []).map(websiteService.ruleOut);
   const preview = [];
   for (const direction of quoteEngine.directionsOf(descriptor)) {
     for (const incoterm of quoteEngine.incotermsOf(descriptor)) {
@@ -502,11 +502,11 @@ async function websiteSection(client, serviceTypeId) {
     }
   }
   return {
-    members: listed,
+    members: listed || [],
     routing: {
       kind: quoteEngine.kindOf(descriptor),
-      own: rules.filter((r) => r.website_service_id),
-      generic: rules.filter((r) => !r.website_service_id),
+      own: (rules || []).filter((r) => r.website_service_id),
+      generic: (rules || []).filter((r) => !r.website_service_id),
       preview,
     },
     engine_warnings: quoteEngine.validateService(descriptor, forEngine),
