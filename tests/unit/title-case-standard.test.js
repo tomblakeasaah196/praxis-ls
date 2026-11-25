@@ -83,3 +83,14 @@ describe("the tenant's switch", () => {
     expect((await publicTheme(client)).labelCase).toBe("AS_WRITTEN");
   });
 });
+
+describe("the last word", () => {
+  const { titleCase } = require("../../packages/shared/text/title-case");
+
+  test("English capitalises a closing small word, French does not", () => {
+    expect(titleCase("Who we move for", "en")).toBe("Who We Move For");
+    expect(titleCase("a message from our chief executive officer", "en")).toBe("A Message from Our Chief Executive Officer");
+    expect(titleCase("pour qui nous transportons", "fr")).toBe("Pour Qui Nous Transportons");
+    expect(titleCase("mentions de", "fr")).toBe("Mentions de");
+  });
+});

@@ -64,6 +64,12 @@ function titleCase(label, lang = "en") {
   if (label === null || label === undefined) return label;
   const small = SMALL_WORDS[lang] || SMALL_WORDS.en;
   const parts = String(label).split(WORD_SEPARATORS);
+  // English Title Case capitalises the LAST word whatever it is: "Who We Move
+  // For", "What We Stand By". Lowercasing a closing preposition reads as a
+  // typo on a heading (found on the SmartLS About page, 25 Nov 2026). French
+  // has no such rule, so it keeps its small words small.
+  let lastWord = -1;
+  if (lang === "en") parts.forEach((p, i) => { if (i % 2 === 0 && p) lastWord = i; });
   let phraseStart = true;
   return parts.map((part, i) => {
     if (i % 2 === 1) { // a separator run
@@ -71,7 +77,7 @@ function titleCase(label, lang = "en") {
       return part;
     }
     if (!part) return part;
-    const opening = phraseStart;
+    const opening = phraseStart || i === lastWord;
     phraseStart = false;
     // Elision: "d'agence", "l'entrepôt" — the article is a small word, the
     // word after the apostrophe is the one that takes the capital.
