@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (743)
+## All codes (745)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -102,7 +102,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_FILE_TYPE` | 422 | 15× | — |
 | `BAD_FONT` | 422 | 3× | — |
 | `BAD_HEADERS` | 422 | 1× | — |
-| `BAD_HOST` | 400 | 3× | — |
+| `BAD_HOST` | 400 | 4× | — |
 | `BAD_IMAGE` | 400 | 6× | — |
 | `BAD_INPUT` | 422 | 4× | — |
 | `BAD_KIND` | 422 | 3× | — |
@@ -330,6 +330,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `KPI_NOT_READABLE` | — | 1× | — |
 | `LAST_ADMIN` | 409 | 1× | — |
 | `LAST_CEO` | 409 | 2× | — |
+| `LAST_HOST` | — | 1× | — |
 | `LAST_ROOT_ADMIN` | 409 | 2× | — |
 | `LEAD_ARCHIVED` | 409 | 2× | — |
 | `LEAD_EXISTS` | 409 | 1× | — |
@@ -405,7 +406,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 782× | — |
+| `NOT_FOUND` | 404, 422 | 783× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -562,6 +563,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `PRESET_NOT_ALLOWED` | 422 | 3× | — |
 | `PRICING_ALWAYS_ON` | 422 | 1× | — |
 | `PRIMARY_DEACTIVATION_BLOCKED` | 422 | 1× | — |
+| `PRIMARY_HOST` | — | 1× | — |
 | `PRINT_CODE_EXHAUSTED` | 500 | 1× | — |
 | `PRIVILEGED_TARGET` | 403 | 1× | — |
 | `PROFILE_ENTITY_MISMATCH` | 422 | 1× | — |

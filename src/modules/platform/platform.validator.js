@@ -69,6 +69,9 @@ const schemas = {
     host: z.string().trim().min(3).max(253),
     surface: z.enum(["erp", "public"]).default("public"),
   }),
+  domainRemove: z.object({
+    host: z.string().trim().min(3).max(253),
+  }),
   domainSurface: z.object({
     host: z.string().trim().min(3).max(253),
     surface: z.enum(["erp", "public"]),

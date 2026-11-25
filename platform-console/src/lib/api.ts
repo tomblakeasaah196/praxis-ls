@@ -242,6 +242,9 @@ export const platform = {
   // a half-encoded path parameter is a 404 nobody can read.
   addDomain: (slug: string, host: string, surface: "erp" | "public") =>
     api(`/tenants/${encodeURIComponent(slug)}/domains`, { method: "POST", body: { host, surface } }),
+  // Refused by the server for the primary (sign-in) host and the tenant's last one.
+  removeDomain: (slug: string, host: string) =>
+    api(`/tenants/${encodeURIComponent(slug)}/domains`, { method: "DELETE", body: { host } }),
   setDomainSurface: (slug: string, host: string, surface: "erp" | "public") =>
     api(`/tenants/${encodeURIComponent(slug)}/domains`, { method: "PATCH", body: { host, surface } }),
   setDomainBase: (slug: string, host: string, base: string) =>
