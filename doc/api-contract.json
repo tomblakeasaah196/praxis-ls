@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1898,
+  "route_count": 1905,
   "tiers": {
-    "public": 85,
+    "public": 88,
     "self-scoped": 117,
-    "gated": 1696
+    "gated": 1700
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -2583,6 +2583,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/intake/enquiries/:id/attachments/:docId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/intake/enquiries/export.csv": {
       "auth": true,
       "rbac": true,
@@ -4023,6 +4029,18 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/public/intake/attachments/:token": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/intake/config": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/places/": {
       "auth": false,
       "rbac": false,
@@ -4840,6 +4858,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/site-settings/social": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/switches": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -7242,7 +7266,7 @@
     "POST /api/tenant/careers/:token/apply": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/careers/alerts": {
@@ -7260,7 +7284,7 @@
     "POST /api/tenant/careers/open-application": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/cash-requests/": {
@@ -8188,6 +8212,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/intake/enquiries/:id/triage": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/intake/website-mail/test": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -9444,13 +9474,19 @@
     "POST /api/tenant/public/intake/contact-enquiries": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
+      "tier": "public"
+    },
+    "POST /api/tenant/public/intake/messages": {
+      "auth": false,
+      "rbac": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/public/intake/quote-requests": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/public/qes/:provider/webhook": {
@@ -11356,6 +11392,12 @@
       "tier": "gated"
     },
     "PUT /api/tenant/site-settings/social": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/switches": {
       "auth": true,
       "rbac": true,
       "validated": false,
