@@ -7,6 +7,7 @@ const { requireTransitionPermission, requireLifecyclePermissionOnPatch } = requi
 // these routes accept (rules/transition-actions.js).
 const { transitionActions } = require("@praxis/shared");
 const controller = require("./inbound_intake.controller");
+const { singleFile } = require("../../../shared/http/upload.middleware");
 const validator = require("./inbound_intake.validator");
 const MODULE = "MOD-25";
 
@@ -50,6 +51,8 @@ router.patch("/enquiries/:id", requirePermission(MODULE, "edit"), validator.upda
 router.post("/enquiries/:id/read", requirePermission(MODULE, "edit"), controller.markRead);
 router.post("/enquiries/:id/transition", validator.transition, requireTransitionPermission(MODULE, TRANSITION_ACTION), controller.transition);
 router.post("/enquiries/:id/respond", requirePermission(MODULE, "edit"), validator.respond, controller.respond);
+// 14623: a file for a reply, uploaded before the reply is sent (multipart).
+router.post("/enquiries/:id/reply-attachments", requirePermission(MODULE, "edit"), singleFile("file"), controller.stageReplyAttachment);
 router.post("/enquiries/:id/triage", requirePermission(MODULE, "edit"), validator.triage, controller.triage);
 
 // MOVED 2026-08-04 — audit API F-6. This mounted on "/inbound", the same

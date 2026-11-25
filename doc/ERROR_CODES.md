@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (736)
+## All codes (737)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -84,6 +84,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_AMOUNT` | 422 | 16× | `INVALID_AMOUNT` |
 | `BAD_APPLIES_TO` | 422 | 1× | — |
 | `BAD_ASSURANCE` | 500 | 1× | — |
+| `BAD_ATTACHMENT` | 422 | 1× | — |
 | `BAD_AUDIO` | 400, 422 | 5× | — |
 | `BAD_AUDIO_TYPE` | — | 1× | — |
 | `BAD_BASE` | 400 | 1× | — |
@@ -97,8 +98,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_DECISION` | 422 | 2× | — |
 | `BAD_DOC_TYPE` | 422 | 3× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
-| `BAD_FILE` | 400, 422 | 18× | — |
-| `BAD_FILE_TYPE` | 422 | 14× | — |
+| `BAD_FILE` | 400, 422 | 19× | — |
+| `BAD_FILE_TYPE` | 422 | 15× | — |
 | `BAD_FONT` | 422 | 3× | — |
 | `BAD_HEADERS` | 422 | 1× | — |
 | `BAD_HOST` | 400 | 3× | — |
@@ -252,9 +253,9 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `EXISTS` | 409 | 3× | — |
 | `FEATURE_DISABLED` | 403 | 4× | — |
 | `FIELD_NOT_WRITABLE` | — | 2× | — |
-| `FILES_TOO_LARGE` | 413 | 2× | — |
+| `FILES_TOO_LARGE` | 413 | 3× | — |
 | `FILE_REQUIRED` | 422 | 4× | — |
-| `FILE_TOO_LARGE` | 413 | 6× | — |
+| `FILE_TOO_LARGE` | 413 | 7× | — |
 | `FIXED_PARITY` | 422 | 3× | — |
 | `FORBIDDEN` | 403 | 7× | `PERMISSION_DENIED` |
 | `FULLY_DISBURSED` | 422 | 1× | — |
@@ -401,7 +402,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 777× | — |
+| `NOT_FOUND` | 404, 422 | 778× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -704,7 +705,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `TOKEN_EXPIRED` | 401 | 1× | — |
 | `TOO_FEW_STAGES` | 422 | 1× | — |
 | `TOO_MANY` | 422 | 1× | — |
-| `TOO_MANY_FILES` | 422 | 2× | — |
+| `TOO_MANY_FILES` | 422 | 3× | — |
 | `TOO_MANY_OVERRIDES` | 422 | 1× | — |
 | `TOO_MANY_STAGES` | 422 | 2× | — |
 | `TOO_MANY_TILES` | 422 | 1× | — |

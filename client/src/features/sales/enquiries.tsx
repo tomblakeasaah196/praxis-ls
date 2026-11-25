@@ -32,7 +32,7 @@
 
 import * as React from "react";
 import { tr } from "@/lib/i18n";
-import { tenant, download } from "@/lib/api-client";
+import { tenant, tenantDownload } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -159,7 +159,7 @@ export function EnquiriesPage() {
   function exportCsv() {
     const qs = params().toString();
     const today = new Date().toISOString().slice(0, 10);
-    void download(`/intake/enquiries/export.csv${qs ? `?${qs}` : ""}`, `contact_enquiries_${today}.csv`);
+    void tenantDownload(`/intake/enquiries/export.csv${qs ? `?${qs}` : ""}`, `contact_enquiries_${today}.csv`);
   }
 
   const rows = data?.rows || [];

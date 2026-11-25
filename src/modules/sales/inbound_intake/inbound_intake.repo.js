@@ -164,6 +164,22 @@ function insertResponse(client, { contact_enquiry_id, to_address, subject, body,
   });
 }
 
+/**
+ * Reply files waiting to be sent (14623): vault rows staged against this
+ * enquiry. Only these ids, only under this enquiry's staging reference, so a
+ * reply can never attach somebody else's document by naming its id.
+ */
+async function stagedReplyFiles(client, contactEnquiryId, docIds) {
+  if (!docIds.length) return [];
+  const { rows } = await client.query(
+    `SELECT doc_id, original_name, storage_path
+       FROM document_vault
+      WHERE doc_id = ANY($1::uuid[]) AND entity_ref = $2`,
+    [docIds, `contact_enquiry:${contactEnquiryId}:reply-staged`],
+  );
+  return rows;
+}
+
 /** Settle a PENDING attempt to SENT or FAILED once the transport has answered. */
 function settleResponse(client, id, fields) {
   return updateOne(client, RESPONSE_TABLE, "contact_enquiry_response_id", id, fields);
@@ -240,7 +256,7 @@ async function markDelivery(client, id, { inbox = false, ack = false, error } = 
 }
 
 module.exports = {
-  insertAttachments, refileVault, listAttachments, attachmentOf, markDelivery,
+  insertAttachments, refileVault, listAttachments, attachmentOf, markDelivery, stagedReplyFiles,
   insertEnquiry, getEnquiry, updEnquiry, listEnquiries, listEnquiriesForExport,
   insertResponse, settleResponse, listResponses,
   buildWhere, WRITABLE,
