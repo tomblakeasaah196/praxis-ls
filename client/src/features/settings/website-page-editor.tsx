@@ -77,6 +77,22 @@ import {
  */
 const HERO_FIGURE_COUNT = 3;
 
+/**
+ * What a new block starts with.
+ *
+ * A hero and a closing band REQUIRE a headline (`site_content.schema.js`), so
+ * creating one with `{ items: [] }` was refused with "title: Required" and the
+ * Add button looked broken: no hero or closing band could ever be added from
+ * this screen (found entering the SmartLS pages, 25 Nov 2026). They now start
+ * with a placeholder headline in both languages, which satisfies whichever one
+ * the tenant requires and is replaced on the first edit.
+ */
+function starterContent(type: api.EditableBlockType): Record<string, unknown> {
+  if (type === "hero") return { title: { en: tr("New headline"), fr: "Nouveau titre" } };
+  if (type === "cta_band") return { title: { en: tr("New closing line"), fr: "Nouvelle phrase de clôture" } };
+  return { items: [] };
+}
+
 const BLOCK_LABEL: Record<string, string> = {
   hero: "Hero",
   stat_counters: "Figures",
@@ -499,7 +515,7 @@ function BlocksCard({
    *  type's schema requires `items`, so an empty body is a 422 at the moment of
    *  clicking Add — which reads as the button being broken. */
   const add = (type: api.EditableBlockType) =>
-    run(() => api.createSiteBlock(pageId, { type, content: { items: [] } }));
+    run(() => api.createSiteBlock(pageId, { type, content: starterContent(type) }));
 
   /** The WHOLE order goes up, including blocks this screen cannot edit. Sending
    *  only the ones with a form would renumber around them and quietly move
