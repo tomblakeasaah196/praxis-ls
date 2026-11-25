@@ -7,6 +7,7 @@ const reference = require("../inbound_intake/inbound_intake.reference");
 const attachments = require("./attachments");
 const geoPlace = require("../../operations/geo_place/geo_place.service");
 const vault = require("../../vault/document_vault/document_vault.service");
+const websiteService = require("../../operations/service_type_web/website-service");
 const { quoteRequest } = require("@praxis/shared");
 const { atomically } = require("../../../shared/db/tx");
 const { AppError } = require("../../../utils/errors");
@@ -162,7 +163,61 @@ async function storeDocuments(client, data) {
  * gets "Answer website request" on their desk, due within four working hours,
  * and is told. All of that is `quote.create`'s, in this transaction.
  */
+/**
+ * A request through a WEBSITE SERVICE (14640): the quote engine, run here on
+ * the visitor's answers against the tenant's own members and routing rules.
+ * The browser ran the same engine to draw the questions; nothing it says about
+ * the outcome is read. Returns the fields the request is stored with.
+ *
+ * An answer outside the choices offered, or a question left unanswered, is a
+ * 422 naming it: a stale tab or a hand-made body, never something to guess at.
+ * "Desk review" is not an error: it is a request with no service type yet,
+ * filed under the website service's name with the reason recorded.
+ */
+async function routeWebsiteQuote(client, data) {
+  const found = await websiteService.evaluateFor(client, data.website_service_id, data.quote_answers || {});
+  if (!found) {
+    throw new AppError("SERVICE_TYPE_INVALID", "Choose one of the services on offer", 422, {
+      website_service_id: ["not a service on offer"],
+    });
+  }
+  const r = found.result;
+  if (r.issues.length) {
+    throw new AppError("QUOTE_ANSWERS_INVALID", "An answer is not one of the choices offered", 422,
+      Object.fromEntries(r.issues.map((i) => [`quote_answers.${i.field}`, [i.message]])));
+  }
+  if (!r.complete) {
+    throw new AppError("QUOTE_ANSWERS_INCOMPLETE", "Answer the questions about the service first", 422, {
+      [`quote_answers.${r.next}`]: ["required"],
+    });
+  }
+  return {
+    service_type_id: r.service_type_id || undefined,
+    hinterland_direction: r.hinterland_direction || undefined,
+    incoterm: r.incoterm,
+    // The display copy the desk reads while no type is chosen yet.
+    service_category: r.service_type_id ? undefined : found.name,
+    website_service_id: found.service.id,
+    trade_direction: r.direction,
+    incoterm_source: r.incoterm_source,
+    service_scope: r.scope,
+    quote_routing: {
+      engine: 1,
+      website_service_name: found.name,
+      outcome: r.outcome,
+      reason: r.reason,
+      span: r.span,
+      party: r.party,
+      explanation: r.explanation,
+      answers: r.answers,
+    },
+  };
+}
+
 async function submitQuote(client, data) {
+  // 14640: a website service names no type; the engine chooses it.
+  const routed = data.website_service_id ? await routeWebsiteQuote(client, data) : null;
+  if (routed) data = { ...data, ...routed, quote_answers: undefined };
   const entityId = await quote.resolveEntityId(client, { data });
 
   // Both of these run BEFORE the transaction opens, and that ordering is load
@@ -172,8 +227,10 @@ async function submitQuote(client, data) {
   // its own callers.
   // The service first: a stale tab naming a service the tenant has since
   // unpublished is told so before any file is stored for it.
+  // A routed type is a MEMBER of a published website service and need not be
+  // published itself; a type named directly (the older form) must be.
   const st = data.service_type_id
-    ? await quote.resolveService(client, data.service_type_id, { publishedOnly: true })
+    ? await quote.resolveService(client, data.service_type_id, { publishedOnly: !routed })
     : null;
   if (st) quote.assertIncotermOffered(st, data.incoterm);
   const documents = await storeDocuments(client, data);
@@ -203,8 +260,10 @@ async function submitQuote(client, data) {
       },
       actor: {},
       options: {
-        publishedOnly: true,
-        requireDirection: true,
+        publishedOnly: !routed,
+        // The engine states the hinterland direction whenever it knows it; a
+        // visitor who was not sure is a desk question, not a refusal.
+        requireDirection: !routed,
         documents: { docs: documents, fromRef: INTAKE_REF },
       },
     });
