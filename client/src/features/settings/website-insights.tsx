@@ -68,6 +68,8 @@ import { fmtDay } from "./website-insight-dates";
 import { useCan } from "@/lib/route-access";
 import { FilePicker, UploadList } from "@/components/ui/image-upload";
 import { useUpload } from "@/lib/use-upload";
+import { fileToDataUrl } from "@/lib/image-compress";
+import { IMPORT_ACCEPT, coverKey, sortImportFiles } from "./website-insight-import";
 
 /** Publishing needs a slug and a body, and the server refuses without them.
  *  Saying so in the list is cheaper than a 422 the writer reads after pressing
@@ -589,13 +591,19 @@ function ArticleForm({
  * and one bad file in a folder of eighteen costs that file only. The text is
  * read in the browser (`file.text()`); no bytes reach the vault.
  *
+ * COVERS COME IN THE SAME SELECTION. Images picked with the articles are held
+ * until the articles have landed, then each goes to the article whose
+ * front matter names it in `cover:`, through the cover endpoint with profile
+ * `photo`. So a whole folder is one Ctrl+A. An image that no imported article
+ * names fails visibly in the list with the reason; it is never dropped.
+ *
  * Deferred (`autoStart: false`): the writer sees the list of what they picked
  * and presses Import, because importing a folder is a batch and a batch should
  * be looked at once before it lands. Nothing here publishes; the server refuses
  * to, whatever a file says.
  */
-const MARKDOWN_ACCEPT = ".md,.markdown,text/markdown,text/plain";
 const MARKDOWN_MAX_BYTES = 200 * 1024;
+const COVER_MAX_BYTES = 10 * 1024 * 1024;
 
 function ImportArticlesDialog({
   onClose,
@@ -605,7 +613,14 @@ function ImportArticlesDialog({
   onImported: () => void;
 }) {
   const [done, setDone] = React.useState<api.InsightImportResult[]>([]);
-  const upload = useUpload<api.InsightImportResult>({
+  const [coversOn, setCoversOn] = React.useState<string[]>([]);
+  const [skipped, setSkipped] = React.useState<string[]>([]);
+  /* cover key → article id, filled as each article lands. A ref, because the
+     cover engine's `send` runs after the article engine has finished and must
+     read the map as it is then, not as it was when this render ran. */
+  const coverFor = React.useRef(new Map<string, string>());
+
+  const articles = useUpload<api.InsightImportResult>({
     profile: "document",
     multiple: true,
     autoStart: false,
@@ -615,38 +630,80 @@ function ImportArticlesDialog({
         { name: file.name, text: await file.text() },
         ctx.onProgress,
       );
+      if (result.cover) {
+        coverFor.current.set(coverKey(result.cover), result.article.insight_article_id);
+      }
       setDone((d) => [...d, result]);
       return result;
     },
-    onAllComplete: () => onImported(),
   });
-  const pending = upload.items.filter((i) => i.state === "idle" || i.state === "error").length;
-  const running = upload.items.some((i) => i.state === "uploading" || i.state === "compressing");
+
+  const covers = useUpload<api.InsightArticle>({
+    profile: "photo",
+    multiple: true,
+    autoStart: false,
+    maxBytes: COVER_MAX_BYTES,
+    send: async (file, ctx) => {
+      const id = coverFor.current.get(coverKey(file.name));
+      if (!id) {
+        throw new Error(tr("Not imported: no article in this import names this image as its cover."));
+      }
+      const row = await api.setInsightCover(
+        id,
+        { data_url: await fileToDataUrl(file), original_name: file.name },
+        ctx.onProgress,
+      );
+      setCoversOn((c) => [...c, api.headline(row)]);
+      return row;
+    },
+  });
+
+  const items = [...articles.items, ...covers.items];
+  const pending = items.filter((i) => i.state === "idle" || i.state === "error").length;
+  const running = items.some((i) => i.state === "uploading" || i.state === "compressing");
+
+  async function runImport() {
+    // Articles first: a cover can only land on an article that exists.
+    await articles.start();
+    await covers.start();
+    onImported();
+  }
 
   return (
     <Modal
       open
       onClose={onClose}
       title={tr("Import Articles")}
-      description="Markdown files with front matter: title, slug, date, kind, tags, byline, role, excerpt and meta. Each one becomes a draft for you to read before it is published."
+      description="Markdown files with front matter (title, slug, date, kind, tags, byline, role, excerpt, meta and cover), with their cover images in the same selection. Each article becomes a draft for you to read before it is published; each image becomes the cover of the article that names it."
     >
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          void upload.start();
+          void runImport();
         }}
       >
         <FilePicker
           multiple
-          accept={MARKDOWN_ACCEPT}
-          label={tr("Choose Markdown Files")}
-          hint={tr(".md files, up to 200 KB each.")}
+          accept={IMPORT_ACCEPT}
+          label={tr("Choose Files")}
+          hint={tr("Markdown up to 200 KB, cover images up to 10 MB.")}
           disabled={running}
           onPaste={false}
-          onPick={(files) => void upload.pick(files)}
+          onPick={(files) => {
+            const sorted = sortImportFiles(Array.from(files || []));
+            if (sorted.markdown.length) void articles.pick(sorted.markdown);
+            if (sorted.images.length) void covers.pick(sorted.images);
+            if (sorted.other.length) setSkipped((s) => [...s, ...sorted.other.map((f) => f.name)]);
+          }}
         />
-        <UploadList items={upload.items} onRemove={upload.remove} onRetry={upload.retry} />
+        <UploadList items={articles.items} onRemove={articles.remove} onRetry={articles.retry} />
+        <UploadList items={covers.items} onRemove={covers.remove} onRetry={covers.retry} />
+        {skipped.length > 0 && (
+          <Callout tone="warn" title={tr("Not imported")}>
+            {tr("Only Markdown and JPEG, PNG or WebP images can be imported:") + " " + skipped.join(", ")}
+          </Callout>
+        )}
         {done.length > 0 && (
           <Callout tone="ok" title={tr("Imported as drafts")}>
             <ul className="mt-1 space-y-1 text-sm">
@@ -654,6 +711,7 @@ function ImportArticlesDialog({
                 <li key={r.article.insight_article_id}>
                   <span className="font-medium">{api.headline(r.article)}</span>
                   {r.article.published_at ? " · " + fmtDay(r.article.published_at) : ""}
+                  {coversOn.includes(api.headline(r.article)) ? " · " + tr("cover on") : ""}
                   {r.ignored.length
                     ? " · " + tr("not imported:") + " " + r.ignored.join(", ")
                     : ""}

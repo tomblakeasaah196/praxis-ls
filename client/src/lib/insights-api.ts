@@ -223,7 +223,14 @@ export const removeInsightBylinePhoto = (id: string) =>
  * read in the browser and its TEXT is sent, one file per request, so each gets
  * its own progress and its own answer. The server never publishes an import.
  */
-export type InsightImportResult = { article: InsightArticle; ignored: string[] };
+export type InsightImportResult = {
+  article: InsightArticle;
+  ignored: string[];
+  /** The image file the front matter names in `cover:`, bare, or null. The
+   *  import screen uploads the matching picked image through the cover
+   *  endpoint, so articles and covers are one selection. */
+  cover?: string | null;
+};
 
 export const importInsight = (
   body: { name: string; text: string },
