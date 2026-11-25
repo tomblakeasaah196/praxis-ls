@@ -31,6 +31,7 @@ const insightV = require("../../content/insight/insight.validator");
 const media = require("../site_settings/site_settings.media");
 const brand = require("../site_brand/site_brand.service");
 const storage = require("../../../services/storage.service");
+const publicCard = require("../../../shared/http/public-card");
 
 const router = express.Router();
 const notFound = (msg) => new AppError("NOT_FOUND", msg, 404);
@@ -274,6 +275,41 @@ async function send(res, tag, buffer, contentType) {
   res.setHeader("ETag", `"${tag}-${buffer.length}"`);
   res.send(buffer);
 }
+
+/* ── the share card ─────────────────────────────────────────────────────────
+ *
+ * The picture WhatsApp, LinkedIn and Slack show for a shared page: the page's
+ * photograph, the tenant's logo and the page's headline, drawn by
+ * `services/share-card`. Every page's head names it as `og:image` (see
+ * `shared/http/public-head.js`), with `p` the page's base-relative path and `v`
+ * a hash of what is drawn, so an edited headline or a new photograph is a new
+ * address and no chat app keeps the old card.
+ *
+ * A DAY at the edge, not a year: the address changes with the content, but a
+ * card for a page that has just been unpublished should stop being served
+ * within a day rather than never. Drawing is CPU, so its own tight limiter;
+ * the render is cached by what is drawn (`shared/http/public-card.js`), so an
+ * unfurler fetching the same card twice costs one drawing.
+ */
+const cardLimit = makeLimiter({ name: "site-public-share-card", max: 120, windowMs: 15 * 60 * 1000 });
+
+router.get("/card.jpg", cardLimit, asyncHandler(async (req, res) => {
+  const raw = typeof req.query.p === "string" ? req.query.p : "/";
+  // A page path, nothing else: no scheme, no host, no query, bounded.
+  const rel = /^\/[^?#\s]{0,300}$/.test(raw) && !raw.startsWith("//") ? raw : "/";
+  const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+  const { buffer, etag } = await publicCard.cardFor({
+    host,
+    rel,
+    slug: req.tenant && req.tenant.slug,
+    withClient: (fn) => req.tenantDbIn("live", fn),
+  });
+  res.setHeader("Content-Type", "image/jpeg");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+  res.setHeader("ETag", `"card-${etag}"`);
+  res.send(buffer);
+}));
 
 /* ── the authenticated preview (Decision Q9, CE-29) ─────────────────────────
  *

@@ -71,6 +71,7 @@ const CorridorScene = React.lazy(() =>
   })),
 );
 import { p } from "@/lib/base-path";
+import { useShareMeta } from "@/lib/use-share-meta";
 
 /**
  * The marketing home — `/public`.
@@ -105,6 +106,9 @@ import { p } from "@/lib/base-path";
  */
 export function MarketingPage() {
   const { t } = useTranslation();
+  // The homepage's tab title and description: the same Link Previews words
+  // its share card and search result carry.
+  useShareMeta("home");
   const lang = getLang();
   /* One read for the whole page. The hero, the figures strip, the how-it-works
      list and the quote band all override from the same published home page, and

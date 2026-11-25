@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { SectionHead } from "@/components/site/section-head";
 import { PhotoBand } from "@/components/site/photo-band";
@@ -64,7 +64,7 @@ export function TrustPage() {
 
   const title = (hero && pickBilingual(hero.title, lang)) || t("site.trust.title");
   const lead = (hero && hero.lead && pickBilingual(hero.lead, lang)) || t("site.trust.sub");
-  useDocumentMeta({ title, description: lead });
+  useShareMeta("trust");
 
   const policies = (docs || []).filter((d) => d.kind === "POLICY");
   const hasProof = proof.credentials.length > 0 || proof.partners.some((x) => x.kind === "network");

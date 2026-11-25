@@ -37,6 +37,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.quoteSteps": ["docBL_AWB","docCARGO_PHOTOS","docCOMMERCIAL_INVOICE","docOTHER","docPACKING_LIST","docPROFORMA","docRecommended","docsAdd","docsAddAs","docsKind","flow","flowEND_TO_END","flowEXPORT","flowHINTERLAND","flowIMPORT","flowINLAND","hinterland","hinterlandINTO","hinterlandOUT_OF","incotermNotSure","otherServices","stepTerms","transport"],
   "site.services": ["all","eyebrow","items.*.t","more","title"],
   "site.servicesPage": ["back","coverage","cta","faq","gallery","highlights","onThisPage","readLess","readMore","related","title","titleAccent","titleMain","updated","video"],
+  "site.share": ["aboutTitle","careersTitle","contactTitle","homeTitle","insightsTitle","partnersTitle","portfolioTitle","quoteTitle","servicesTitle","trackTitle","trustTitle","verifyTitle"],
   "site.track": ["current","kicker","label","reference","submit","title"],
   "site.trackPage": ["askDesk","current","destination","failedTitle","lastUpdate","noMatch","noStages","openPortal","origin","progress","scheduled","searchAgain","service","theAnswer","timeline","title","titleAccent","titleMain","tooMany","verdictDone","verdictMoving","verdictOpened"],
   "site.trust": ["allDocuments","approvedBy","credentialsTitle","effective","eyebrow","language","legalTitle","membershipsTitle","policiesTitle","published","title","version"],

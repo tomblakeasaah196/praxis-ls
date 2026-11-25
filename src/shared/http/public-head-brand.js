@@ -10,17 +10,21 @@
  *
  * This file serves every tenant. Titles and descriptions come from the
  * tenant's own records: a page's meta title and description (Settings ›
- * Website › Pages), a service's search fields, a document's title and summary.
- * Where a tenant has written nothing, the fallback is a plain page name
- * ("About", "For Partners"), never a sentence about somebody's business.
+ * Website › Pages), a service's search fields, a document's title and summary,
+ * and each built-in page's Link Previews wording (Settings › Website › Wording,
+ * read by `public-head-share`). Where a tenant has written nothing, the
+ * fallback is the website's shipped wording for that page, the same default
+ * every other line on the page falls back to.
  *
  * ── A WRITTEN META TITLE IS THE WHOLE TITLE ────────────────────────────────
  *
- * `headFor` appends " · <tenant name>" to a page title. An editor who writes a
+ * `headFor` appends " | <site name>" to a page title. An editor who writes a
  * search title has already written the name into it ("About Us | Smart
  * Logistics and Services, Douala and Mannheim"), so `fullTitle` marks a title
  * that is printed as written.
  */
+
+const shareCopy = require("./public-head-share");
 
 const pick = (...vals) => vals.map((v) => String(v || "").trim()).find(Boolean) || null;
 
@@ -60,9 +64,19 @@ async function slotImage(client, slotKey) {
   return rows[0] ? "/api/tenant/public/site/media/" + rows[0].vault_id : null;
 }
 
-/** A page whose head comes from its `site_page` meta, with a plain name and a
- *  photograph slot as the fallbacks. */
-function pageRoute(test, key, name, { slot = null, fallback = null, trail = null } = {}) {
+/**
+ * A built-in page. Its head is, in order of preference:
+ *
+ *   · title: the `site_page` meta title when one is written (printed whole),
+ *     else the page's Link Previews title from Wording, else its plain name;
+ *   · description: the `site_page` meta description, else the Link Previews
+ *     sentence the tenant WROTE, else the page's own words (`fallback`, the
+ *     About summary), else the shipped Link Previews sentence;
+ *   · headline (the words on the card): the Link Previews title, short by
+ *     design, whatever a long search title says;
+ *   · image (the card's photograph): the page's hero slot.
+ */
+function pageRoute(test, key, stem, name, { slot = null, fallback = null, trail = null } = {}) {
   return {
     test,
     load: async (client) => ({
@@ -70,19 +84,41 @@ function pageRoute(test, key, name, { slot = null, fallback = null, trail = null
       image: slot ? await slotImage(client, slot) : null,
       extra: fallback ? await fallback(client) : null,
     }),
-    shape: ({ meta, image, extra }) => {
+    shape: (loaded, ctx = {}) => {
+      if (!loaded) return null;
+      const { meta, image, extra } = loaded;
+      const words = shareCopy.page(ctx.share, stem);
       const written = meta ? pick(meta.meta_title_en, meta.meta_title_fr) : null;
+      const title = written || words.title || (meta && pick(meta.title_en, meta.title_fr)) || (extra && extra.title) || name;
       return {
-        title: written || (meta && pick(meta.title_en, meta.title_fr)) || (extra && extra.title) || name,
+        title,
         fullTitle: Boolean(written),
+        headline: words.title || title,
         description: summarise(
-          pick(meta && meta.meta_description_en, meta && meta.meta_description_fr, extra && extra.description),
+          pick(
+            meta && meta.meta_description_en,
+            meta && meta.meta_description_fr,
+            words.writtenDescription,
+            extra && extra.description,
+            words.description,
+          ),
         ) || null,
         image,
         trail: trail || null,
       };
     },
   };
+}
+
+/** The newest article's headline, for the Insights index when nothing better
+ *  is written. */
+async function latestHeadline(client) {
+  const view = await require("../../modules/content/insight/insight.service")
+    .listPublic(client, { kind: "article", page: 1, perPage: 1 })
+    .catch(() => null);
+  const latest = view && view.articles && view.articles[0];
+  const headline = latest ? pick(latest.title_en, latest.title_fr) : null;
+  return { title: null, description: headline ? "Latest: " + headline : null };
 }
 
 /** The About page's own words, when no page meta has been written. */
@@ -95,11 +131,27 @@ async function aboutFallback(client) {
 }
 
 const ROUTES = [
-  pageRoute(/^\/?()$/, "home", null, { slot: null }),
-  pageRoute(/^\/about()\/?$/, "about", "About", { slot: "about-hero", fallback: aboutFallback }),
-  pageRoute(/^\/services()\/?$/, "services", "Services"),
-  pageRoute(/^\/partners()\/?$/, "partners", "For Partners", { slot: "partners-hero" }),
-  pageRoute(/^\/trust()\/?$/, "trust", "Trust and Compliance", { slot: "trust-hero" }),
+  // Home. Its photograph is the homepage hero, which lives in branding
+  // (`site_hero_url`) rather than in a slot; `headFor` supplies it.
+  pageRoute(/^\/?()$/, "home", "home", null, { slot: null }),
+  pageRoute(/^\/about()\/?$/, "about", "about", "About", { slot: "about-hero", fallback: aboutFallback }),
+  pageRoute(/^\/services()\/?$/, "services", "services", "Services", { slot: "services-hero" }),
+  pageRoute(/^\/partners()\/?$/, "partners", "partners", "For Partners", { slot: "partners-hero" }),
+  pageRoute(/^\/trust()\/?$/, "trust", "trust", "Trust and Compliance", { slot: "trust-hero" }),
+  // The pages that had no head of their own until the share cards (25 Nov
+  // 2026): each shared link to them read as the home page, titled with the
+  // bare tenant name and carrying the logo as its picture.
+  pageRoute(/^\/insights()\/?$/, "insights", "insights", "Insights", {
+    slot: "insights-hero",
+    fallback: latestHeadline,
+    trail: [{ name: "Insights", path: null }],
+  }),
+  pageRoute(/^\/track()\/?$/, "track", "track", "Track a Shipment", { slot: "track-hero" }),
+  pageRoute(/^\/quote()\/?$/, "quote", "quote", "Request a Quote", { slot: "quote-hero" }),
+  pageRoute(/^\/contact()\/?$/, "contact", "contact", "Contact Us", { slot: "contact-hero" }),
+  pageRoute(/^\/careers()\/?$/, "careers", "careers", "Careers", { slot: "careers-hero" }),
+  pageRoute(/^\/portfolio()\/?$/, "portfolio", "portfolio", "Our Work", { slot: "portfolio-hero" }),
+  pageRoute(/^\/verify()\/?$/, "verify", "verify", "Verify a Document", { slot: "verify-hero" }),
   {
     test: /^\/services\/([^/]+)\/?$/,
     load: (client, slug) =>
@@ -109,32 +161,39 @@ const ROUTES = [
       if (!detail || !detail.row) return null;
       const r = detail.row;
       const written = pick(r.meta_title_en, r.meta_title_fr);
+      const name = pick(r.name_en, r.name_fr);
       const cover = r.cover_vault_id && detail.mediaByRole.get(r.cover_vault_id) === "COVER"
         ? "/api/tenant/public/services/media/" + r.cover_vault_id
         : null;
       return {
-        title: written || pick(r.name_en, r.name_fr),
+        title: written || name,
         fullTitle: Boolean(written),
+        // The card says the service's name, not its search title: "Sea
+        // Freight", which is what the reader is deciding whether to open.
+        headline: name || written,
         description: summarise(pick(r.meta_description_en, r.short_description_en, r.meta_description_fr, r.short_description_fr)) || null,
         image: cover,
         trail: [
           { name: "Services", path: "/services" },
-          { name: pick(r.name_en, r.name_fr) || "Service", path: null },
+          { name: name || "Service", path: null },
         ],
       };
     },
   },
   {
     test: /^\/trust\/([^/]+)\/?$/,
-    load: (client, key) =>
-      require("../../modules/site/site_brand/site_brand.service")
+    load: async (client, key) => ({
+      doc: await require("../../modules/site/site_brand/site_brand.service")
         .publicDocument(client, { key: decodeURIComponent(key), lang: "en" }),
-    shape: (doc) =>
+      image: await slotImage(client, "trust-hero"),
+    }),
+    shape: ({ doc, image }) =>
       !doc
         ? null
         : {
           title: doc.title,
           description: summarise(doc.summary || doc.body) || null,
+          image,
           trail: [
             { name: "Trust and Compliance", path: "/trust" },
             { name: doc.title, path: null },
@@ -143,15 +202,17 @@ const ROUTES = [
   },
   {
     test: /^\/legal\/privacy()\/?$/,
-    load: (client) =>
-      require("../../modules/site/site_brand/site_brand.service")
+    load: async (client) => ({
+      doc: await require("../../modules/site/site_brand/site_brand.service")
         .publicDocument(client, { key: "privacy-policy", lang: "en" }),
-    shape: (doc) => (!doc ? null : { title: doc.title, description: summarise(doc.summary) || null }),
+      image: await slotImage(client, "privacy-hero"),
+    }),
+    shape: ({ doc, image }) => (!doc ? null : { title: doc.title, description: summarise(doc.summary) || null, image }),
   },
   {
     test: /^\/legal\/impressum()\/?$/,
-    load: async () => true,
-    shape: () => ({ title: "Impressum" }),
+    load: async (client) => ({ image: await slotImage(client, "impressum-hero") }),
+    shape: ({ image }) => ({ title: "Impressum", image }),
   },
 ];
 

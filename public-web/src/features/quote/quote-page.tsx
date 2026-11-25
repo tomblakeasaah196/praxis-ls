@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { tList } from "@/lib/i18n";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { Section } from "@/components/site/section";
@@ -50,10 +50,7 @@ export function QuotePage() {
   const { services, groups } = usePublishedServices();
   const steps = tList<{ t: string; d: string }>("site.quote.steps");
 
-  useDocumentMeta({
-    title: t("site.quote.title"),
-    description: t("site.quote.sub"),
-  });
+  useShareMeta("quote");
 
   return (
     <PageShell overlayHeader label={t("site.quote.title")} footer>

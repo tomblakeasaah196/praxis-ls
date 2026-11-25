@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { tList } from "@/lib/i18n";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { MediaCard, Section } from "@/components/site/section";
@@ -150,10 +150,7 @@ export function ContactPage() {
   const entities = usePublicEntities();
   const promise = tList<{ t: string; d: string }>("site.contact.promise");
 
-  useDocumentMeta({
-    title: t("site.contact.title"),
-    description: t("site.contact.sub"),
-  });
+  useShareMeta("contact");
 
   const elsewhere = [
     {

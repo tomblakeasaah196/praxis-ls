@@ -322,9 +322,12 @@ describe("the article head", () => {
   });
 
   it("gives the index its own title rather than the bare tenant name", () => {
+    // The index is a built-in page now (share cards, 25 Nov 2026): its title
+    // is the Link Previews title and the newest headline is its fallback
+    // sentence, below a sentence the tenant wrote.
     const r = routeFor("/insights");
     expect(r).toBeTruthy();
-    expect(r.shape({ articles: [{ title_en: "Latest piece" }], total: 1 })).toMatchObject({
+    expect(r.shape({ meta: null, image: null, extra: { title: null, description: "Latest: Latest piece" } })).toMatchObject({
       title: "Insights",
       description: "Latest: Latest piece",
     });

@@ -47,7 +47,7 @@ describe("the brand page heads", () => {
     expect(head.ROUTES.length).toBeGreaterThan(brand.ROUTES.length);
   });
 
-  test("a written meta title is printed as written; without one, the page name", async () => {
+  test("a written meta title is printed as written; without one, the page's Link Previews title", async () => {
     const { r, m } = route("/about");
     const withMeta = r.shape(await r.load(stub({
       site_page: [{ meta_title_en: "About Us | Smart Logistics and Services, Douala and Mannheim", meta_description_en: "Freight forwarding between Europe and Central Africa." }],
@@ -58,7 +58,7 @@ describe("the brand page heads", () => {
       description: "Freight forwarding between Europe and Central Africa.",
     });
     const without = r.shape(await r.load(stub({ site_about: [{ summary_en: "From our own offices." }] }), m[1]));
-    expect(without).toMatchObject({ title: "About", fullTitle: false, description: "From our own offices." });
+    expect(without).toMatchObject({ title: "About Us", fullTitle: false, description: "From our own offices." });
   });
 
   test("the About head carries its hero photograph", async () => {

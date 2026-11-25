@@ -29,7 +29,10 @@ const registry = require("../../services/tenant/registry.service");
 const { config } = require("../../config/env");
 const { logger } = require("../../config/logger");
 const paths = require("./public-web-paths");
+const crypto = require("crypto");
 const brandHeads = require("./public-head-brand");
+const shareCopy = require("./public-head-share");
+const shareCard = require("../../services/share-card/share-card.service");
 
 /**
  * Hosts that must answer `noindex` and a blanket robots Disallow.
@@ -429,26 +432,9 @@ const ROUTES = [
             ],
           },
   },
-  {
-    // The Insights index (14680). Until now it shared the bare tenant name with
-    // every page that has no entry, so a shared link to the library read as a
-    // link to the home page. The description is DERIVED (the newest headline),
-    // never written here: this file serves every tenant, and a sentence about
-    // one tenant's subjects would print on all of them.
-    test: /^\/insights()\/?$/,
-    load: async (client) =>
-      (await require("../../modules/content/insight/insight.service")
-        .listPublic(client, { kind: "article", page: 1, perPage: 1 })),
-    shape: (view) => {
-      const latest = view && view.articles && view.articles[0];
-      const headline = latest ? latest.title_en || latest.title_fr : null;
-      return {
-        title: "Insights",
-        description: headline ? summarise("Latest: " + headline) : null,
-        trail: [{ name: "Insights", path: null }],
-      };
-    },
-  },
+  // The Insights INDEX moved to `public-head-brand` with the share cards: it is
+  // a built-in page like Contact, with a Link Previews title and sentence and a
+  // hero photograph, and the newest headline is now its fallback sentence.
   {
     test: /^\/insights\/([^/]+)\/?$/,
     load: (client, slug) =>
@@ -479,6 +465,9 @@ const ROUTES = [
       );
       return {
         title,
+        // The card prints the headline the reader sees on the page, not the
+        // search title, which is written for a results page.
+        headline,
         description,
         image: a.cover_id ? "/api/tenant/public/insights/media/" + a.cover_id : null,
         trail: [
@@ -509,31 +498,108 @@ const ROUTES = [
   },
 ];
 
-async function headFor(host, urlPath, origin, base) {
-  const branding = await withTenant(host, (client) =>
-    require("../../modules/branding/branding.service").getBranding(client),
-  ).catch(() => null);
-  const name = (branding && branding.name) || "Praxis";
+/** `text` with every spelling of `name`, whatever its capitals, as `name`. */
+function spellName(text, name) {
+  if (!name) return text;
+  const pattern = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  return text.replace(pattern, name);
+}
 
-  // The path as the ROUTES table sees it: with this host's base removed, so
-  // `/site/portfolio/x`, `/public/portfolio/x` and (on the tenant's own domain)
-  // `/portfolio/x` all reach the same entry. null means the path is not under
-  // the base at all, and nothing here describes it.
-  const rel = paths.stripBase(urlPath, base);
+/**
+ * Everything a page's head and its share card are made from, for one host and
+ * one base-relative path. One function for both, so the card's headline and
+ * photograph can never describe a different page from the title beside it.
+ *
+ * The tenant reads that every page needs (brand, Link Previews wording, the
+ * website theme) share ONE connection; the page's own record is a second.
+ */
+async function describe(host, rel) {
+  const site = await withTenant(host, async (client) => {
+    const theme = await require("../../modules/site/site_settings/site_settings.service").getTheme(client).catch(() => null);
+    const titles = !theme || theme.label_case !== "AS_WRITTEN";
+    return {
+      theme,
+      branding: await require("../../modules/branding/branding.service").getBranding(client).catch(() => null),
+      share: await shareCopy.load(client, { titles }).catch(() => shareCopy.empty()),
+    };
+  }).catch(() => null);
+  const branding = (site && site.branding) || null;
+  const share = (site && site.share) || shareCopy.empty();
+  const theme = (site && site.theme) || null;
+  const name = shareCopy.siteName(share, branding);
 
   let page = null;
   for (const r of ROUTES) {
     const m = rel === null ? null : r.test.exec(rel);
     if (!m) continue;
     page = await withTenant(host, (client) => r.load(client, m[1]))
-      .then((row) => r.shape(row))
+      .then((row) => r.shape(row, { share }))
       .catch(() => null);
     break;
   }
 
-  const title = page && page.title ? (page.fullTitle ? page.title : page.title + " · " + name) : name;
-  const description = (page && page.description) || null;
-  const image = (page && page.image) || (branding && branding.logoUrl) || null;
+  // "Sea Freight | Smart Logistics and Services". A title written whole (a
+  // page's search title) or one already carrying the name is printed as it is,
+  // so the announcement does not read "... Opens in Mannheim | Smart Logistics
+  // and Services" twice over.
+  // The name is spelled ONE way: a written title that carries it in other
+  // capitals ("| SMART LOGISTICS AND SERVICES", from before the tenant chose
+  // its site name) prints it as the site name reads.
+  const own = page && page.title ? spellName(String(page.title), name) : null;
+  const title = !own
+    ? name
+    : page.fullTitle || own.includes(name)
+      ? own
+      : own + " | " + name;
+  const home = shareCopy.page(share, "home");
+  return {
+    branding,
+    name,
+    page,
+    title,
+    // A page with nothing of its own to say borrows the home page's sentence:
+    // a card with no sentence is the half-empty card this exists to end.
+    description: (page && page.description) || summarise(home.description) || null,
+    headline: (page && (page.headline || page.title)) || home.title || name,
+    // The homepage hero is every page's photograph of last resort, and the
+    // logo is no longer one: it is drawn ON the card instead.
+    photo: (page && page.image) || (branding && branding.siteHeroUrl) || null,
+    logo: (branding && branding.logoUrl) || null,
+    accent: (theme && theme.primary_hex) || (branding && branding.primary) || null,
+    font: (theme && theme.font_display) || null,
+  };
+}
+
+/** The card's address for a page. `v` changes whenever anything drawn on the
+ *  card does, so a chat app's cache of the old card is never what it gets. */
+function cardUrl(origin, host, rel, view) {
+  const v = crypto
+    .createHash("sha1")
+    .update(JSON.stringify([view.headline, view.photo, view.logo, view.accent, view.font, host]))
+    .digest("hex")
+    .slice(0, 12);
+  return origin + "/api/tenant/public/site/card.jpg?p=" + encodeURIComponent(rel || "/") + "&v=" + v;
+}
+
+/** `describe`, memoised like the heads, for the card route. */
+function describeForCard(host, rel) {
+  return memo(host + " card " + rel, () => describe(host, rel));
+}
+
+async function headFor(host, urlPath, origin, base) {
+  // The path as the ROUTES table sees it: with this host's base removed, so
+  // `/site/portfolio/x`, `/public/portfolio/x` and (on the tenant's own domain)
+  // `/portfolio/x` all reach the same entry. null means the path is not under
+  // the base at all, and nothing here describes it.
+  const rel = paths.stripBase(urlPath, base);
+
+  const view = await describe(host, rel);
+  const { page, title, description, name } = view;
+  // The brand as structured data names it: the site name, not the registered
+  // name with its legal form, which is the Impressum's business.
+  const branding = view.branding ? { ...view.branding, name } : null;
+  const image = cardUrl(origin, host, rel, view);
+  const alt = view.headline && view.headline !== name ? view.headline + ". " + name : name;
   const canonical = origin + urlPath;
   const noindex = isNoindexHost(host);
 
@@ -551,9 +617,8 @@ async function headFor(host, urlPath, origin, base) {
     '<meta property="og:site_name" content="' + esc(name) + '" />',
     '<meta property="og:title" content="' + esc(title) + '" />',
     '<meta property="og:url" content="' + esc(canonical) + '" />',
-    '<meta name="twitter:card" content="' +
-      (image ? "summary_large_image" : "summary") +
-      '" />',
+    // Every page has a card now, so every page is a large-image card.
+    '<meta name="twitter:card" content="summary_large_image" />',
   ];
   if (noindex) {
     // `noindex, nofollow` and not merely a robots.txt Disallow: a Disallow
@@ -572,12 +637,18 @@ async function headFor(host, urlPath, origin, base) {
     tags.push('<meta name="description" content="' + esc(description) + '" />');
     tags.push('<meta property="og:description" content="' + esc(description) + '" />');
   }
-  if (image) {
-    // Absolute, because a card is rendered by a server elsewhere that has no idea
-    // what this page's origin was.
-    const abs = /^https?:\/\//i.test(image) ? image : origin + image;
-    tags.push('<meta property="og:image" content="' + esc(abs) + '" />');
-  }
+  // The share card. Absolute, because a card is fetched by a server elsewhere
+  // that has no idea what this page's origin was. The size and type are stated
+  // so an unfurler can lay the card out large before it has downloaded it;
+  // without them WhatsApp and LinkedIn often settle for the small thumbnail.
+  tags.push('<meta property="og:image" content="' + esc(image) + '" />');
+  tags.push('<meta property="og:image:type" content="image/jpeg" />');
+  tags.push('<meta property="og:image:width" content="' + shareCard.WIDTH + '" />');
+  tags.push('<meta property="og:image:height" content="' + shareCard.HEIGHT + '" />');
+  tags.push('<meta property="og:image:alt" content="' + esc(alt) + '" />');
+  tags.push('<meta name="twitter:title" content="' + esc(title) + '" />');
+  if (description) tags.push('<meta name="twitter:description" content="' + esc(description) + '" />');
+  tags.push('<meta name="twitter:image" content="' + esc(image) + '" />');
 
   // Structured data (§3.7). Skipped entirely on a noindex host: emitting rich
   // results markup on a page we are asking not to be indexed is at best wasted
@@ -681,6 +752,24 @@ const SITEMAP_ROUTES = [
   "/legal/privacy",
 ];
 
+/** Every published service in the public list, whether it arrives flat or in
+ *  families, once each (a service can sit in two families). */
+function serviceRows(list) {
+  const rows = Array.isArray(list)
+    ? list
+    : [
+      ...((list && Array.isArray(list.groups) ? list.groups : []).flatMap((g) => (g && Array.isArray(g.services) ? g.services : []))),
+      ...(list && Array.isArray(list.services) ? list.services : []),
+    ];
+  const seen = new Set();
+  return rows.filter((r) => {
+    const slug = r && (r.slug_en || r.slug_fr);
+    if (!slug || seen.has(slug)) return false;
+    seen.add(slug);
+    return true;
+  });
+}
+
 async function sitemap(host, origin, base) {
   // `joinBase` and not `base + …`: on a host the site owns, the base is "/"
   // and naive concatenation emits "//track" — a URL a crawler treats as a
@@ -700,7 +789,11 @@ async function sitemap(host, origin, base) {
     // Each section is independent: a tenant with no case notes should still get a
     // sitemap of their services, not a 500.
     const sections = [
-      [() => services.list(client), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
+      // The list became `{ groups: [{ services }] }` with the service families
+      // (website v2, PR 3), and this section silently listed nothing from then
+      // on: thirteen service pages a crawler was never told about. Both shapes
+      // are read, so the next reshaping cannot empty it the same way.
+      [() => services.list(client).then(serviceRows), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
       [() => (portfolioOn ? portfolio.list(client) : []), (r) => at("/portfolio/" + encodeURIComponent(r.slug || ""))],
       [() => careers.list(client), (r) => at("/careers/" + encodeURIComponent(r.public_token || r.token || ""))],
       // Published articles only — listPublic filters, and an unpublished slug in
@@ -778,6 +871,13 @@ module.exports = {
   SITEMAP_ROUTES,
   ROUTES,
   makeHtmlSender,
+  // The share card route reads the same description of a page as its head.
+  describe,
+  describeForCard,
+  cardUrl,
+  headFor,
+  serviceRows,
+  spellName,
   robots,
   sitemap,
   invalidateHost,
