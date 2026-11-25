@@ -117,8 +117,13 @@ describe("the deferred quote band", () => {
     // CONTENT: an absent observer must mean MORE of the page, never less.
     expect(typeof IntersectionObserver).toBe("undefined");
     await mount(<QuoteBand />);
-    await waitFor(() =>
-      expect(screen.getByRole("group", { name: en.site.quote.mode })).toBeInTheDocument(),
+    // The wizard is a lazy chunk and this is the first test to pay for it
+    // cold, so it gets the 4 s the route tests allow rather than the 1 s
+    // default.
+    await waitFor(
+      () =>
+        expect(screen.getByRole("group", { name: en.site.quote.mode })).toBeInTheDocument(),
+      { timeout: 4000 },
     );
   });
 

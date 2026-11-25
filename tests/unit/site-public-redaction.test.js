@@ -33,6 +33,12 @@
  */
 "use strict";
 
+// The website's switches (14600). French offered here, so the bilingual
+// rules these tests pin are the ones a French-offering tenant still has; the
+// English-only rule is pinned in site-languages.test.js.
+jest.mock("../../src/modules/site/site_settings/site_switches", () => ({
+  load: jest.fn(async () => ({ languages: ["en", "fr"] })),
+}));
 const service = require("../../src/modules/site/site_settings/site_settings.service");
 
 /**

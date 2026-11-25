@@ -11,6 +11,7 @@ import {
 } from "@/lib/services-api";
 import { PublicApiError, messageFor } from "@/lib/api";
 import { currentLocale, getLang, setLang, tStatic } from "@/lib/i18n";
+import { isMultilingual, useSiteSwitches } from "@/lib/site-switches";
 import { caseLabel } from "@/lib/label-case";
 import { usePublishedServices } from "@/lib/use-services";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
@@ -155,7 +156,8 @@ export function ServicesIndexPage() {
   const esg = useEsg();
 
   useDocumentMeta({
-    title: `${t("site.servicesPage.title")} · ${t("site.hero.eyebrow")}`,
+    // A hidden eyebrow (website v2) leaves the title alone, not "Services · ".
+    title: [t("site.servicesPage.title"), t("site.hero.eyebrow")].filter(Boolean).join(" · "),
     description: t("site.servicesPage.sub"),
   });
 
@@ -396,6 +398,8 @@ export function ServiceDetailPage() {
   const { t } = useTranslation();
   const { slug = "" } = useParams();
   const lang = getLang();
+  // No language switch on a site that offers one language (website v2).
+  const multilingual = isMultilingual(useSiteSwitches());
   const [state, setState] = React.useState<DetailState>({ kind: "loading" });
   /* The published list, for identity only — it is the module-cached read the
      index page and the footer already share, so this costs no request. A line's
@@ -632,7 +636,9 @@ export function ServiceDetailPage() {
                 <span className="num font-mono">{month}</span>
               </span>
             ) : null}
-            {altSlug ? (
+            {/* Only on a site that offers both languages (website v2): on an
+                English-only site there is no other version to switch to. */}
+            {altSlug && multilingual ? (
               <button
                 type="button"
                 onClick={() => {

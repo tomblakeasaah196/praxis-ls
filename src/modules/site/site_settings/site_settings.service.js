@@ -36,6 +36,7 @@ const { serviceMode } = require("../../operations/_shared/service-mode");
 const { AppError } = require("../../../utils/errors");
 const events = require("./site_settings.events");
 const repo = require("./site_settings.repo");
+const switches = require("./site_switches");
 // PR-07 (CE-25): the cover-attachment outbox — read here only, so the Story
 // tab can show a durable upload-failure state. The vault-side service never
 // requires this module, so the dependency is one-directional.
@@ -47,7 +48,7 @@ const {
   SITE_FONT_DEFAULTS,
 } = require("@praxis/shared/design/site-fonts");
 const { SOCIAL_IDS, isValidSocialUrl } = require("@praxis/shared/design/social");
-const { coverage } = require("@praxis/shared");
+const { coverage, siteLanguages } = require("@praxis/shared");
 
 const ref = (kind, id) => `${kind}:${id}`;
 
@@ -119,6 +120,12 @@ async function updateTheme(client, { patch, actor = {} }) {
  */
 async function publicTheme(client) {
   const row = await getTheme(client);
+  // The switches ride the theme read because both are needed before the
+  // first paint: the header cannot draw its top rail, its language control or
+  // its nav, and the page cannot choose light or dark, until it knows them.
+  // A second request on the LCP path would cost every visitor a round trip
+  // for six booleans.
+  const site = await switches.load(client);
   const palette = derivePalette({
     primary: row.primary_hex,
     secondary: row.secondary_hex,
@@ -144,6 +151,7 @@ async function publicTheme(client) {
     // Owner decision D5: Title Case for every label unless the tenant chose
     // "As written". A row from before 14262 has no value — that is the standard.
     labelCase: row.label_case === "AS_WRITTEN" ? "AS_WRITTEN" : "TITLE",
+    switches: site,
     light: palette.light,
     dark: palette.dark,
     corrections: palette.meta.corrections,
@@ -318,6 +326,37 @@ async function updateCareers(client, { patch, actor = {} }) {
   });
 }
 
+/* ── the website's switches (14600) ─────────────────────────────────────────*/
+
+/**
+ * Languages offered and the optional sections. Read and written from the
+ * WEBSITE permission (MOD-29), like every other control on the public site.
+ *
+ * The language check runs on the way IN to French-off, not on the way out:
+ * turning French off is always allowed, because the public reads stop serving
+ * French at once and the English-first rule only tightens what the next save
+ * must carry. Nothing stored is rewritten, so turning French back on restores
+ * every French sentence exactly as it was.
+ */
+const getSwitches = (client) => switches.load(client);
+
+async function updateSwitches(client, { patch, actor = {} }) {
+  return atomically(client, async () => {
+    const before = await switches.load(client);
+    await switches.save(client, patch, actor.user_id);
+    const after = await switches.load(client);
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.SWITCHES_UPDATED,
+      moduleKey: events.MODULE,
+      entityRef: "site_switches:singleton",
+      before,
+      after,
+    });
+    return after;
+  });
+}
+
 /* ── about ──────────────────────────────────────────────────────────────────*/
 
 const getAbout = (client) => repo.getAbout(client);
@@ -364,8 +403,12 @@ async function getEntityStory(client, entityId) {
     ownerId: entityId,
     slot: "entity-cover",
   });
+  const site = await switches.load(client);
   return {
     ...story,
+    // Which half of each paragraph this tenant's site needs (website v2): the
+    // tab marks it required, from the rule the save refuses with.
+    required_language: siteLanguages.requiredLanguage(site),
     // Meeting 6, 3.5: stored rows whose code is not a country, or whose label
     // names a place in another country (Libreville under GB). Flagged for a
     // person, never rewritten — see @praxis/shared coverage.
@@ -448,9 +491,35 @@ async function assertFocusCatalogue(client, focus) {
   }
 }
 
+/**
+ * English first (website v2): an English-only site needs every paragraph,
+ * place and focus line of a story in English, and accepts the French as
+ * optional. A tenant offering French keeps the rule it always had. The check
+ * reads the merged row, so saving one field cannot be refused for a field the
+ * request did not touch only when that field was already complete.
+ */
+function assertStoryLanguage(story, site) {
+  const errors = {};
+  const summary = siteLanguages.pairGaps(story, ["public_summary"], site);
+  if (summary.length) errors[summary[0]] = [siteLanguages.gapMessage(site)];
+  for (const field of ["public_coverage", "public_focus"]) {
+    const rows = Array.isArray(story[field]) ? story[field] : [];
+    const bad = rows
+      .map((r, i) => (siteLanguages.pairGaps(r, ["label"], site).length ? i : -1))
+      .filter((i) => i >= 0);
+    if (bad.length) {
+      errors[field] = bad.map((i) => `Line ${i + 1}: ${siteLanguages.gapMessage(site)}`);
+    }
+  }
+  if (Object.keys(errors).length) {
+    throw new AppError("VALIDATION_ERROR", siteLanguages.gapMessage(site), 422, errors);
+  }
+}
+
 async function updateEntityStory(client, { entityId, patch, actor = {} }) {
   const before = await repo.getEntityStory(client, entityId);
   if (!before) throw new AppError("NOT_FOUND", "Entity not found", 404);
+  assertStoryLanguage({ ...before, ...patch }, await switches.load(client));
   let story = patch;
   if (Array.isArray(patch.public_focus)) {
     await assertFocusCatalogue(client, patch.public_focus);
@@ -622,6 +691,11 @@ const publicLeader = (l, variants = {}) => ({
 
 /** The group story plus group-level leadership (entity_id IS NULL). */
 async function publicAbout(client) {
+  const site = await switches.load(client);
+  return siteLanguages.withoutUnofferedLanguage(await aboutPayload(client), site);
+}
+
+async function aboutPayload(client) {
   const about = (await repo.getAbout(client)) || {};
   // The repo already restricts to `entity_id IS NULL`, and the tier is
   // re-asserted here in JS on purpose. The guarantee "the group's About never
@@ -676,8 +750,23 @@ async function publicAbout(client) {
  * backfill — would fail-closed here rather than pass-open.
  */
 async function publicEntities(client) {
+  const site = await switches.load(client);
+  return siteLanguages.withoutUnofferedLanguage(await entitiesPayload(client), site);
+}
+
+/**
+ * The entities payload before the language rule is applied.
+ *
+ * `phone` and `email` are the company's own published contact points, the same
+ * two the letterhead prints in its contact line on every document the company
+ * sends (entity-letterhead.service). The contact page shows each office with
+ * them (website v2, PR 1): "where are you and how do I reach you" is the
+ * second question a contact page is asked. Nothing statutory joins them.
+ */
+async function entitiesPayload(client) {
   const { rows } = await client.query(
     `SELECT entity_id, code, legal_name, trading_name, country_code, address,
+            phone, email,
             public_summary_fr, public_summary_en, public_coverage, public_focus,
             public_cover_vault_id
        FROM corporate_entity
@@ -697,6 +786,8 @@ async function publicEntities(client) {
     legal_name: e.legal_name,
     trading_name: e.trading_name || null,
     country_code: e.country_code,
+    phone: e.phone || null,
+    email: e.email || null,
     summary: { fr: e.public_summary_fr, en: e.public_summary_en },
     coverage: e.public_coverage || [],
     focus: (e.public_focus || []).map(publicFocusItem),
@@ -804,6 +895,7 @@ module.exports = {
   partners, credentials, leaders,
   getAbout, updateAbout,
   getCareers, updateCareers,
+  getSwitches, updateSwitches,
   getEntityStory, updateEntityStory, serviceFocusCatalogue,
   publicPartners, publicSocial, publicAbout, publicEntities,
 };

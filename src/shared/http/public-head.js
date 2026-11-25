@@ -651,17 +651,22 @@ async function sitemap(host, origin, base) {
   // and naive concatenation emits "//track" — a URL a crawler treats as a
   // protocol-relative address, i.e. a different site.
   const at = (rest) => paths.joinBase(base, rest);
-  const fixed = SITEMAP_ROUTES.map(at);
+  let portfolioOn = false;
   const rows = await withTenant(host, async (client) => {
     const services = require("../../modules/operations/service_type_web_public/service_type_web_public.service");
     const portfolio = require("../../modules/sales/portfolio_public/portfolio_public.service");
     const careers = require("../../modules/hr/careers/careers.service");
+    // A section the tenant switched off (website v2, 14600) answers the
+    // not-found page, so it leaves the sitemap too: listing it would invite a
+    // crawler to index a 404.
+    const site = await require("../../modules/site/site_settings/site_switches").load(client);
+    portfolioOn = site.portfolio === true;
     const out = [];
     // Each section is independent: a tenant with no case notes should still get a
     // sitemap of their services, not a 500.
     const sections = [
       [() => services.list(client), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
-      [() => portfolio.list(client), (r) => at("/portfolio/" + encodeURIComponent(r.slug || ""))],
+      [() => (portfolioOn ? portfolio.list(client) : []), (r) => at("/portfolio/" + encodeURIComponent(r.slug || ""))],
       [() => careers.list(client), (r) => at("/careers/" + encodeURIComponent(r.public_token || r.token || ""))],
       // Published articles only — listPublic filters, and an unpublished slug in
       // a sitemap is an invitation to crawl a 404.
@@ -686,6 +691,7 @@ async function sitemap(host, origin, base) {
     return out;
   }).catch(() => []);
 
+  const fixed = SITEMAP_ROUTES.filter((r) => portfolioOn || r !== "/portfolio").map(at);
   const all = fixed.concat(rows || []);
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',

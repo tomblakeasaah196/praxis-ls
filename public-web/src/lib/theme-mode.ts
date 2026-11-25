@@ -1,89 +1,102 @@
 /**
- * Light/dark mode for a public surface.
+ * Light/dark mode for the marketing site.
  *
- * ── THE LOCK ───────────────────────────────────────────────────────────────
+ * ── LIGHT BY DEFAULT, AND WHO MAY CHANGE IT (website v2) ──────────────────
  *
- * `FORCE_DARK` below pins this app to dark and is the ONLY line to change to
- * hand light mode back. While it is on:
+ * The site was locked dark for a season (`FORCE_DARK`). The first tenant's
+ * review (24 Nov 2026) asked for the opposite: light pages with dark
+ * photographic bands, and a switch a visitor can press. So the order is:
  *
- *   · `getMode()` answers "dark" without reading storage, so a visitor
- *     carrying an older `praxis.public.theme: "light"` gets dark too.
- *   · `setMode()` is a no-op, so nothing can write light back.
- *   · `ThemeToggle` renders nothing, so there is no control to reach it with.
- *   · `syncTenantThemePreference` in `app/branding.tsx` stops applying a
- *     tenant's `theme: "light"` hint.
+ *   1. The VISITOR'S choice, but only when the tenant has turned the visitor
+ *      switch on (Settings › Website › Options, `visitor_theme_switch`). With
+ *      the switch off there is no control, so a stored choice from another
+ *      visit or another tenant must not decide anything either.
+ *   2. The TENANT'S default (`site_theme.default_mode`, Settings › Website ›
+ *      Theme), from the theme read and its cache.
+ *   3. Light.
  *
- * The light token block in `index.css` is deliberately LEFT IN PLACE. Deleting
- * it would be the same change spread over ~60 custom properties and a one-line
- * revert becomes a merge; every one of those values is still contrast-tested by
- * `lib/theme.test.ts`, and the lock already makes them unreachable.
+ * The dark bands (hero, portal band, footer) are dark in BOTH modes; they are
+ * the photographic plates the page is built around, not a theme. What the mode
+ * changes is the ground between them.
  *
- * Two states when unlocked, not three. The staff app offers light / dark /
- * system because its users live in the app for eight hours a day and have an
- * opinion; a visitor who lands here for ninety seconds does not, and a "system"
- * option on a marketing page is a third thing to understand.
+ * Two states, not three. The staff app offers light / dark / system because its
+ * users live in it all day; a visitor here for two minutes does not want a
+ * third thing to understand.
  *
  * Two writes, one read:
  *   · `.dark` on <html> drives this app's own token block (mirroring `client`).
  *   · `data-theme` drives `@praxis/brand/tokens.css`, whose `--brand-*` values
- *     otherwise follow the OS. Without the attribute, a visitor on a dark OS
- *     would get brand-layer dark tokens under light-layer app tokens — orange
- *     stepped for carbon, sitting on white.
+ *     otherwise follow the OS.
+ *
+ * The inline pre-paint script in `index.html` makes the same decision before
+ * any module runs; `theme-mode.test.ts` pins the two together.
  */
+import { THEME_CACHE_KEY, getSiteSwitches } from "./site-switches";
 
 export type ThemeMode = "light" | "dark";
 
-/**
- * Dark only, everywhere, for everyone.
- *
- * Flip to `false` to restore the toggle. The inline pre-paint script in
- * `index.html` CANNOT import this — it runs before any module — so it carries
- * the same decision in about six lines. `theme-mode.test.ts` pins the two
- * together by reading the HTML, which is what stops them drifting.
- */
-// Annotated `boolean` rather than left to infer `true`. Without the annotation
-// TypeScript narrows it to the literal, every line after each `if (FORCE_DARK)`
-// becomes statically dead, and flipping the switch to `false` is what surfaces
-// the resulting errors — in the one edit that is supposed to be safe.
-export const FORCE_DARK: boolean = true;
-
+/** The visitor's own choice, honoured only while the tenant offers the switch. */
 export const THEME_KEY = "praxis.public.theme";
 
 const root = () => document.documentElement;
 
-export function getMode(): ThemeMode {
-  if (FORCE_DARK) return "dark";
+const asMode = (v: unknown): ThemeMode | null => (v === "light" || v === "dark" ? v : null);
+
+/** The tenant's default, once the theme read has answered this visit. */
+let tenantDefault: ThemeMode | null = null;
+
+function cachedTenantDefault(): ThemeMode | null {
   try {
-    // Dark is the default even unlocked: only an explicit "light" — which only
-    // the toggle writes — opts out of it.
-    return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+    const raw = localStorage.getItem(THEME_CACHE_KEY);
+    if (!raw) return null;
+    return asMode((JSON.parse(raw) as { defaultMode?: unknown }).defaultMode);
   } catch {
-    /* storage unavailable (private mode, embedded webview) — dark stands */
-    return "dark";
+    /* storage unavailable or a corrupt cache: light stands */
+    return null;
   }
 }
 
-/** Paint the current mode. Called once from main.tsx so React and the DOM agree
- *  even when the inline script has already done it (it is idempotent). */
+/** Called by the branding provider when the theme read lands. */
+export function setTenantDefaultMode(mode: unknown): void {
+  tenantDefault = asMode(mode);
+}
+
+export function visitorChoice(): ThemeMode | null {
+  if (!getSiteSwitches().visitor_theme_switch) return null;
+  try {
+    return asMode(localStorage.getItem(THEME_KEY));
+  } catch {
+    /* storage unavailable (private mode, embedded webview) */
+    return null;
+  }
+}
+
+export function getMode(): ThemeMode {
+  return visitorChoice() || tenantDefault || cachedTenantDefault() || "light";
+}
+
+/** Paint a mode. Idempotent with the inline script in `index.html`. */
 export function applyMode(mode: ThemeMode): void {
   const el = root();
   el.classList.toggle("dark", mode === "dark");
   el.dataset.theme = mode;
-  // THREE signals now. `color-scheme` is what native UI reads — scrollbars,
-  // `<select>` popups, the canvas the browser paints before the stylesheet
-  // lands — and none of it follows a class or a data attribute. The pre-paint
-  // script in `index.html` writes it as an INLINE style, which outranks every
-  // stylesheet, so it has to be rewritten here rather than declared in
-  // `index.css`: declaring it there and setting it there would leave the
-  // stylesheet permanently losing to the first-paint value.
+  // `color-scheme` is what native UI reads (scrollbars, `<select>` popups, the
+  // canvas before the stylesheet lands). The pre-paint script writes it inline,
+  // so it is rewritten here rather than declared in `index.css`.
   el.style.colorScheme = mode;
+  // The phone's browser chrome takes the page's ground in either mode, read
+  // from the tokens rather than typed here so a tenant palette carries into it.
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (meta && typeof getComputedStyle === "function") {
+    const ground = getComputedStyle(el).getPropertyValue("--background").trim();
+    if (ground) meta.content = ground;
+  }
 }
 
+/** The visitor pressed the switch. A no-op while the tenant has not offered
+ *  one: there is no control, and nothing may write a choice nobody made. */
 export function setMode(mode: ThemeMode): void {
-  // Under the lock this is a no-op rather than a throw: the callers are UI
-  // handlers, and a theme control that explodes is worse than one that is
-  // simply not there — which, while `FORCE_DARK` holds, it is not.
-  if (FORCE_DARK) return;
+  if (!getSiteSwitches().visitor_theme_switch) return;
   applyMode(mode);
   try {
     localStorage.setItem(THEME_KEY, mode);
@@ -92,9 +105,9 @@ export function setMode(mode: ThemeMode): void {
   }
 }
 
-/** Apply the stored mode at boot. Idempotent with the inline script in
- *  `index.html`, and the single place a "system" preference would be wired to a
- *  `matchMedia` listener if this app ever grows one. */
+/** Apply the resolved mode. Called at boot and again when the theme read
+ *  lands, so a tenant default or a switch that changed since the last visit
+ *  takes effect without a reload. */
 export function initThemeMode(): ThemeMode {
   const mode = getMode();
   applyMode(mode);
@@ -102,7 +115,7 @@ export function initThemeMode(): ThemeMode {
 }
 
 export function toggleMode(): ThemeMode {
-  if (FORCE_DARK) return "dark";
+  if (!getSiteSwitches().visitor_theme_switch) return getMode();
   const next: ThemeMode = getMode() === "dark" ? "light" : "dark";
   setMode(next);
   return next;

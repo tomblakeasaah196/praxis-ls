@@ -30,6 +30,7 @@ const workSchedule = require("./rules/work-schedule");
 const quickPin = require("./rules/quick-pin");
 const dictionarySibling = require("./rules/dictionary-sibling");
 const coverage = require("./rules/coverage");
+const siteLanguages = require("./rules/site-languages");
 const pwaDesign = require("./pwa-design");
 const countries = require("./data/countries");
 const currencies = require("./data/currencies");
@@ -129,6 +130,10 @@ exports.dictionarySibling = dictionarySibling;
 // Shared because the Story tab blocks the save with the same answer the API
 // refuses with, and the API flags stored rows with the rule the tab explains.
 exports.coverage = coverage;
+// Which language a tenant's website REQUIRES (website v2, 25 Nov 2026): English
+// only by default, French opt-in. Shared because the API refuses a bilingual
+// field without it and every website settings screen marks the same field.
+exports.siteLanguages = siteLanguages;
 // Canonical ISO country reference (code, name, phone, currency, per-jurisdiction
 // registration requirements) — the API, the seed and the client picker's source.
 /*

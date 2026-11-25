@@ -191,6 +191,32 @@ export type SiteCareers = {
   updated_at?: string | null;
 };
 
+/* ── the website's switches (14600) ─────────────────────────────────────────*/
+
+/**
+ * What the one public-web build shows for this tenant: the languages it offers
+ * and the optional sections, every one of them off until somebody turns it on.
+ * Validated by `siteSettings.siteSwitches`, the same shape the API refuses with.
+ */
+export type SiteSwitches = {
+  languages: ("en" | "fr")[];
+  top_rail: boolean;
+  portfolio: boolean;
+  corridors: boolean;
+  case_notes: boolean;
+  careers_in_header: boolean;
+  visitor_theme_switch: boolean;
+};
+
+export const SITE_SWITCH_KEYS = siteSettings.SITE_SWITCHES as (keyof Omit<
+  SiteSwitches,
+  "languages"
+>)[];
+
+export const getSwitches = () => tenant<SiteSwitches>("/site-settings/switches");
+export const saveSwitches = (body: Partial<SiteSwitches>) =>
+  tenant<SiteSwitches>("/site-settings/switches", { method: "PUT", body });
+
 export const getCareers = () => tenant<SiteCareers>("/site-settings/careers");
 export const saveCareers = (body: Partial<SiteCareers>) =>
   tenant<SiteCareers>("/site-settings/careers", { method: "PUT", body });
@@ -222,6 +248,10 @@ export type EntityStory = {
   /** Meeting 6, 3.5: stored rows whose code is not a country, or whose label
    *  names a place in another country (Libreville under GB). Read-only. */
   coverage_flags?: coverage.Flag[];
+  /** The half every paragraph and label needs on this tenant's website
+   *  (website v2): English on an English-only site, French where French is
+   *  offered. Read-only; set on Settings › Website › Options. */
+  required_language?: "en" | "fr";
   public_focus: {
     label_fr?: string | null;
     label_en?: string | null;

@@ -2,16 +2,16 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  FORCE_DARK,
   THEME_KEY,
   applyMode,
   getMode,
   initThemeMode,
   setMode,
+  setTenantDefaultMode,
   toggleMode,
 } from "./theme-mode";
+import { THEME_CACHE_KEY, __resetSiteSwitches, setSiteSwitches } from "./site-switches";
 import {
-  PORTAL_THEME_KEY,
   getPortalTheme,
   resolvePortalTheme,
 } from "@/features/portal/lib/theme";
@@ -19,17 +19,23 @@ import {
 const html = () =>
   readFileSync(join(process.cwd(), "index.html"), "utf8");
 
+const script = () => {
+  const source = html();
+  const open = source.indexOf("<script>", source.indexOf("PRE-PAINT THEME"));
+  return source.slice(open, source.indexOf("</script>", open));
+};
+
 /**
- * The lock has TWO implementations — this module and the inline pre-paint script
- * in `index.html`, which cannot import it because it runs before any module
- * does. Two copies of one decision is exactly the shape that drifts, and it
- * drifts in the direction nobody notices: the module is what every test
- * exercises, while the script is what every visitor's first frame actually
- * gets. So the script is asserted here, as text.
+ * Light by default (website v2). The decision has TWO implementations: this
+ * module and the inline pre-paint script in `index.html`, which cannot import
+ * it because it runs before any module does. The script is what every
+ * visitor's first frame gets, so it is asserted here as text.
  */
-describe("forced dark mode", () => {
+describe("the marketing site's mode", () => {
   beforeEach(() => {
     localStorage.clear();
+    setTenantDefaultMode(null);
+    __resetSiteSwitches();
     document.documentElement.className = "";
     document.documentElement.removeAttribute("data-theme");
     document.documentElement.removeAttribute("style");
@@ -37,72 +43,57 @@ describe("forced dark mode", () => {
 
   afterEach(() => {
     localStorage.clear();
+    __resetSiteSwitches();
   });
 
-  it("is on", () => {
-    // The one line to change to hand light mode back. It is asserted so that
-    // flipping it fails loudly here rather than quietly in production.
-    expect(FORCE_DARK).toBe(true);
+  it("is light for a tenant that has chosen nothing", () => {
+    expect(getMode()).toBe("light");
+    expect(initThemeMode()).toBe("light");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.documentElement.dataset.theme).toBe("light");
   });
 
-  it("answers dark even for a visitor carrying a stored light preference", () => {
-    // The case the lock exists for. Anyone who pressed the toggle before this
-    // landed still has "light" in their browser; without the storage bypass in
-    // `getMode`, they would be the only people still seeing a white site.
-    localStorage.setItem(THEME_KEY, "light");
+  it("follows the tenant's default, from the read or its cache", () => {
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ defaultMode: "dark" }));
     expect(getMode()).toBe("dark");
-    expect(initThemeMode()).toBe("dark");
-    expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(document.documentElement.dataset.theme).toBe("dark");
+    setTenantDefaultMode("light");
+    expect(getMode()).toBe("light");
   });
 
-  it("cannot be written out of dark", () => {
-    setMode("light");
-    expect(getMode()).toBe("dark");
-    // Nothing reached storage either: an un-lock must not find a "light" that
-    // the visitor never chose waiting for it.
-    expect(localStorage.getItem(THEME_KEY)).toBeNull();
+  it("ignores a stored visitor choice while the tenant offers no switch", () => {
+    // A choice made on another visit, or on another tenant's site (the key is
+    // shared), must not decide anything on a site with no control.
+    localStorage.setItem(THEME_KEY, "dark");
+    expect(getMode()).toBe("light");
+    setMode("dark");
+    expect(getMode()).toBe("light");
+    expect(toggleMode()).toBe("light");
+  });
+
+  it("honours and stores the visitor's choice once the switch is on", () => {
+    setSiteSwitches({ languages: ["en"], visitor_theme_switch: true });
     expect(toggleMode()).toBe("dark");
+    expect(localStorage.getItem(THEME_KEY)).toBe("dark");
     expect(getMode()).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("writes colour-scheme alongside the class and the attribute", () => {
-    // Native UI — scrollbars, `<select>` popups — reads this and nothing else,
-    // so a page that sets only the class keeps a white scrollbar on carbon.
     applyMode("dark");
     expect(document.documentElement.style.colorScheme).toBe("dark");
   });
 
   it("has a pre-paint script in index.html that agrees with this module", () => {
-    const source = html();
-    // From the <script> tag itself, not from the comment above it: the comment
-    // documents how to UNLOCK, so it names `localStorage` in prose, and the
-    // assertion below is about what the browser RUNS.
-    const open = source.indexOf("<script>", source.indexOf("PRE-PAINT THEME"));
-    const script = source.slice(open, source.indexOf("</script>", open));
-    expect(script).toContain('var mode = "dark"');
-    expect(script).toContain('classList.add("dark")');
-    expect(script).toContain('setAttribute("data-theme", mode)');
-    expect(script).toContain("colorScheme");
-    // The storage read is what the lock removes. If it comes back while
-    // FORCE_DARK is on, the first painted frame can be light while every module
-    // that runs afterwards says dark — the flash the pre-paint script exists to
-    // prevent, pointing the other way.
-    //
-    // Comments are stripped before the check: the script deliberately CARRIES
-    // the read in a `//` line as the unlock instruction, and matching that
-    // would fail the test for documenting itself.
-    const live = script.replace(/^\s*\/\/.*$/gm, "");
-    expect(live).not.toContain(THEME_KEY);
-    // The ONE storage read the script may make is the client portal's own
-    // choice, inside the `/portal` branch — the portal is a signed-in app with
-    // a light default (features/portal/lib/theme.ts), not the marketing site,
-    // and the lock is about the marketing site.
-    const reads = live.match(/localStorage\.getItem\(([^)]*)\)/g) ?? [];
-    expect(reads).toEqual([`localStorage.getItem("${PORTAL_THEME_KEY}")`]);
-    const branch = live.indexOf('p.indexOf("/portal/") === 0');
-    expect(branch).toBeGreaterThan(-1);
-    expect(live.indexOf("localStorage")).toBeGreaterThan(branch);
+    const live = script().replace(/^\s*\/\/.*$/gm, "");
+    expect(live).toContain('var mode = "light"');
+    expect(live).toContain(`localStorage.getItem("${THEME_CACHE_KEY}")`);
+    expect(live).toContain("cached.defaultMode");
+    // The visitor's choice is read only behind the tenant's switch.
+    const sw = live.indexOf("visitor_theme_switch === true");
+    expect(sw).toBeGreaterThan(-1);
+    expect(live.indexOf(`localStorage.getItem("${THEME_KEY}")`)).toBeGreaterThan(sw);
+    expect(live).toContain('setAttribute("data-theme", mode)');
+    expect(live).toContain("colorScheme");
   });
 
   it("paints a /portal URL in the portal's own mode, light unless chosen", () => {
@@ -117,14 +108,9 @@ describe("forced dark mode", () => {
     expect(resolvePortalTheme("dark")).toBe("dark");
   });
 
-  it("pins theme-color to the dark background, with no light alternative", () => {
-    // A `media="(prefers-color-scheme: light)"` variant here would tint a
-    // phone's browser chrome white above a carbon page — the one piece of
-    // light-mode surface a locked app could still ship.
-    const source = html();
-    const tags = source.match(/<meta name="theme-color"[^>]*>/g) ?? [];
+  it("carries one theme-color, which the module rewrites from the tokens", () => {
+    const tags = html().match(/<meta name="theme-color"[^>]*>/g) ?? [];
     expect(tags).toHaveLength(1);
-    expect(tags[0]).toContain("#0b0d11");
     expect(tags[0]).not.toContain("prefers-color-scheme");
   });
 });

@@ -255,9 +255,13 @@ export function EntityPublicStoryTab({
       <section className="rounded-lg border border-[var(--border)] p-4">
         <H className="text-sm font-medium text-foreground">{tr("Summary")}</H>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-          {tr(
-            "A short paragraph about what this company does and where. French is the fallback everywhere on the site, so write it first.",
-          )}
+          {story.data?.required_language === "fr"
+            ? tr(
+                "A short paragraph about what this company does and where. French is the fallback everywhere on the site, so write it first.",
+              )
+            : tr(
+                "A short paragraph about what this company does and where. Your website is English only, so the English is the one visitors read.",
+              )}
         </p>
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
           {(

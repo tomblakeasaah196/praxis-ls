@@ -391,7 +391,8 @@ const CASES = {
   "site.contact": {
     LABEL: [
       "title", "kicker", "titleMain", "titleAccent", "bandCta", "otherTitle",
-      "coverageKicker", "coverageTitle", "offices", "covers", "otherGo", "subject",
+      "coverageKicker", "coverageTitle", "offices", "officesTitle", "phone", "email",
+      "covers", "otherGo", "subject",
       "type", "typeGeneral", "typePartnership", "typeCareers", "typeMedia", "message",
       "send", "promise.*.t", "attach",
     ],
@@ -472,7 +473,7 @@ const CASES = {
   },
   "site.hero": {
     LABEL: [
-      "eyebrow", "title", "titleMain", "titleAccent", "cta", "cta2", "scrollCue",
+      "eyebrow", "title", "titleMain", "titleAccent", "cta", "cta2", "contact", "scrollCue",
     ],
     PROSE: [
       "sub",

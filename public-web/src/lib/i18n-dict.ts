@@ -188,8 +188,12 @@ export const en = {
     about: {
       title: "About us",
       kicker: "Who we are",
-      titleMain: "The people behind",
-      titleAccent: "the freight",
+      /* Split where the French splits ("Les femmes et les hommes | derrière le
+         fret"), so a tenant who rewrites the first half in either language
+         keeps "behind the freight" on the end (website v2: the About hero
+         read "The Men and Women the Freight" with the split after "behind"). */
+      titleMain: "The people",
+      titleAccent: "behind the freight",
       sub: "A logistics group, its companies, and the people who run them.",
       founded: "Founded",
       hq: "Head office",
@@ -312,6 +316,8 @@ export const en = {
       sub: "Sea, air and hinterland logistics across the OHADA/CEMAC region — with one team, one platform, and total visibility.",
       cta: "Request a quote",
       cta2: "Track a shipment",
+      /* The hero's second button (website v2): a person, not a lookup. */
+      contact: "Contact us",
       /* The cue under the hero's figure rail. Decorative and aria-hidden — it
          names a gesture rather than a destination — but it is still a visible
          sentence, so it is a dictionary string and not a literal. */
@@ -321,10 +327,10 @@ export const en = {
       kicker: "Shipment visibility",
       title: "Where is my cargo?",
       label: "File or container reference",
-      placeholder: "e.g. SBL-OPS-2026-0142",
+      placeholder: "e.g. SL7Z3K9QW2M4XBSM",
       submit: "Track",
       busy: "Tracking…",
-      hint: "Enter the reference printed on your shipment documents. No account needed.",
+      hint: "Enter your file reference.",
       notFound:
         "We could not find that reference. Check it against your documents and try again.",
       empty: "Enter a reference to see its progress.",
@@ -625,6 +631,11 @@ export const en = {
       coverageAlt:
         "A diagram linking each office to the places it covers. The same offices and places are listed as text below.",
       offices: "Offices",
+      /* The contact page's offices band (website v2): each published company
+         with its address, phone and email. */
+      officesTitle: "Our offices",
+      phone: "Phone",
+      email: "Email",
       covers: "Delivers to",
       coverageNone: "Coverage areas are not published for these offices yet.",
       otherPortal:
@@ -692,7 +703,10 @@ export const en = {
       legalEntity: "Legal entity:",
     },
     preview: {
-      reference: "SBL-OPS-2026-0142",
+      /* The real reference shape (SL + 12 random characters + service code,
+         src/services/documents/operation-reference.js), never a sequence: a
+         mock reading "…-0142" tells a visitor files are numbered in order. */
+      reference: "SL7Z3K9QW2M4XBSM",
       status: "In progress",
       stages: [
         { label: "File opened", state: "done" },
@@ -1129,16 +1143,17 @@ export const fr = {
       sub: "Logistique maritime, aérienne et terrestre dans la région OHADA/CEMAC — une équipe, une plateforme, une visibilité totale.",
       cta: "Demander un devis",
       cta2: "Suivre un envoi",
+      contact: "Nous contacter",
       scrollCue: "Faire défiler",
     },
     track: {
       kicker: "Visibilité des envois",
       title: "Où est ma marchandise ?",
       label: "Référence de dossier ou de conteneur",
-      placeholder: "ex. SBL-OPS-2026-0142",
+      placeholder: "ex. SL7Z3K9QW2M4XBSM",
       submit: "Suivre",
       busy: "Recherche…",
-      hint: "Saisissez la référence imprimée sur vos documents d’expédition. Aucun compte nécessaire.",
+      hint: "Saisissez votre référence de dossier.",
       notFound:
         "Nous n’avons pas trouvé cette référence. Vérifiez-la sur vos documents et réessayez.",
       empty: "Saisissez une référence pour voir son avancement.",
@@ -1399,6 +1414,9 @@ export const fr = {
       coverageAlt:
         "Un schéma reliant chaque bureau aux zones qu’il dessert. Les mêmes bureaux et zones sont listés en texte ci-dessous.",
       offices: "Bureaux",
+      officesTitle: "Nos bureaux",
+      phone: "Téléphone",
+      email: "E-mail",
       covers: "Dessert",
       coverageNone:
         "Les zones desservies ne sont pas encore publiées pour ces bureaux.",
@@ -1460,7 +1478,7 @@ export const fr = {
       legalEntity: "Entité juridique :",
     },
     preview: {
-      reference: "SBL-OPS-2026-0142",
+      reference: "SL7Z3K9QW2M4XBSM",
       status: "En cours",
       stages: [
         { label: "Dossier ouvert", state: "done" },

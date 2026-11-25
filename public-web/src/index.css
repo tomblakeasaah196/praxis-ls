@@ -4078,6 +4078,15 @@
     color: var(--hero-foreground);
   }
 
+  /* One line per company: legal name, then its registered address (website
+     v2). A full-width row of its own, so two companies stack rather than
+     running into the credentials line beside them. */
+  .footer-legal {
+    flex-basis: 100%;
+    display: grid;
+    gap: 0.25rem;
+  }
+
 
   .social-row ul {
     display: flex;

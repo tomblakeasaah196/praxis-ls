@@ -28,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { getLang, setLang } from "@/lib/i18n";
+import { isMultilingual, useSiteSwitches } from "@/lib/site-switches";
 import { p } from "@/lib/base-path";
 import { usePointerLight, useTilt } from "@/lib/motion";
 import { useInView, useRevealed } from "@/components/ui/reveal";
@@ -131,6 +132,7 @@ export function SignInFrame({ children, info = true }: { children: React.ReactNo
   const photo = useSignInPhoto();
   const { t } = useTranslation();
   const lang = getLang();
+  const switches = useSiteSwitches();
   /* One contract, two inputs, as on the hero: the pointer on a laptop and the
      gyroscope on a phone both write `--lx`/`--ly` on the band, and the light,
      the glare and the plate's tilt all read that one pair. Neither hook ever
@@ -199,13 +201,17 @@ export function SignInFrame({ children, info = true }: { children: React.ReactNo
       <header className="pt-signin-bar">
         <BrandMark onDark className="max-h-9" />
         <div className="flex items-center gap-2">
-          <div className="pt-signin-seg" role="group" aria-label={t("portal.account.language")}>
-            {(["en", "fr"] as const).map((l) => (
-              <button key={l} type="button" className="pt-glass-chip" aria-pressed={lang === l} onClick={() => setLang(l)}>
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          {/* The language the tenant's website offers is the language its portal
+              offers (website v2): no switch when there is one. */}
+          {isMultilingual(switches) ? (
+            <div className="pt-signin-seg" role="group" aria-label={t("portal.account.language")}>
+              {(["en", "fr"] as const).map((l) => (
+                <button key={l} type="button" className="pt-glass-chip" aria-pressed={lang === l} onClick={() => setLang(l)}>
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <ThemeSwitch />
           {info ? (
             <InfoButton onDark label={t("portal.signin.whatsInside")} title={t("portal.signin.whatsInside")}>

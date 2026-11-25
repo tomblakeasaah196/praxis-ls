@@ -12,6 +12,7 @@ import { useInView, useRevealed } from "@/components/ui/reveal";
 import { StagedLines, WeightScrub } from "@/components/ui/type";
 import { CountUp } from "@/components/ui/count-up";
 import { getLang } from "@/lib/i18n";
+import { en as shippedEn, fr as shippedFr } from "@/lib/i18n-dict";
 import { pickBilingual, type StatCounter } from "@/lib/site-api";
 import { p } from "@/lib/base-path";
 import { HERO_SCRIMS, SCRIM_SPLIT, SCRIM_STACKED } from "./hero-scrim";
@@ -120,6 +121,41 @@ export type HeroCopy = {
  */
 export const BEAM_PEAK = 0.22;
 
+/**
+ * The dictionary headline, as the two halves the hero draws (website v2).
+ *
+ * ── THE DOUBLED "FORWARD" ─────────────────────────────────────────────────
+ *
+ * The shipped line is split across two keys, `titleMain` ("Freight that moves
+ * your business") and `titleAccent` ("forward"), so the last word can carry the
+ * accent colour. The Wording screen offers both keys and a third, `title`, the
+ * whole sentence. A tenant who typed their whole headline into `titleMain` got
+ * it printed with our accent word on the end: "…forward Forward". One who typed
+ * it into `title` saw nothing change, because nothing drew `title`.
+ *
+ * So, in order:
+ *   1. The tenant rewrote the WHOLE line (`title` differs from what we ship):
+ *      it is drawn as written, one string, one colour. Their sentence, not our
+ *      split of it.
+ *   2. Otherwise the two halves, except that an accent the first half already
+ *      ends with is not printed a second time.
+ *   3. A hidden accent (Settings › Website › Wording) is simply absent.
+ */
+export function heroHeadline(
+  main: string,
+  accent: string,
+  whole: string,
+  shippedWhole: string,
+): { main: string; accent: string } {
+  const w = (whole || "").trim();
+  // Case-blind: the label post-processor title-cases the line it hands us.
+  if (w && w.toLowerCase() !== shippedWhole.trim().toLowerCase()) return { main: w, accent: "" };
+  const m = (main || "").trim();
+  const a = (accent || "").trim();
+  if (a && m.toLowerCase().endsWith(a.toLowerCase())) return { main: m, accent: "" };
+  return { main: m, accent: a };
+}
+
 export function Hero({
   copy = null,
   figures = [],
@@ -141,6 +177,15 @@ export function Hero({
   figures?: StatCounter[];
 }) {
   const { t } = useTranslation();
+  const headline = heroHeadline(
+    t("site.hero.titleMain"),
+    t("site.hero.titleAccent"),
+    t("site.hero.title"),
+    (getLang() === "fr" ? shippedFr : shippedEn).site.hero.title,
+  );
+  const trackKicker = t("site.track.kicker");
+  const trackHint = t("site.track.hint");
+  const scrollCue = t("site.hero.scrollCue");
   const lang = getLang();
   const { branding, login } = useBranding();
   /*
@@ -439,7 +484,7 @@ export function Hero({
                 masked
                 startDelay={80}
                 wordClassName="hero-word-light"
-                text={copy ? copy.title : t("site.hero.titleMain")}
+                text={copy ? copy.title : headline.main}
               />
             }
             accent={
@@ -461,7 +506,7 @@ export function Hero({
                  A tenant-authored title is one string and gets no accent at all
                  (the note above the component records why), so this is the
                  dictionary path only. */
-              copy ? undefined : (
+              copy || !headline.accent ? undefined : (
                 /* `wordOffset` is the count of words in the line above, so the
                    accent word is the SIXTH light in the pass rather than a
                    second first. The dictionary line is "Freight that moves your
@@ -471,12 +516,9 @@ export function Hero({
                 <StagedLines
                   masked
                   startDelay={340}
-                  wordOffset={
-                    (copy ? "" : t("site.hero.titleMain")).trim().split(/\s+/)
-                      .length
-                  }
+                  wordOffset={headline.main.trim().split(/\s+/).length}
                   wordClassName="hero-word-light hero-word-light-accent"
-                  text={t("site.hero.titleAccent")}
+                  text={headline.accent}
                 />
               )
             }
@@ -506,11 +548,15 @@ export function Hero({
             >
               {copy?.ctaLabel || t("site.hero.cta")}
             </Link>
+            {/* The second door is a person, not a lookup (website v2, the
+                meeting of 24 Nov 2026): Request a Quote and Contact Us. Tracking
+                keeps its own card beside this, which is where a client with a
+                reference already looks. */}
             <Link
-              to={p("/track")}
+              to={p("/contact")}
               className="btn-ghost-hero inline-flex h-11 items-center rounded-[calc(var(--radius)-2px)] px-5 text-[0.9375rem] font-semibold"
             >
-              {t("site.hero.cta2")}
+              {t("site.hero.contact")}
             </Link>
           </div>
         </div>
@@ -586,20 +632,24 @@ export function Hero({
                   rather than type and carry no contrast duty, and they now
                   agree with the type beside them because both come from the one
                   input. */}
-              <p
-                className={cn(
-                  "micro",
-                  "text-[var(--primary-ink-hero)]",
-                )}
-              >
-                {t("site.track.kicker")}
-              </p>
+              {trackKicker ? (
+                <p
+                  className={cn(
+                    "micro",
+                    "text-[var(--primary-ink-hero)]",
+                  )}
+                >
+                  {trackKicker}
+                </p>
+              ) : null}
               <h2 className="mt-1 font-display text-h3 font-semibold leading-tight tracking-tight">
                 {t("site.track.title")}
               </h2>
-              <p className="mt-2 text-sm text-[var(--hero-muted)]">
-                {t("site.track.hint")}
-              </p>
+              {trackHint ? (
+                <p className="mt-2 text-sm text-[var(--hero-muted)]">
+                  {trackHint}
+                </p>
+              ) : null}
               <div className="mt-4">
                 {/* `onDark` at last. The prop has existed since the widget was
                     written, for the case where the plate is dark — which, until
@@ -670,10 +720,12 @@ export function Hero({
               past it, and "scroll to explore" read aloud is an instruction in
               the wrong modality. Everything it points at is a labelled
               landmark of its own. */}
-          <p aria-hidden className="hero-cue micro">
-            <span className="hero-cue-rail" />
-            {t("site.hero.scrollCue")}
-          </p>
+          {scrollCue ? (
+            <p aria-hidden className="hero-cue micro">
+              <span className="hero-cue-rail" />
+              {scrollCue}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

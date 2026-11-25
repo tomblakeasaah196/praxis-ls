@@ -2,7 +2,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 678 keys in 29 sections.
+ * 682 keys in 29 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
@@ -53,8 +53,8 @@ exports.SITE_COPY_ENTRIES = [
   ["site.about.timelineTitle","about","Timeline Title","How we got here","Les étapes"],
   ["site.about.timelineYear","about","Timeline Year","Year","Année"],
   ["site.about.title","about","Title","About us","À propos"],
-  ["site.about.titleAccent","about","Title Accent","the freight","derrière le fret"],
-  ["site.about.titleMain","about","Title Main","The people behind","Les femmes et les hommes"],
+  ["site.about.titleAccent","about","Title Accent","behind the freight","derrière le fret"],
+  ["site.about.titleMain","about","Title Main","The people","Les femmes et les hommes"],
   ["site.about.vision","about","Vision","Where we are going","Notre cap"],
   ["site.announce.eyebrow","announce","Eyebrow","Latest","À la une"],
   ["site.announce.more","announce","More","All announcements","Toutes les annonces"],
@@ -151,16 +151,19 @@ exports.SITE_COPY_ENTRIES = [
   ["site.contact.coverageNone","contact","Coverage None","Coverage areas are not published for these offices yet.","Les zones desservies ne sont pas encore publiées pour ces bureaux."],
   ["site.contact.coverageTitle","contact","Coverage Title","Where we are, and where we deliver","Où nous sommes, et où nous livrons"],
   ["site.contact.covers","contact","Covers","Delivers to","Dessert"],
+  ["site.contact.email","contact","Email","Email","E-mail"],
   ["site.contact.err","contact","Err","Something went wrong. Please try again.","Une erreur est survenue. Veuillez réessayer."],
   ["site.contact.kicker","contact","Kicker","Contact desk","Nous contacter"],
   ["site.contact.limited","contact","Limited","Too many messages from this connection. Please try again in an hour.","Trop de messages depuis cette connexion. Réessayez dans une heure."],
   ["site.contact.message","contact","Message","How can we help?","Comment pouvons-nous aider ?"],
   ["site.contact.offices","contact","Offices","Offices","Bureaux"],
+  ["site.contact.officesTitle","contact","Offices Title","Our offices","Nos bureaux"],
   ["site.contact.otherGo","contact","Other Go","Open","Ouvrir"],
   ["site.contact.otherPortal","contact","Other Portal","Already a client. Your files, documents and invoices, with nothing to look up.","Déjà client. Vos dossiers, documents et factures, sans rien à rechercher."],
   ["site.contact.otherQuote","contact","Other Quote","Pricing a shipment. Four short steps put it in front of the desk that quotes it.","Chiffrer une expédition. Quatre étapes courtes la placent devant le bureau qui la cote."],
   ["site.contact.otherTitle","contact","Other Title","Faster than a message","Plus rapide qu’un message"],
   ["site.contact.otherTrack","contact","Other Track","A reference is enough. The same milestones the desk would read back to you, without waiting for a reply.","Une référence suffit. Les mêmes jalons que le bureau vous lirait, sans attendre de réponse."],
+  ["site.contact.phone","contact","Phone","Phone","Téléphone"],
   ["site.contact.promise.0.d","contact","Promise · Item 1 · D","Every message gets one, and it is shown on screen the moment it is sent.","Chaque message en reçoit une, affichée à l’écran dès l’envoi."],
   ["site.contact.promise.0.t","contact","Promise · Item 1 · T","A reference, not a black hole","Une référence, pas un trou noir"],
   ["site.contact.promise.1.d","contact","Promise · Item 2 · D","Choosing what your message is about puts it in front of the desk that answers that kind of question.","Dire de quoi il s’agit place la demande devant le bureau qui traite ce type de question."],
@@ -220,6 +223,7 @@ exports.SITE_COPY_ENTRIES = [
   ["site.footer.terms","footer","Terms","Terms of service","Conditions d’utilisation"],
   ["site.footer.track","footer","Track","Track a shipment","Suivre un envoi"],
   ["site.footer.verify","footer","Verify","Authenticate our documents","Authentifier nos documents"],
+  ["site.hero.contact","hero","Contact","Contact us","Nous contacter"],
   ["site.hero.cta","hero","Cta","Request a quote","Demander un devis"],
   ["site.hero.cta2","hero","Cta2","Track a shipment","Suivre un envoi"],
   ["site.hero.eyebrow","hero","Eyebrow","Logistics · Customs · Warehousing","Logistique · Douane · Entreposage"],
@@ -334,7 +338,7 @@ exports.SITE_COPY_ENTRIES = [
   ["site.portfolioPage.titleAccent","portfolioPage","Title Accent","stories","réalisations"],
   ["site.portfolioPage.titleMain","portfolioPage","Title Main","Success","Nos"],
   ["site.portfolioPage.unavailable","portfolioPage","Unavailable","Story unavailable","Réalisation indisponible"],
-  ["site.preview.reference","preview","Reference","SBL-OPS-2026-0142","SBL-OPS-2026-0142"],
+  ["site.preview.reference","preview","Reference","SL7Z3K9QW2M4XBSM","SL7Z3K9QW2M4XBSM"],
   ["site.preview.stages.0.label","preview","Stages · Item 1 · Label","File opened","Dossier ouvert"],
   ["site.preview.stages.0.state","preview","Stages · Item 1 · State","done","done"],
   ["site.preview.stages.1.label","preview","Stages · Item 2 · Label","Vessel departed","Navire parti"],
@@ -592,14 +596,14 @@ exports.SITE_COPY_ENTRIES = [
   ["site.track.busy","track","Busy","Tracking…","Recherche…"],
   ["site.track.current","track","Current","Current stage","Étape en cours"],
   ["site.track.empty","track","Empty","Enter a reference to see its progress.","Saisissez une référence pour voir son avancement."],
-  ["site.track.hint","track","Hint","Enter the reference printed on your shipment documents. No account needed.","Saisissez la référence imprimée sur vos documents d’expédition. Aucun compte nécessaire."],
+  ["site.track.hint","track","Hint","Enter your file reference.","Saisissez votre référence de dossier."],
   ["site.track.kicker","track","Kicker","Shipment visibility","Visibilité des envois"],
   ["site.track.label","track","Label","File or container reference","Référence de dossier ou de conteneur"],
   ["site.track.limited","track","Limited","Too many tracking attempts from this connection. Wait a few minutes and try again.","Trop de tentatives de suivi depuis cette connexion. Attendez quelques minutes et réessayez."],
   ["site.track.limitedHint","track","Limited Hint","The limit is per network, not per person: an office behind one connection shares it.","La limite est par réseau et non par personne : un bureau derrière une seule connexion la partage."],
   ["site.track.notFound","track","Not Found","We could not find that reference. Check it against your documents and try again.","Nous n’avons pas trouvé cette référence. Vérifiez-la sur vos documents et réessayez."],
   ["site.track.notFoundHint","track","Not Found Hint","Tracking works on the exact reference printed on your documents — a bill of lading number will not match until the desk has opened a file.","Le suivi fonctionne sur la référence exacte imprimée sur vos documents — un numéro de connaissement ne correspondra pas tant que le bureau n’a pas ouvert de dossier."],
-  ["site.track.placeholder","track","Placeholder","e.g. SBL-OPS-2026-0142","ex. SBL-OPS-2026-0142"],
+  ["site.track.placeholder","track","Placeholder","e.g. SL7Z3K9QW2M4XBSM","ex. SL7Z3K9QW2M4XBSM"],
   ["site.track.reference","track","Reference","File reference","Référence du dossier"],
   ["site.track.submit","track","Submit","Track","Suivre"],
   ["site.track.title","track","Title","Where is my cargo?","Où est ma marchandise ?"],

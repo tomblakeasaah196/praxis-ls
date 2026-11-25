@@ -35,6 +35,7 @@ import { errMsg, useResource } from "@/lib/use-resource";
 import { ApiError } from "@/lib/api-client";
 import { slug as suggestSlug } from "@/lib/slug";
 import * as api from "@/lib/operations-api";
+import { useRequiredSiteLanguage } from "@/lib/site-languages";
 
 const L = api.SERVICE_TYPE_WEB_LIMITS;
 
@@ -69,7 +70,7 @@ const emptyDraft = (): Draft => ({
 
 const toDraft = (g: api.ServiceTypeWebGroup): Draft => ({
   key: g.key,
-  name_fr: g.name_fr,
+  name_fr: g.name_fr ?? "",
   name_en: g.name_en ?? "",
   icon: g.icon ?? "",
   sort_order: g.sort_order ?? 100,
@@ -99,16 +100,18 @@ function PillarForm({
     setDraft({ ...draft, [k]: v });
 
   // The key is the anchor a shared link lands on, so it is suggested from the
-  // French name on a NEW pillar and never rewritten afterwards: changing it
-  // silently would break /services#freight for everyone who bookmarked it.
-  const keySuggestion = suggestSlug(draft.name_fr, "pillar");
+  // name in the site's required language on a NEW pillar and never rewritten
+  // afterwards: changing it silently would break /services#freight for
+  // everyone who bookmarked it.
+  const lang = useRequiredSiteLanguage();
+  const keySuggestion = suggestSlug(lang === "fr" ? draft.name_fr : draft.name_en, "pillar");
 
   return (
     <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
       <div className="grid gap-3 md:grid-cols-2">
         <Field
           label={`${tr("Name")} (FR)`}
-          required
+          required={lang === "fr"}
           about={tr("What the section is called on the French site.")}
         >
           <Input
@@ -118,7 +121,7 @@ function PillarForm({
             onChange={(e) => set("name_fr", e.target.value)}
           />
         </Field>
-        <Field label={`${tr("Name")} (EN)`}>
+        <Field label={`${tr("Name")} (EN)`} required={lang === "en"}>
           <Input
             value={draft.name_en}
             disabled={disabled || busy}
@@ -232,6 +235,7 @@ export function ServiceTypeWebPillars({
   canWrite?: boolean;
 }) {
   const groups = useResource(() => api.listServiceTypeWebGroups(), []);
+  const requiredLang = useRequiredSiteLanguage();
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [draft, setDraft] = React.useState<Draft>(emptyDraft());
@@ -280,6 +284,7 @@ export function ServiceTypeWebPillars({
   }
 
   async function save() {
+    const named = (requiredLang === "fr" ? draft.name_fr : draft.name_en).trim();
     const body: api.ServiceTypeWebGroupPatch = {
       key: draft.key.trim(),
       name_fr: draft.name_fr.trim(),
@@ -288,8 +293,12 @@ export function ServiceTypeWebPillars({
       sort_order: draft.sort_order,
       is_active: draft.is_active,
     };
-    if (!body.name_fr) {
-      setError(tr("A pillar needs a French name."));
+    if (!named) {
+      setError(
+        requiredLang === "fr"
+          ? tr("A pillar needs a French name.")
+          : tr("A pillar needs an English name."),
+      );
       return;
     }
     if (!body.key) {
@@ -380,9 +389,9 @@ export function ServiceTypeWebPillars({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="truncate text-sm font-medium text-foreground">
-                            {g.name_fr}
+                            {g.name_fr || g.name_en}
                           </span>
-                          {g.name_en && (
+                          {g.name_fr && g.name_en && (
                             <span className="micro text-muted-foreground truncate">
                               · {g.name_en}
                             </span>

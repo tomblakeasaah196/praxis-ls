@@ -11,6 +11,7 @@ import { NotFoundPage } from "@/features/not-found/not-found-page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { p, BASE_IS_DEFAULT, IS_ROOT, LEGACY_BASE } from "@/lib/base-path";
 import { OpenInBrowserBar } from "@/components/site/open-in-browser-bar";
+import { useSiteSwitches, type SiteSwitches } from "@/lib/site-switches";
 
 /**
  * The route table for the stranger-facing app.
@@ -141,6 +142,23 @@ const PortalApp = lazy(
   () => import("@/features/portal/portal-app"),
   "PortalApp",
 );
+
+/**
+ * A section behind a website switch (website v2). Switched off, its URL is the
+ * not-found page, exactly as if the route did not exist, and the server leaves
+ * it out of the sitemap (`public-head.js`). One build serves every tenant, so
+ * the page stays in the product and only this tenant stops serving it.
+ */
+function Switched({
+  on,
+  children,
+}: {
+  on: keyof Omit<SiteSwitches, "languages">;
+  children: React.ReactNode;
+}) {
+  const switches = useSiteSwitches();
+  return switches[on] ? <>{children}</> : <NotFoundPage />;
+}
 
 /* ── legacy paths the ERP already sent people to ─────────────────────────── */
 
@@ -311,8 +329,14 @@ export function AppRouter() {
         <Route path={p("/about")} element={<About />} />
         <Route path={p("/services")} element={<ServicesIndex />} />
         <Route path={p("/services/:slug")} element={<ServiceDetail />} />
-        <Route path={p("/portfolio")} element={<PortfolioIndex />} />
-        <Route path={p("/portfolio/:slug")} element={<PortfolioStory />} />
+        <Route
+          path={p("/portfolio")}
+          element={<Switched on="portfolio"><PortfolioIndex /></Switched>}
+        />
+        <Route
+          path={p("/portfolio/:slug")}
+          element={<Switched on="portfolio"><PortfolioStory /></Switched>}
+        />
         <Route path={p("/q/:token")} element={<Quotation />} />
         <Route path={p("/proposals/:token")} element={<LegacyToken to={p("/q")} />} />
         <Route path={p("/profile/:token")} element={<Profile />} />

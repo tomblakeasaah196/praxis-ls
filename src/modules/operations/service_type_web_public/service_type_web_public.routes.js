@@ -35,6 +35,8 @@ const { AppError, asyncHandler } = require("../../../utils/errors");
 const storage = require("../../../services/storage.service");
 const { publishedMonth } = require("../../../shared/date/published-month");
 const repo = require("../service_type_web/service_type_web.repo");
+const { siteLanguages } = require("@praxis/shared");
+const siteSwitches = require("../../site/site_settings/site_switches");
 const { serviceScope, incoterms } = require("@praxis/shared");
 const grouping = require("./service_type_web_public.service");
 
@@ -78,9 +80,15 @@ const notFound = (msg) => new AppError("NOT_FOUND", msg, 404);
  * answered 200 in production.
  */
 router.get("/", limit, asyncHandler(async (req, res) => {
-  const rows = await req.tenantDbIn("live", (client) => repo.publicList(client));
+  // The switches come from the same LIVE read: an English-only tenant's
+  // services are served with no French in them (website v2), so a card with
+  // no English line prints nothing rather than the French one.
+  const { rows, site } = await req.tenantDbIn("live", async (client) => ({
+    rows: await repo.publicList(client),
+    site: await siteSwitches.load(client),
+  }));
   res.json({
-    data: grouping.groupServices(rows, (row) => ({
+    data: siteLanguages.withoutUnofferedLanguage(grouping.groupServices(rows, (row) => ({
       service_type_id: row.service_type_id,
       slug_fr: row.slug_fr,
       slug_en: row.slug_en,
@@ -136,7 +144,7 @@ router.get("/", limit, asyncHandler(async (req, res) => {
       has_video: row.has_video,
       sort_order: row.sort_order,
       published_month: publishedMonth(row.published_at),
-    })),
+    })), site),
   });
 }));
 
@@ -145,14 +153,15 @@ router.get("/:slug", limit, asyncHandler(async (req, res) => {
     const detail = await repo.publicDetail(client, req.params.slug);
     if (!detail) return null;
     const { row, mediaByRole } = detail;
-    const [related, faq] = await Promise.all([
+    const [related, faq, site] = await Promise.all([
       repo.publicRelated(client, row.service_type_id),
       repo.publicFaq(client, row.service_type_id),
+      siteSwitches.load(client),
     ]);
-    return { row, mediaByRole, related, faq };
+    return { row, mediaByRole, related, faq, site };
   });
   if (!result) throw notFound("Service not found");
-  const { row, mediaByRole, related, faq } = result;
+  const { row, mediaByRole, related, faq, site } = result;
   // Role must match the SLOT, not merely be present in the allowlist. A doc
   // bound as GALLERY that some earlier write also left in `cover_vault_id`
   // would otherwise be served as this service's cover here while the list card
@@ -163,7 +172,7 @@ router.get("/:slug", limit, asyncHandler(async (req, res) => {
   const iconAllowed = roleIs(row.icon_vault_id, "ICON");
   const galleryAllowed = (row.gallery_vault_ids || []).filter((id) => roleIs(id, "GALLERY"));
   res.json({
-    data: {
+    data: siteLanguages.withoutUnofferedLanguage({
       service_type_id: row.service_type_id,
       slug_fr: row.slug_fr,
       slug_en: row.slug_en,
@@ -189,7 +198,7 @@ router.get("/:slug", limit, asyncHandler(async (req, res) => {
       faq,
       related,
       published_month: publishedMonth(row.published_at),
-    },
+    }, site),
   });
 }));
 

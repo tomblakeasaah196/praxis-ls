@@ -30,6 +30,9 @@ import { tenant } from "./api-client";
 
 /** Bilingual text, as the block schema stores it. FR is required upstream; EN
  *  is optional, and the public page falls back FR↔EN rather than blanking. */
+/** Both halves may be blank on the wire: which one is REQUIRED is the
+ *  tenant's (website v2), so a type cannot say. `useRequiredSiteLanguage`
+ *  answers it for a form. */
 export type Bilingual = { fr: string; en?: string | null };
 
 export type StatCounterItem = {
@@ -137,6 +140,11 @@ export type SiteMeta = {
   website_enabled: boolean;
   /** Every key a `stat_counters` item may bind to, with the registry's unit. */
   metrics: { key: string; unit: string | null }[];
+  /** The languages the website offers, and the one every bilingual field
+   *  needs (website v2): English on an English-only site, French where French
+   *  is offered. Optional so an older API still loads the editor. */
+  languages?: ("en" | "fr")[];
+  required_language?: "en" | "fr";
 };
 
 export type PagePatch = Partial<
@@ -175,6 +183,9 @@ export type CopyCatalogueEntry = {
   label: string;
   default_en: string;
   default_fr: string;
+  /** An optional supporting line (subtitle, lead, eyebrow, hint) that may be
+   *  hidden rather than rewritten. Absent on an older API: not hideable. */
+  hideable?: boolean;
 };
 
 export type CopyCatalogueSection = {
@@ -191,7 +202,13 @@ export type CopyCatalogue = {
   entries: CopyCatalogueEntry[];
 };
 
-export type CopyOverrideItem = { key: string; value: Bilingual };
+/** One override: the tenant's words, or `hidden` for an optional line the
+ *  tenant wants gone (website v2). Never both. */
+export type CopyOverrideItem = {
+  key: string;
+  value?: { fr?: string | null; en?: string | null };
+  hidden?: true;
+};
 
 /** The block type that carries them. Not in `EDITABLE_BLOCK_TYPES`: the page
  *  editor must not offer "Add a copy override block" beside Hero and Figures —

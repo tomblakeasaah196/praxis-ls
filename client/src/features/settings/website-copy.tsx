@@ -56,17 +56,24 @@ import { Callout } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Pill } from "@/components/ui/pill";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SettingsCard } from "@/components/settings/controls";
 import { EmptyState, ErrorState, LoadingRow } from "@/components/ui/states";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-content-api";
+import {
+  languageName,
+  requiredMessage,
+  useRequiredSiteLanguage,
+  type SiteLang,
+} from "@/lib/site-languages";
 import { WebsiteNav } from "./website-nav";
 
 /** One row's edit state. Both halves are plain strings; empty means "not
  *  overridden", which is what makes clearing a field the reset gesture. */
-type Draft = { fr: string; en: string };
+type Draft = { fr: string; en: string; hidden?: boolean };
 
 /** Above this many characters the shipped default is prose rather than a label,
  *  and a single-line input makes editing it a horizontal scroll. Measured
@@ -75,7 +82,11 @@ type Draft = { fr: string; en: string };
 const PROSE_AT = 90;
 
 const emptyDraft = (): Draft => ({ fr: "", en: "" });
-const isSet = (d: Draft | undefined) => Boolean(d && d.fr.trim());
+/** A row is an override when it is hidden or says something in either
+ *  language. Which half it NEEDS is the tenant's (website v2) and is checked
+ *  against `useRequiredSiteLanguage`, the rule the API refuses with. */
+const isSet = (d: Draft | undefined) =>
+  Boolean(d && (d.hidden || d.fr.trim() || d.en.trim()));
 
 export function WebsiteCopyPage() {
   const [catalogue, setCatalogue] = React.useState<api.CopyCatalogue | null>(null);
@@ -89,6 +100,8 @@ export function WebsiteCopyPage() {
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState<string | null>(null);
   const [confirm, confirmDialog] = useConfirm();
+  const required: SiteLang = useRequiredSiteLanguage();
+  const optional: SiteLang = required === "fr" ? "en" : "fr";
 
   const load = React.useCallback(() => {
     setLoadError(null);
@@ -118,6 +131,7 @@ export function WebsiteCopyPage() {
           next[item.key] = {
             fr: item.value?.fr ?? "",
             en: item.value?.en ?? "",
+            hidden: item.hidden === true,
           };
         }
         setDrafts(next);
@@ -161,35 +175,46 @@ export function WebsiteCopyPage() {
 
   const overriddenTotal = entries.filter((e) => isSet(drafts[e.key])).length;
 
-  /** A row with English but no French. The API refuses it, so the button is
-   *  disabled and the offending fields are marked — the same shape
+  /** A row written in the optional language only. The API refuses it, so the
+   *  button is disabled and the offending fields are marked — the same shape
    *  `website-social.tsx` uses for a URL on the wrong domain. */
   const incomplete = React.useMemo(
     () =>
       Object.entries(drafts)
-        .filter(([, d]) => !d.fr.trim() && d.en.trim())
+        .filter(([, d]) => !d.hidden && !d[required].trim() && d[optional].trim())
         .map(([key]) => key),
-    [drafts],
+    [drafts, required, optional],
   );
 
-  function edit(key: string, half: keyof Draft, value: string) {
+  function edit(key: string, half: "fr" | "en", value: string) {
     setSaved(false);
     setDrafts((d) => ({ ...d, [key]: { ...(d[key] ?? emptyDraft()), [half]: value } }));
   }
 
-  /** What gets stored: every row with French in it, in catalogue order so the
-   *  saved block reads the same way the screen does. A row the tenant cleared
-   *  is simply absent, which is how an override stops existing. */
+  /** "Hide this line": the site prints nothing there and the space closes.
+   *  The words already typed are kept in the draft, so un-hiding brings them
+   *  back rather than starting again. */
+  function setHidden(key: string, hidden: boolean) {
+    setSaved(false);
+    setDrafts((d) => ({ ...d, [key]: { ...(d[key] ?? emptyDraft()), hidden } }));
+  }
+
+  /** What gets stored: every hidden row, and every row written in the
+   *  required language, in catalogue order so the saved block reads the same
+   *  way the screen does. A row the tenant cleared is simply absent, which is
+   *  how an override stops existing. */
   function items(): api.CopyOverrideItem[] {
     return entries
       .filter((e) => isSet(drafts[e.key]))
-      .map((e) => {
+      .map((e): api.CopyOverrideItem => {
         const d = drafts[e.key];
+        if (d.hidden && e.hideable) return { key: e.key, hidden: true };
         return {
           key: e.key,
-          value: { fr: d.fr.trim(), en: d.en.trim() || null },
+          value: { fr: d.fr.trim() || null, en: d.en.trim() || null },
         };
-      });
+      })
+      .filter((i) => i.hidden || (i.value && (i.value.fr || i.value.en)));
   }
 
   async function save() {
@@ -277,7 +302,7 @@ export function WebsiteCopyPage() {
         eyebrow={<HubCrumb area="Settings" to="/settings" />}
         title={tr("Website Wording")}
         description={tr(
-          "Every heading, label and sentence the site shows around your content. Leave a field blank to keep the wording Praxis ships.",
+          "Every heading, label and sentence the site shows around your content. Leave a field blank to keep the wording Praxis ships, or hide an optional line.",
         )}
       />
       <WebsiteNav />
@@ -288,9 +313,15 @@ export function WebsiteCopyPage() {
         <>
           <SettingsCard
             title={tr("What your visitors read")}
-            desc={tr(
-              "French is the version the site falls back to, so it is the one an override needs. English is optional.",
-            )}
+            desc={
+              required === "fr"
+                ? tr(
+                    "French is the version the site falls back to, so it is the one an override needs. English is optional.",
+                  )
+                : tr(
+                    "Your site is English only, so an override needs the English. French is optional and is not shown.",
+                  )
+            }
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -383,53 +414,59 @@ export function WebsiteCopyPage() {
                           row.default_fr.length > PROSE_AT;
                         const Control = prose ? Textarea : Input;
                         const bad = incomplete.includes(row.key);
+                        const hidden = Boolean(draft.hidden && row.hideable);
+                        /* The required half first: on an English-only site
+                           that is English, and French sits beside it marked
+                           optional. */
+                        const halves: SiteLang[] = [required, optional];
                         return (
                           <div key={row.key} className="grid gap-2">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                               <span className="text-sm font-medium text-foreground">
                                 {row.label}
                               </span>
-                              <code className="font-mono text-[11px] text-muted-foreground">
-                                {row.key}
-                              </code>
+                              <span className="flex items-center gap-3">
+                                {row.hideable ? (
+                                  <Checkbox
+                                    checked={hidden}
+                                    onCheckedChange={(v) => setHidden(row.key, v === true)}
+                                    label={tr("Hide this line")}
+                                  />
+                                ) : null}
+                                <code className="font-mono text-[11px] text-muted-foreground">
+                                  {row.key}
+                                </code>
+                              </span>
                             </div>
-                            <div className="grid gap-2 md:grid-cols-2">
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">
-                                  {tr("French")}
-                                </span>
-                                <Control
-                                  value={draft.fr}
-                                  placeholder={row.default_fr}
-                                  aria-invalid={bad || undefined}
-                                  onChange={(
-                                    e: React.ChangeEvent<
-                                      HTMLInputElement | HTMLTextAreaElement
-                                    >,
-                                  ) => edit(row.key, "fr", e.target.value)}
-                                />
-                              </label>
-                              <label className="grid gap-1">
-                                <span className="text-xs text-muted-foreground">
-                                  {tr("English")}
-                                </span>
-                                <Control
-                                  value={draft.en}
-                                  placeholder={row.default_en}
-                                  onChange={(
-                                    e: React.ChangeEvent<
-                                      HTMLInputElement | HTMLTextAreaElement
-                                    >,
-                                  ) => edit(row.key, "en", e.target.value)}
-                                />
-                              </label>
-                            </div>
-                            {bad ? (
-                              <p className="text-xs text-bad">
-                                {tr(
-                                  "Add the French too. It is the version the site falls back to.",
-                                )}
+                            {hidden ? (
+                              <p className="text-xs text-muted-foreground">
+                                {tr("Hidden. Visitors see nothing here and the space closes.")}
                               </p>
+                            ) : (
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {halves.map((half) => (
+                                  <label key={half} className="grid gap-1">
+                                    <span className="text-xs text-muted-foreground">
+                                      {half === required
+                                        ? languageName(half)
+                                        : `${languageName(half)} ${tr("(Optional)")}`}
+                                    </span>
+                                    <Control
+                                      value={draft[half]}
+                                      placeholder={half === "fr" ? row.default_fr : row.default_en}
+                                      aria-invalid={(half === required && bad) || undefined}
+                                      onChange={(
+                                        e: React.ChangeEvent<
+                                          HTMLInputElement | HTMLTextAreaElement
+                                        >,
+                                      ) => edit(row.key, half, e.target.value)}
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                            {bad && !hidden ? (
+                              <p className="text-xs text-bad">{requiredMessage(required)}</p>
                             ) : null}
                           </div>
                         );

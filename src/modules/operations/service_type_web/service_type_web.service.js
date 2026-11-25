@@ -21,6 +21,32 @@ const storage = require("../../../services/storage.service");
 const vault = require("../../vault/document_vault/document_vault.service");
 const events = require("./service_type_web.events");
 const repo = require("./service_type_web.repo");
+const { siteLanguages } = require("@praxis/shared");
+const siteSwitches = require("../../site/site_settings/site_switches");
+
+/**
+ * English first (website v2). Which half of a bilingual field this tenant
+ * needs is the website's switch, not a constant: English on an English-only
+ * site, French where French is offered. One rule, from @praxis/shared, so the
+ * profile, its FAQ and its pillar names agree with the rest of the site.
+ */
+async function assertLanguage(client, row, bases, { mustHave = [], prefix = "" } = {}) {
+  const site = await siteSwitches.load(client);
+  const gaps = siteLanguages.pairGaps(row, bases, site, { mustHave });
+  if (gaps.length) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      siteLanguages.gapMessage(site),
+      422,
+      Object.fromEntries(gaps.map((g) => [`${prefix}${g}`, [siteLanguages.gapMessage(site)]])),
+    );
+  }
+}
+
+const PROFILE_COPY = [
+  "short_description", "long_description", "highlights", "coverage",
+  "meta_title", "meta_description", "claim",
+];
 
 const IMAGE_TYPES = repo.IMAGE_TYPES;
 const ref = (id) => `service_type:${id}`;
@@ -162,6 +188,7 @@ async function upsertProfile(client, { serviceTypeId, patch, actor = {} }) {
     }
   }
   const fields = pickWritable(patch || {});
+  await assertLanguage(client, { ...(before || {}), ...fields }, PROFILE_COPY);
   // An unknown pillar would otherwise reach the FK and surface as a 500 with a
   // Postgres string in it. Named field, 422, same shape as SLUG_TAKEN. Null is
   // allowed through untouched — clearing the pillar is how a service returns to
@@ -442,6 +469,12 @@ async function replaceFaq(client, { serviceTypeId, rows, actor = {} }) {
   // the FAQ lock look like an over-application. Guide §4.2 rule 4 is
   // "slug + media 422 LOCKED"; FAQ edits are a CMS typo fix that must
   // not require downtime (rule 4's own rationale).
+  for (const [i, row] of (rows || []).entries()) {
+    await assertLanguage(client, row, ["question", "answer"], {
+      mustHave: ["question", "answer"],
+      prefix: `rows.${i}.`,
+    });
+  }
   return atomically(client, async () => {
     const profile = await repo.lockProfile(client, serviceTypeId);
     if (!profile) throw new AppError("NOT_FOUND", "Web profile not found — create one before adding FAQ", 404);
@@ -520,6 +553,7 @@ const listGroups = (client) => repo.listGroups(client);
  * collision is a 422 with the field named rather than a raw 23505.
  */
 async function createGroup(client, { patch, actor = {} }) {
+  await assertLanguage(client, patch, ["name"], { mustHave: ["name"] });
   if (await repo.groupKeyTaken(client, patch.key)) {
     throw new AppError("KEY_TAKEN", `A pillar already uses the key "${patch.key}"`, 422, {
       key: ["already in use"],
@@ -542,6 +576,7 @@ async function createGroup(client, { patch, actor = {} }) {
 async function updateGroup(client, { groupId, patch, actor = {} }) {
   const before = await repo.getGroup(client, groupId);
   if (!before) throw new AppError("NOT_FOUND", "Pillar not found", 404);
+  await assertLanguage(client, { ...before, ...patch }, ["name"], { mustHave: ["name"] });
   if (patch.key && patch.key !== before.key
       && await repo.groupKeyTaken(client, patch.key, groupId)) {
     throw new AppError("KEY_TAKEN", `A pillar already uses the key "${patch.key}"`, 422, {

@@ -13,17 +13,30 @@
 jest.mock("../../src/modules/site/site_content/site_content.repo");
 jest.mock("../../src/shared/db/tx", () => ({ atomically: (_c, fn) => fn() }));
 jest.mock("../../src/shared/events/emit", () => ({ audit: jest.fn(), emitEvent: jest.fn() }));
+// The website's switches. Most of this suite pins the BILINGUAL behaviour
+// (French offered, French required); the English-only block below switches
+// French off, which is the default every tenant now ships with (14600).
+jest.mock("../../src/modules/site/site_settings/site_switches", () => ({
+  load: jest.fn(),
+}));
 
 const repo = require("../../src/modules/site/site_content/site_content.repo");
 const service = require("../../src/modules/site/site_content/site_content.service");
 const schema = require("../../src/modules/site/site_content/site_content.schema");
 const catalogue = require("../../packages/shared/data/site-copy.generated");
+const switches = require("../../src/modules/site/site_settings/site_switches");
+
+const BILINGUAL = { languages: ["en", "fr"] };
+const ENGLISH_ONLY = { languages: ["en"] };
 
 const client = {};
 const block = (items) => ({ content: { items } });
 const item = (key, fr, en) => ({ key, value: en === undefined ? { fr } : { fr, en } });
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  switches.load.mockResolvedValue(BILINGUAL);
+});
 
 describe("the catalogue", () => {
   it("covers the strings a tenant would actually go looking for", () => {
@@ -72,11 +85,46 @@ describe("the write path", () => {
     expect(out.ok).toBe(false);
   });
 
-  it("refuses an override with no French", () => {
+  it("refuses an override that says nothing in either language", () => {
+    // WHICH language is required is the tenant's (website v2) and is checked
+    // by the service; the schema refuses only the row that says nothing.
     const out = schema.validateBlock("copy_overrides", {
-      items: [{ key: "site.portfolioPage.sub", value: { en: "English only" } }],
+      items: [{ key: "site.portfolioPage.sub", value: { fr: "", en: "" } }],
     });
     expect(out.ok).toBe(false);
+  });
+
+  it("accepts an English-only override at the schema", () => {
+    const out = schema.validateBlock("copy_overrides", {
+      items: [{ key: "site.portfolioPage.sub", value: { en: "In our words." } }],
+    });
+    expect(out.ok).toBe(true);
+  });
+
+  it("hides an optional line, and refuses to hide a button", () => {
+    expect(
+      schema.validateBlock("copy_overrides", {
+        items: [{ key: "site.services.sub", hidden: true }],
+      }).ok,
+    ).toBe(true);
+    expect(
+      schema.validateBlock("copy_overrides", {
+        items: [{ key: "site.hero.cta", hidden: true }],
+      }).ok,
+    ).toBe(false);
+    // Neither written nor hidden is a row with nothing to say.
+    expect(
+      schema.validateBlock("copy_overrides", { items: [{ key: "site.services.sub" }] }).ok,
+    ).toBe(false);
+  });
+
+  it("marks exactly the optional supporting lines as hideable", () => {
+    expect(schema.isHideableCopyKey("site.services.sub")).toBe(true);
+    expect(schema.isHideableCopyKey("site.hero.titleAccent")).toBe(true);
+    expect(schema.isHideableCopyKey("site.track.hint")).toBe(true);
+    expect(schema.isHideableCopyKey("site.hero.title")).toBe(false);
+    expect(schema.isHideableCopyKey("site.hero.cta")).toBe(false);
+    expect(schema.isHideableCopyKey("site.nope.sub")).toBe(false);
   });
 
   it("refuses markup-bearing keys reaching outside site.*", () => {
@@ -200,6 +248,43 @@ describe("getPublicCopy", () => {
     ]);
     const out = await service.getPublicCopy(client);
     expect(out.fr.site.footer.legal).toBe("Dernier");
+  });
+});
+
+describe("getPublicCopy on an English-only site", () => {
+  beforeEach(() => switches.load.mockResolvedValue(ENGLISH_ONLY));
+
+  it("serves the English and never the French", async () => {
+    repo.listPublishedCopyOverrides.mockResolvedValue([
+      block([item("site.portfolioPage.titleMain", "Nos", "Reference")]),
+    ]);
+    expect(await service.getPublicCopy(client)).toEqual({
+      en: { site: { portfolioPage: { titleMain: "Reference" } } },
+      fr: {},
+    });
+  });
+
+  it("skips a French-only row rather than printing French to an English reader", async () => {
+    repo.listPublishedCopyOverrides.mockResolvedValue([
+      block([item("site.portfolioPage.sub", "Dans nos mots.")]),
+    ]);
+    expect(await service.getPublicCopy(client)).toEqual({ en: {}, fr: {} });
+  });
+
+  it("serves a hidden line as an empty string, which collapses it", async () => {
+    repo.listPublishedCopyOverrides.mockResolvedValue([
+      block([{ key: "site.services.sub", hidden: true }]),
+    ]);
+    const out = await service.getPublicCopy(client);
+    expect(out.en.site.services.sub).toBe("");
+    expect(out.fr).toEqual({});
+  });
+
+  it("ignores a hidden flag on a line that cannot be hidden", async () => {
+    repo.listPublishedCopyOverrides.mockResolvedValue([
+      block([{ key: "site.hero.cta", hidden: true }]),
+    ]);
+    expect(await service.getPublicCopy(client)).toEqual({ en: {}, fr: {} });
   });
 });
 

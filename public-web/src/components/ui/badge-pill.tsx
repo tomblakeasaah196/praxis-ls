@@ -28,6 +28,12 @@ export function BadgePill({
   onDark?: boolean;
   className?: string;
 }) {
+  // A kicker the tenant hid (Settings › Website › Wording, website v2) arrives
+  // as an empty string. An empty pill is a bordered lozenge with nothing in it,
+  // so there is no pill, and the heading below closes up under the band edge.
+  if (children === "" || children === null || children === undefined || children === false) {
+    return null;
+  }
   return (
     <p
       className={cn(

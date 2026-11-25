@@ -96,9 +96,21 @@ export function FooterExtrasContent() {
     };
   }, []);
 
-  /* The LEGAL names, de-duplicated: a group whose subsidiaries share a legal
-     name has one name, not three identical ones. */
-  const legal = [...new Set(entities.map((e) => e.legal_name).filter(Boolean))];
+  /* Each company by its LEGAL name, with its registered address (website v2):
+     the footer is where a procurement officer or an overseas agent checks who
+     they are contracting with and where that company is registered. One line
+     per company, de-duplicated on the name and address together, so a group
+     whose companies share a legal name and an office prints it once. */
+  const legal = [
+    ...new Map(
+      entities
+        .filter((e) => e.legal_name)
+        .map((e) => {
+          const address = e.registered_address || "";
+          return [`${e.legal_name}|${address}`, { name: e.legal_name, address }] as const;
+        }),
+    ).values(),
+  ];
 
   return (
     <div className="footer-extras">
@@ -109,10 +121,14 @@ export function FooterExtrasContent() {
         </p>
       ) : null}
       {legal.length ? (
-        <p>
-          <span className="footer-extras-label">{t("site.footer.legalEntity")}</span>{" "}
-          {legal.join(" · ")}
-        </p>
+        <ul className="footer-legal">
+          {legal.map((l) => (
+            <li key={`${l.name}|${l.address}`}>
+              <span className="footer-extras-label">{l.name}</span>
+              {l.address ? <> {l.address}</> : null}
+            </li>
+          ))}
+        </ul>
       ) : null}
       <SocialRow onDark />
     </div>

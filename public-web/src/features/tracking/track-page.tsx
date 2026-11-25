@@ -91,7 +91,8 @@ export function TrackPage() {
   const [state, setState] = React.useState<State>({ kind: "idle" });
 
   useDocumentMeta({
-    title: `${t("site.trackPage.title")} · ${t("site.hero.eyebrow")}`,
+    // A hidden eyebrow (website v2) leaves the title alone, not "Track · ".
+    title: [t("site.trackPage.title"), t("site.hero.eyebrow")].filter(Boolean).join(" · "),
     description: t("site.trackPage.sub"),
   });
 
@@ -271,7 +272,7 @@ function TrackIdle() {
         </ButtonLink>
       }
     >
-      <p>{t("site.track.hint")}</p>
+      {t("site.track.hint") ? <p>{t("site.track.hint")}</p> : null}
       <p className="text-sm">{t("site.trackPage.whereRef")}</p>
     </Outcome>
   );

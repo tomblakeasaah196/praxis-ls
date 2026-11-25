@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { FORCE_DARK, getMode, setMode, type ThemeMode } from "@/lib/theme-mode";
+import { getMode, setMode, type ThemeMode } from "@/lib/theme-mode";
+import { useSiteSwitches } from "@/lib/site-switches";
 import { MoonIcon, SunIcon } from "@/components/ui/icons";
 
 /**
@@ -16,17 +17,12 @@ import { MoonIcon, SunIcon } from "@/components/ui/icons";
  * settled the mode before first paint, which is the only reason a pre-paint
  * theme script is allowed to exist in this repo.
  *
- * ── CURRENTLY RENDERS NOTHING ──────────────────────────────────────────────
+ * ── ONLY WHEN THE TENANT OFFERS IT (website v2) ───────────────────────────
  *
- * `FORCE_DARK` in `lib/theme-mode.ts` is on, so this returns `null` and the app
- * is dark for everybody. The component is kept rather than deleted, and the
- * footer keeps calling it, because that makes restoring the toggle one boolean
- * instead of a revert across four files.
- *
- * Returning `null` is what makes the guarantee hold end to end: `setMode` is
- * already a no-op under the lock, so leaving a visible control would have meant
- * a button that renders a sun, changes nothing when pressed, and reads as
- * broken. No control, no dead affordance.
+ * The site is light by default with dark photographic bands. A visitor switch
+ * is one of the website's options (Settings › Website › Options), off until a
+ * tenant turns it on, so this renders nothing until then. `setMode` is a no-op
+ * in the same state, so there is never a control that changes nothing.
  */
 export function ThemeToggle({ onDark = false }: { onDark?: boolean }) {
   const { t } = useTranslation();
@@ -36,10 +32,10 @@ export function ThemeToggle({ onDark = false }: { onDark?: boolean }) {
   const label =
     mode === "dark" ? t("site.chrome.themeLight") : t("site.chrome.themeDark");
 
-  // After the hooks, never before: an early return above `useTranslation` and
-  // `useState` would change the hook count between renders if the lock were
-  // ever flipped at runtime, and React counts hooks by call order.
-  if (FORCE_DARK) return null;
+  const { visitor_theme_switch: offered } = useSiteSwitches();
+  // After the hooks, never before: the switch can arrive after first paint,
+  // and React counts hooks by call order.
+  if (!offered) return null;
 
   return (
     <button

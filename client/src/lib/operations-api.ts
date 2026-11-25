@@ -2342,7 +2342,9 @@ export type ServiceTypeWebGroup = {
   group_id: string;
   /** The URL anchor a shared link lands on. Slug-shaped, unique, stable across renames. */
   key: string;
-  name_fr: string;
+  /** Either name may be blank; the site's required language must not be
+   *  (website v2, checked by the API). */
+  name_fr: string | null;
   name_en?: string | null;
   /** Icon NAME, resolved by the renderer against its own set — never markup. */
   icon?: string | null;

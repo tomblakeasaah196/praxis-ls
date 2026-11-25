@@ -42,6 +42,7 @@ import { WebsiteNav } from "./website-nav";
 import { useList, useRefresh, errMsg } from "@/lib/use-resource";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/site-content-api";
+import { useRequiredSiteLanguage } from "@/lib/site-languages";
 import { useCan } from "@/lib/route-access";
 
 export function WebsitePagesPage() {
@@ -281,7 +282,8 @@ export function WebsitePagesPage() {
  * dialog that asks for nine fields is a dialog people abandon, and every one of
  * those nine can be set on the page's own screen a moment later; the two that
  * cannot be deferred are the key (it is the identity, and it is what `home`
- * means to the marketing site) and the French title (the API requires it).
+ * means to the marketing site) and the title in the language the site requires
+ * (English on an English-only site, French where French is offered).
  */
 function PageForm({
   onClose,
@@ -297,6 +299,8 @@ function PageForm({
   const [error, setError] = React.useState<string | null>(null);
 
   const keyOk = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(key);
+  const lang = useRequiredSiteLanguage();
+  const titleOk = !!(lang === "fr" ? titleFr : titleEn).trim();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -343,24 +347,45 @@ function PageForm({
             className="font-mono"
           />
         </Field>
-        <Field label={tr("Title (French)")} required hint="Required. French is the fallback every page falls back to.">
-          <Input
-            value={titleFr}
-            onChange={(e) => setTitleFr(e.target.value)}
-            placeholder="Accueil"
-          />
-        </Field>
-        <Field label={tr("Title (English)")} hint="Optional. Left blank, the French title is used.">
-          <Input
-            value={titleEn}
-            onChange={(e) => setTitleEn(e.target.value)}
-            placeholder="Home"
-          />
-        </Field>
+        {lang === "fr" ? (
+          <>
+            <Field label={tr("Title (French)")} required>
+              <Input
+                value={titleFr}
+                onChange={(e) => setTitleFr(e.target.value)}
+                placeholder="Accueil"
+              />
+            </Field>
+            <Field label={tr("Title (English, Optional)")}>
+              <Input
+                value={titleEn}
+                onChange={(e) => setTitleEn(e.target.value)}
+                placeholder="Home"
+              />
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label={tr("Title (English)")} required>
+              <Input
+                value={titleEn}
+                onChange={(e) => setTitleEn(e.target.value)}
+                placeholder="Home"
+              />
+            </Field>
+            <Field label={tr("Title (French, Optional)")}>
+              <Input
+                value={titleFr}
+                onChange={(e) => setTitleFr(e.target.value)}
+                placeholder="Accueil"
+              />
+            </Field>
+          </>
+        )}
         {error && <ErrorState message={error} />}
         <FormButtons
           busy={busy}
-          disabled={busy || !keyOk || !titleFr.trim()}
+          disabled={busy || !keyOk || !titleOk}
           onCancel={onClose}
           saveLabel={tr("Create page")}
         />

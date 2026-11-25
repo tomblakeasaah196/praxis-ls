@@ -9,7 +9,9 @@ const { audit } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 const events = require("./site_content.events");
 const repo = require("./site_content.repo");
-const { validateBlock } = require("./site_content.schema");
+const { validateBlock, isHideableCopyKey } = require("./site_content.schema");
+const { siteLanguages } = require("@praxis/shared");
+const switches = require("../site_settings/site_switches");
 const { REGISTRY, resolveMetric } = require("./site_content.metrics");
 /* Deep path for the reason site_content.schema.js states: the catalogue is not
    on the shared package's index, because only one side of the wire bundles it. */
@@ -54,9 +56,15 @@ async function editorMeta(client) {
     "SELECT state FROM feature_state WHERE feature_key = $1",
     ["website"],
   );
+  const site = await switches.load(client);
   return {
     website_enabled: !!(rows[0] && rows[0].state === "on"),
     metrics: [...REGISTRY.values()].map((m) => ({ key: m.key, unit: m.unit })),
+    // Which language every bilingual field needs (website v2). The editor
+    // marks that half required and the other optional, from the same rule the
+    // service refuses with.
+    languages: site.languages,
+    required_language: siteLanguages.requiredLanguage(site),
   };
 }
 
@@ -145,6 +153,11 @@ function applyMetrics(block, resolved) {
  * returns 200.
  */
 async function getPublicPage(client, key) {
+  const site = await switches.load(client);
+  return siteLanguages.withoutUnofferedLanguage(await publicPagePayload(client, key), site);
+}
+
+async function publicPagePayload(client, key) {
   const page = await repo.getPageByKey(client, key, { publishedOnly: true });
   if (!page) throw new AppError("NOT_FOUND", "Page not found", 404);
 
@@ -260,18 +273,33 @@ function setPath(tree, dotted, value) {
 /**
  * The tenant's rewritten strings, as an i18next resource tree per language.
  *
- * English falls back to French rather than to the shipped English, which looks
- * backwards and is not: `bi()` makes FR required and EN optional across this
- * whole schema, so a tenant who writes only French has said something
- * deliberate about every language their site is read in. Half-overriding a
- * heading — their words in French, ours in English — is the one outcome nobody
+ * ── WHICH LANGUAGE FALLS BACK TO WHICH (website v2) ───────────────────────
+ *
+ * A tenant offering French: English falls back to French rather than to the
+ * shipped English, which looks backwards and is not. French is the required
+ * half for that tenant, so one who writes only French has said something
+ * deliberate about every language their site is read in, and half-overriding a
+ * heading (their words in French, ours in English) is the one outcome nobody
  * would choose on purpose.
+ *
+ * A tenant offering English only: the English is the override, and French is
+ * never served. A row with French and no English is skipped rather than
+ * printed, because a visitor to an English-only site must never read French.
+ *
+ * ── A HIDDEN LINE IS AN EMPTY STRING ──────────────────────────────────────
+ *
+ * `hidden: true` overrides the shipped wording with "" in every language
+ * served. i18next returns the empty string as written, and every renderer of a
+ * hideable line (`isHideableCopyKey`) draws nothing for it, so the gap closes.
  */
 async function getPublicCopy(client) {
   const rows = await repo.listPublishedCopyOverrides(client);
+  const site = await switches.load(client);
+  const french = siteLanguages.offersFrench(site);
   // Null-prototype roots, matching what `setPath` creates below.
   const en = Object.create(null);
   const fr = Object.create(null);
+  const text = (v) => (typeof v === "string" ? v.trim() : "");
   for (const row of rows) {
     const items = Array.isArray(row?.content?.items) ? row.content.items : [];
     for (const item of items) {
@@ -280,11 +308,24 @@ async function getPublicCopy(client) {
       // a dictionary path. `setPath` guards the prototype chain a second time
       // rather than trusting that — see the note on it.
       if (!key || !isSiteCopyKey(key)) continue;
-      const frText = typeof item?.value?.fr === "string" ? item.value.fr : "";
-      if (!frText) continue;
-      const enText = typeof item?.value?.en === "string" && item.value.en ? item.value.en : frText;
-      setPath(fr, key, frText);
-      setPath(en, key, enText);
+      if (item.hidden === true) {
+        // Re-checked on read for the reason keys are: the set of hideable
+        // lines is code, and a line that stopped being hideable in a later
+        // deploy comes back rather than leaving a gap nobody can explain.
+        if (!isHideableCopyKey(key)) continue;
+        setPath(en, key, "");
+        if (french) setPath(fr, key, "");
+        continue;
+      }
+      const frText = text(item?.value?.fr);
+      const enText = text(item?.value?.en);
+      if (french) {
+        if (!frText) continue;
+        setPath(fr, key, frText);
+        setPath(en, key, enText || frText);
+      } else if (enText) {
+        setPath(en, key, enText);
+      }
     }
   }
   return { en, fr };
@@ -306,6 +347,7 @@ function copyCatalogue() {
       label,
       default_en: en,
       default_fr: fr,
+      hideable: isHideableCopyKey(key),
     })),
   };
 }
@@ -313,7 +355,8 @@ function copyCatalogue() {
 /** The nav — published pages only, in nav order. */
 async function listPublicPages(client) {
   const pages = await repo.listPages(client);
-  return pages
+  const site = await switches.load(client);
+  return siteLanguages.withoutUnofferedLanguage(pages
     .filter((p) => p.is_published)
     .map((p) => ({
       key: p.key,
@@ -321,7 +364,42 @@ async function listPublicPages(client) {
       title_en: p.title_en,
       slug_fr: p.slug_fr,
       slug_en: p.slug_en,
-    }));
+    })), site);
+}
+
+/**
+ * English first (website v2): every bilingual value in a block carries the
+ * language this tenant requires. Run after the type's own schema, which has
+ * already made sure each value says something in one language or the other.
+ */
+async function checkLanguage(client, content) {
+  const site = await switches.load(client);
+  const gaps = siteLanguages.bilingualGaps(content, site);
+  if (gaps.length) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      siteLanguages.gapMessage(site),
+      422,
+      Object.fromEntries(gaps.map((g) => [g || "content", [siteLanguages.gapMessage(site)]])),
+    );
+  }
+}
+
+/** The page's own title, against the same rule: a title is always required,
+ *  in the tenant's required language; the other half is optional. */
+async function checkPageLanguage(client, merged) {
+  const site = await switches.load(client);
+  const gaps = siteLanguages.pairGaps(merged, ["title", "meta_title", "meta_description"], site, {
+    mustHave: ["title"],
+  });
+  if (gaps.length) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      siteLanguages.gapMessage(site),
+      422,
+      Object.fromEntries(gaps.map((g) => [g, [siteLanguages.gapMessage(site)]])),
+    );
+  }
 }
 
 /* ── admin ───────────────────────────────────────────────────────────────── */
@@ -356,6 +434,7 @@ const RESERVED_PAGE_KEYS = new Set(["site-copy"]);
 const reserved = (key) => RESERVED_PAGE_KEYS.has(String(key || "").toLowerCase());
 
 async function createPage(client, { patch, actor = {} }) {
+  await checkPageLanguage(client, patch);
   if (await repo.pageKeyTaken(client, patch.key)) {
     throw new AppError("KEY_TAKEN", `A page already uses the key "${patch.key}"`, 422, {
       key: ["already in use"],
@@ -378,6 +457,7 @@ async function createPage(client, { patch, actor = {} }) {
 async function updatePage(client, { pageId, patch, actor = {} }) {
   const before = await repo.getPage(client, pageId);
   if (!before) throw new AppError("NOT_FOUND", "Page not found", 404);
+  await checkPageLanguage(client, { ...before, ...patch });
   if (patch.key && patch.key !== before.key
       && await repo.pageKeyTaken(client, patch.key, pageId)) {
     throw new AppError("KEY_TAKEN", `A page already uses the key "${patch.key}"`, 422, {
@@ -488,6 +568,7 @@ async function createBlock(client, { pageId, patch, actor = {} }) {
   const page = await repo.getPage(client, pageId);
   if (!page) throw new AppError("NOT_FOUND", "Page not found", 404);
   const content = checkContent(patch.type, patch.content);
+  await checkLanguage(client, content);
   return atomically(client, async () => {
     const row = await repo.createBlock(client, pageId, { ...patch, content });
     await audit(client, {
@@ -510,6 +591,7 @@ async function updateBlock(client, { blockId, patch, actor = {} }) {
     // Validated against the block's EXISTING type: a block's type is fixed at
     // creation, because changing it would leave content shaped for the old one.
     next.content = checkContent(before.type, patch.content);
+    await checkLanguage(client, next.content);
   }
   return atomically(client, async () => {
     const row = await repo.updateBlock(client, blockId, next);

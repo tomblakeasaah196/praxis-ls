@@ -29,6 +29,7 @@
 const { z } = require("zod");
 const { SOCIAL_IDS, isValidSocialUrl } = require("../design/social");
 const coverage = require("../rules/coverage");
+const siteLanguagesRule = require("../rules/site-languages");
 
 /* ── primitives ─────────────────────────────────────────────────────────────*/
 
@@ -446,6 +447,43 @@ const careers = z
   })
   .strict();
 
+/* ── the website's switches (14600) ─────────────────────────────────────────*/
+
+/**
+ * What the ONE public-web build shows for this tenant.
+ *
+ * Every tenant is served by the same code, so removing a section in code
+ * removes it for everybody. These are the switches instead, and every optional
+ * one arrives OFF: a section a tenant has not asked for is a section they have
+ * not checked, and the first tenant's review (24 Nov 2026) was mostly a list of
+ * sections nobody had asked for. Turning one on is a decision with a person
+ * behind it, made on Settings › Website › Options.
+ *
+ * `languages` is the list OFFERED. English is always in it (see
+ * rules/site-languages.js, which also decides which language is REQUIRED);
+ * French is the opt-in.
+ */
+const SITE_SWITCHES = [
+  "top_rail",
+  "portfolio",
+  "corridors",
+  "case_notes",
+  "careers_in_header",
+  "visitor_theme_switch",
+];
+
+const siteSwitches = z
+  .object({
+    languages: z
+      .array(z.enum(siteLanguagesRule.SITE_LANGUAGES))
+      .max(siteLanguagesRule.SITE_LANGUAGES.length)
+      .transform(siteLanguagesRule.normaliseLanguages),
+    ...Object.fromEntries(SITE_SWITCHES.map((k) => [k, z.boolean()])),
+  })
+  .strict();
+
+exports.siteSwitches = siteSwitches;
+exports.SITE_SWITCHES = SITE_SWITCHES;
 exports.careers = careers;
 exports.socialSet = socialSet;
 exports.theme = theme;

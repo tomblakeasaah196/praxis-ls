@@ -35,8 +35,10 @@ import {
   getSiteTheme,
   readCachedSiteTheme,
   writeCachedSiteTheme,
+  type SiteThemePayload,
 } from "@/lib/site-theme";
-import { FORCE_DARK, getMode } from "@/lib/theme-mode";
+import { initThemeMode, setTenantDefaultMode } from "@/lib/theme-mode";
+import { setSiteSwitches } from "@/lib/site-switches";
 import i18n from "@/lib/i18n";
 import { setLabelCase } from "@/lib/label-case";
 
@@ -56,38 +58,33 @@ const BrandingContext = React.createContext<Ctx>({
 
 export const DEFAULT_PRIMARY = "#ff5a00";
 
-/** The `theme` a tenant picked in Appearance is a hint, not an order: a public
- *  visitor's own persisted choice wins, because they are the one reading it.
- *
- *  While `FORCE_DARK` holds, the hint is not applied at all. This was the last
- *  path to a light page and the worst-looking one: `GET /branding` resolves
- *  AFTER first paint, so a tenant with `theme: "light"` did not merely start
- *  light — the site painted dark and then flipped to white under the reader a
- *  beat later, on every load, for every visitor who had never touched the
- *  toggle. Locking the mode without this line would have left that flip in
- *  place and made it look like a bug in the lock. */
-function syncTenantThemePreference(b: Branding): void {
-  if (FORCE_DARK) return;
-  if (!b.theme) return;
-  const stored = (() => {
-    try {
-      return localStorage.getItem("praxis.public.theme");
-    } catch {
-      return null;
-    }
-  })();
-  if (stored === "light" || stored === "dark") return;
-  if (getMode() !== b.theme) {
-    // Only ever before the visitor has chosen, so this cannot flip a page under
-    // somebody mid-read.
-    document.documentElement.classList.toggle("dark", b.theme === "dark");
-    document.documentElement.dataset.theme = b.theme;
+/** Is this a portal URL? The portal keeps its own light/dark choice
+ *  (features/portal/lib/theme.ts) and the site's mode must not repaint it. */
+const onPortal = () => {
+  try {
+    const path = window.location.pathname;
+    return path === "/portal" || path.startsWith("/portal/") || path.startsWith("/client-portal");
+  } catch {
+    return false;
   }
+};
+
+/**
+ * The website theme read carries the tenant's default mode and the switches
+ * (website v2). Both are applied the moment it lands: the switches decide the
+ * header's rail, its language control and the visitor's theme switch, and the
+ * mode decides the ground. The ERP's Appearance `theme` is NOT consulted any
+ * more: the website's own default mode (Settings › Website › Theme) is the
+ * answer on the surface it owns.
+ */
+function applySiteChoices(t: SiteThemePayload): void {
+  setSiteSwitches(t.switches);
+  setTenantDefaultMode(t.defaultMode);
+  if (!onPortal()) initThemeMode();
 }
 
 function paintDocumentIdentity(b: Branding): void {
   applyBrand({ ...b, primary: b.primary || DEFAULT_PRIMARY });
-  syncTenantThemePreference(b);
 
   if (b.name) {
     document.title = b.name;
@@ -133,6 +130,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       // The tenant's label capitalisation rides the same row (D5) — see
       // lib/label-case.ts. Words, not paint, but from the same record.
       setLabelCase(cachedTheme.labelCase, i18n);
+      applySiteChoices(cachedTheme);
     }
 
     let alive = true;
@@ -157,6 +155,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         applySiteTheme(t.value);
         setLabelCase(t.value.labelCase, i18n);
         writeCachedSiteTheme(t.value);
+        applySiteChoices(t.value);
       }
     });
     return () => {

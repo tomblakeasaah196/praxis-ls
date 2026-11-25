@@ -106,11 +106,13 @@ describe("service_type_web validator", () => {
   });
 
   describe("replaceFaq", () => {
-    test("a row missing either language is refused", () => {
+    test("a row in one language reaches the service, which applies the tenant's rule", () => {
+      // English on an English-only site, French where French is offered
+      // (website v2). site-languages.test.js pins the service's refusal.
       const out = run(validator.replaceFaq, {
-        rows: [{ question_fr: "q", question_en: "q", answer_fr: "a" /* answer_en missing */ }],
+        rows: [{ question_en: "How long?", answer_en: "Two weeks." }],
       });
-      expect(out.error.code).toBe("VALIDATION_ERROR");
+      expect(out.data.rows).toHaveLength(1);
     });
 
     test("a fully bilingual row is accepted", () => {
