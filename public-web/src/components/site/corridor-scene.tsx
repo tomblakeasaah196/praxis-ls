@@ -1,4 +1,8 @@
 import * as React from "react";
+/* Side-effect import: registers `site.corridor.*` as this chunk is evaluated
+   (corridor-copy.ts). The scene is off unless the tenant turns it on, so its
+   words are not in the entry dictionary every visitor downloads. */
+import "./corridor-i18n";
 import { useTranslation } from "react-i18next";
 import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import {

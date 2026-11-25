@@ -1,4 +1,7 @@
 import * as React from "react";
+/* Side-effect import: registers `site.trackPage.*` as this chunk is evaluated.
+   The copy rides this chunk rather than the entry dictionary (track-copy.ts). */
+import "./track-i18n";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PublicApiError, messageFor, requestIdFor } from "@/lib/api";

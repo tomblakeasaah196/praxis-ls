@@ -145,22 +145,6 @@ export const en = {
      * route and the label a reader sees. The old name was ambiguous in two
      * directions, and a hub nobody can place is a hub nobody opens.
      */
-    corridor: {
-      eyebrow: "The network",
-      title: "The corridors we run",
-      /* Two subtitles, because the scene has two honest states. The second one
-         is shown when the ledger has nothing to publish, and it says so rather
-         than letting an ornament be read as a route map. */
-      sub: "Every lane here is one we have completed files on. Move through it.",
-      subAbstract: "A picture of how a network fits together. Ours fills in as files complete.",
-      figureLabel: "Corridor network — use the arrow keys to move between places",
-      figureLabelAbstract: "An illustration of a network",
-      /* Shown only where a public entity of the tenant's covers that country —
-         "we are here", which is a stronger claim than "we deliver here". */
-      present: "We are here",
-      files: "files",
-      tilt: "Move the scene by tilting your phone",
-    },
     /**
      * The About page (§9.1) and everything on it — the entity network (§9.2),
      * the leadership renderer (§9.3) and the three proof treatments (§9.4).
@@ -753,53 +737,6 @@ export const en = {
       results: "What it changed",
       client: "Client",
     },
-    trackPage: {
-      title: "Track a shipment",
-      titleMain: "Track a",
-      titleAccent: "shipment",
-      sub: "Enter the exact file reference shown on your shipment documents.",
-      progress: "Progress",
-      ofStages: "client-visible stages",
-      current: "Current stage",
-      timeline: "Shipment timeline",
-      origin: "Origin",
-      destination: "Destination",
-      needAccount:
-        "Only the stages your account manager makes visible appear here. For anything else, your portal shows the documents.",
-      openPortal: "Open the client portal",
-      service: "Service",
-      lastUpdate: "Last update",
-      lastUpdateNone: "No stage completed yet",
-      closed: "All visible stages are complete",
-      noStages: "This file has no client-visible stages yet",
-      noStagesHint:
-        "The desk publishes each stage as it is confirmed. Come back once the first one is marked, or open the portal for the documents already on file.",
-      loading: "Looking up that reference…",
-      searchAgain: "Try another reference",
-      /* ── §8.1's verdict line ────────────────────────────────────────────
-         Three statuses, written as an ANSWER rather than as a record's state.
-         "IN_PROGRESS" is what the column says; "On the move" is what somebody
-         who asked where their cargo is wants to read. */
-      theAnswer: "Where this shipment is",
-      verdictOpened: "Opened, not yet moving",
-      verdictMoving: "On the move",
-      verdictDone: "Delivered",
-      /* Deliberately NOT "estimated arrival". There is no ETA in this API and no
-         feed behind this page — this is the date the desk scheduled for the last
-         outstanding stage, and it is labelled as exactly that. */
-      scheduled: "Scheduled",
-      noSchedule: "No stage has been scheduled on this file yet.",
-      whereRef:
-        "The reference is on the documents your account manager sent you — the booking confirmation, the transport order or the invoice.",
-      noMatch: "No match",
-      notFoundNotLost:
-        "This says nothing about your cargo. It means no file on this site carries that exact reference — most often a digit read across from a photograph, or a reference from a different provider.",
-      askDesk: "Ask the desk",
-      tooMany: "Too many lookups",
-      /* SHORT, because it sits at display size. `errors.loadFailed` is a full
-         sentence and belongs under a title, not as one. */
-      failedTitle: "The lookup did not go through",
-    },
     notFound: {
       kicker: "Wrong turn",
       title: "That page does not exist",
@@ -1019,17 +956,6 @@ export const fr = {
       servicesMore: "+{{count}} de plus",
       servicesPitch:
         "Vous ne savez pas lequel choisir ? Décrivez l’expédition et le bon service vous répond.",
-    },
-    corridor: {
-      eyebrow: "Le réseau",
-      title: "Les corridors que nous opérons",
-      sub: "Chaque ligne ici est une ligne sur laquelle nous avons des dossiers clos. Parcourez-la.",
-      subAbstract: "Une image de la façon dont un réseau s’assemble. Le nôtre se remplit à mesure que les dossiers se clôturent.",
-      figureLabel: "Réseau de corridors — utilisez les flèches pour passer d’un lieu à l’autre",
-      figureLabelAbstract: "Une illustration de réseau",
-      present: "Nous y sommes implantés",
-      files: "dossiers",
-      tilt: "Inclinez votre téléphone pour parcourir la scène",
     },
     /** Voir la version anglaise pour la raison d’être de chaque clé : tout ce
      *  qui est ici est du mobilier, jamais un fait sur le client. */
@@ -1522,44 +1448,6 @@ export const fr = {
       execution: "Le déroulé",
       results: "Ce que cela a changé",
       client: "Client",
-    },
-    trackPage: {
-      title: "Suivre un envoi",
-      titleMain: "Suivre un",
-      titleAccent: "envoi",
-      sub: "Saisissez la référence exacte indiquée sur vos documents d’expédition.",
-      progress: "Avancement",
-      ofStages: "étapes visibles par le client",
-      current: "Étape en cours",
-      timeline: "Chronologie de l’envoi",
-      origin: "Origine",
-      destination: "Destination",
-      needAccount:
-        "Seules les étapes rendues visibles par votre gestionnaire de compte apparaissent ici. Pour le reste, votre portail contient les documents.",
-      openPortal: "Ouvrir le portail client",
-      service: "Service",
-      lastUpdate: "Dernière mise à jour",
-      lastUpdateNone: "Aucune étape encore terminée",
-      closed: "Toutes les étapes visibles sont terminées",
-      noStages: "Ce dossier n’a pas encore d’étape visible par le client",
-      noStagesHint:
-        "Le bureau publie chaque étape à mesure qu’elle est confirmée. Revenez une fois la première validée, ou ouvrez le portail pour les documents déjà au dossier.",
-      loading: "Recherche de cette référence…",
-      searchAgain: "Essayer une autre référence",
-      theAnswer: "Où se trouve cet envoi",
-      verdictOpened: "Ouvert, pas encore en mouvement",
-      verdictMoving: "En mouvement",
-      verdictDone: "Livré",
-      scheduled: "Prévu",
-      noSchedule: "Aucune étape n’est encore planifiée sur ce dossier.",
-      whereRef:
-        "La référence figure sur les documents transmis par votre gestionnaire de compte : la confirmation de réservation, l’ordre de transport ou la facture.",
-      noMatch: "Aucune correspondance",
-      notFoundNotLost:
-        "Cela ne dit rien de votre marchandise. Aucun dossier de ce site ne porte cette référence exacte — le plus souvent un chiffre relevé sur une photo, ou une référence provenant d’un autre prestataire.",
-      askDesk: "Contacter le bureau",
-      tooMany: "Trop de recherches",
-      failedTitle: "La recherche n’a pas abouti",
     },
     notFound: {
       kicker: "Mauvaise adresse",

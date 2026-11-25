@@ -90,6 +90,17 @@ const FEATURE_DICTS = [
     mount: "verify",
   },
   {
+    // The tracking page, a lazy route (website v2): split out when the
+    // switches and the light theme pushed first paint past its budget.
+    file: path.join(WEB_SRC, "features", "tracking", "track-copy.ts"),
+    mount: "trackPage",
+  },
+  {
+    // The corridor scene, its own lazy chunk and off by default (website v2).
+    file: path.join(WEB_SRC, "components", "site", "corridor-copy.ts"),
+    mount: "corridor",
+  },
+  {
     // The shared Company Profile page (Sales lean revamp, PR 5): a few keys
     // of page furniture only a link holder reads.
     file: path.join(WEB_SRC, "features", "profile", "profile-copy.ts"),

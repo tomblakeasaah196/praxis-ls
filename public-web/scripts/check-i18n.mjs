@@ -86,6 +86,17 @@ const FEATURE_DICTS = [
     mount: "site.verify",
   },
   {
+    // The tracking page, a lazy route: split out when website v2 pushed first
+    // paint past its budget (track-copy.ts).
+    file: path.join(SRC, "features/tracking/track-copy.ts"),
+    mount: "site.trackPage",
+  },
+  {
+    // The corridor scene, its own lazy chunk and off by default (website v2).
+    file: path.join(SRC, "components/site/corridor-copy.ts"),
+    mount: "site.corridor",
+  },
+  {
     // The shared Company Profile page's furniture, read only by a link holder.
     file: path.join(SRC, "features/profile/profile-copy.ts"),
     mount: "site.profile",

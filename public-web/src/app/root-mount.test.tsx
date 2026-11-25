@@ -3,7 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { BrandingProvider } from "@/app/branding";
 import { AppErrorBoundary } from "@/app/error-boundary";
-import { en } from "@/lib/i18n-dict";
+import { en } from "@/lib/i18n-tree.test-helper";
 
 /**
  * The app on a host it OWNS — a domain the client brought, where the site is
