@@ -61,7 +61,7 @@ function asRouting(v: unknown): Routing | null {
     try {
       return JSON.parse(v) as Routing;
     } catch {
-      // @silent:parse a stored value that is not JSON shows nothing rather than breaking the sheet
+      /* @silent:parse — a stored value that is not JSON shows nothing rather than breaking the sheet. */
       return null;
     }
   }

@@ -103,7 +103,7 @@ export default tseslint.config(
             {
               // A regex, not `group` + "!…": ignore-style negation cannot
               // re-include a path under one it has already excluded.
-              regex: "^@praxis/shared(?!/text/[^/]+$)(/.*)?$",
+              regex: "^@praxis/shared(?!/text/[^/]+$|/rules/quote-engine$)(/.*)?$",
               message:
                 "public-web does not depend on @praxis/shared (D-1) — it resolves locally via the root workspace and fails in CI, where this app installs only its own dependencies. Re-declare the value here, or put the cross-package assertion in tests/unit/ at the repo root.",
             },

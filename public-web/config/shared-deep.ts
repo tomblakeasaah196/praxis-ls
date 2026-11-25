@@ -31,7 +31,13 @@
 import path from "node:path";
 
 /** Each deep module this app imports. Add one here when you import one. */
-export const SHARED_DEEP_MODULES = ["@praxis/shared/text/title-case"];
+export const SHARED_DEEP_MODULES = [
+  "@praxis/shared/text/title-case",
+  // The quote engine (SmartLS website v2, PR 3): the wizard and the intake run
+  // the same rules. It requires nothing, and only the quote's lazy Terms step
+  // imports it, so no first paint carries it.
+  "@praxis/shared/rules/quote-engine",
+];
 
 export function sharedDeep(appDir: string) {
   return {

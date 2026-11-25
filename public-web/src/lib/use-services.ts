@@ -63,10 +63,18 @@ function toCache(payload: ServicesIndex | ServiceCard[] | null): ServiceCache {
       failed: false,
     };
   }
-  const groups = Array.isArray(payload?.groups) ? payload.groups : [];
+  const generic = Array.isArray(payload?.routing_rules) ? payload.routing_rules : [];
+  // Each website service carries only its OWN routing rules; the generic set
+  // travels once. Merged here, so the quote engine reads one complete list.
+  const withRules = (svc: ServiceCard): ServiceCard =>
+    svc.quote ? { ...svc, quote: { ...svc.quote, rules: [...generic, ...(svc.quote.rules || [])] } } : svc;
+  const groups = (Array.isArray(payload?.groups) ? payload.groups : []).map((g) => ({
+    ...g,
+    services: Array.isArray(g.services) ? g.services.map(withRules) : [],
+  }));
   return {
     groups,
-    services: groups.flatMap((g) => (Array.isArray(g.services) ? g.services : [])),
+    services: groups.flatMap((g) => g.services),
     disabled: false,
     failed: false,
   };

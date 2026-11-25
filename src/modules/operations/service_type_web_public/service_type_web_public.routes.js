@@ -37,7 +37,7 @@ const { publishedMonth } = require("../../../shared/date/published-month");
 const repo = require("../service_type_web/service_type_web.repo");
 const { siteLanguages } = require("@praxis/shared");
 const siteSwitches = require("../../site/site_settings/site_switches");
-const { serviceScope, incoterms } = require("@praxis/shared");
+const { serviceScope, incoterms, quoteEngine } = require("@praxis/shared");
 const grouping = require("./service_type_web_public.service");
 const websiteService = require("../service_type_web/website-service");
 
@@ -98,6 +98,11 @@ router.get("/", limit, asyncHandler(async (req, res) => {
   const generic = quote.rules.filter((r) => !r.website_service_id);
   const grouped = grouping.groupServices(rows, (row) => {
     const descriptor = quote.descriptors.get(String(row.service_type_id));
+    const own = quote.rules.filter((r) => r.website_service_id && String(r.website_service_id) === String(row.service_type_id));
+    // Whether the wizard has questions to put for this service at all (a
+    // direction, the Incoterm, two types to choose between). Decided by the
+    // engine here so the website can lay out its steps before it loads it.
+    const asks = !quoteEngine.evaluate(descriptor, {}, [...generic, ...own]).complete;
     return {
       service_type_id: row.service_type_id,
       slug_fr: row.slug_fr,
@@ -109,6 +114,7 @@ router.get("/", limit, asyncHandler(async (req, res) => {
       is_featured: row.is_featured === true,
       quote: {
         card: descriptor.card,
+        asks,
         members: descriptor.members.map((m) => ({
           service_type_id: m.id,
           name_en: m.name_en,
@@ -116,7 +122,9 @@ router.get("/", limit, asyncHandler(async (req, res) => {
           flow: m.flow,
           incoterms: m.incoterms,
         })),
-        rules: quote.rules.filter((r) => r.website_service_id && String(r.website_service_id) === String(row.service_type_id)),
+        // This service's own rules; the generic ones travel once, beside the
+        // groups, as `routing_rules`.
+        rules: own,
       },
       /* The transport mode, in the glyph vocabulary the tracking page uses
          (storage is WAREHOUSE). Since 14300 it is the service's own
