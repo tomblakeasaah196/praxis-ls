@@ -180,6 +180,21 @@ function byLine(by) {
 }
 
 /**
+ * The body of an event notification: "New enquiry: Contact enquiry 87817c1a."
+ *
+ * A COLON, never a dash (CLAUDE.md rule six). The owner's bell read
+ * "New enquiry — Contact enquiry 87817c1a." on 25 Nov 2026; every event this
+ * builder announces went out the same way. Pure, so the test can read the
+ * output of every title in NOTIFIABLE.
+ */
+function composeBody({ title, entityRef = null, payload = {} } = {}) {
+  const amt = fmtAmount(payload && (payload.amount_xaf ?? payload.amount ?? payload.total_ttc));
+  const ent = shortEntity(entityRef);
+  const who = byLine(payload && payload.by);
+  return `${title}${ent ? `: ${cap(ent)}` : ""}${amt ? ` (${amt})` : ""}.${who ? ` ${who}` : ""}`;
+}
+
+/**
  * Raise notifications for one emitted event, if it's on the allowlist. Notifies
  * the module's permission-holders (excluding the actor). Returns the count sent.
  */
@@ -199,10 +214,7 @@ async function onEvent(client, { eventTypeKey, moduleKey, entityRef = null, acto
     const repo = require("../../modules/notification/notification.repo");
     const service = require("../../modules/notification/notification.service");
     const recipients = await repo.recipientsWithPermission(client, moduleKey, cfg.action);
-    const amt = fmtAmount(payload && (payload.amount_xaf ?? payload.amount ?? payload.total_ttc));
-    const ent = shortEntity(entityRef);
-    const who = byLine(payload && payload.by);
-    const body = `${cfg.title}${ent ? ` — ${cap(ent)}` : ""}${amt ? ` (${amt})` : ""}.${who ? ` ${who}` : ""}`;
+    const body = composeBody({ title: cfg.title, entityRef, payload });
     const category = categoryFor(eventTypeKey);
     // PERF S5: one batched call instead of a loop of ~5 queries per recipient.
     // The actor is excluded here rather than inside notifyMany — "do not tell
@@ -230,4 +242,4 @@ async function onEvent(client, { eventTypeKey, moduleKey, entityRef = null, acto
   }
 }
 
-module.exports = { onEvent, NOTIFIABLE, byLine };
+module.exports = { onEvent, NOTIFIABLE, byLine, composeBody };

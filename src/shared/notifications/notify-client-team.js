@@ -94,7 +94,7 @@ const EVENTS = {
     when: (p) => p.via === "PORTAL",
     conversation: "quotations",
     title: (company, p) => `${company} accepted quotation ${p.doc_number || ""}`.trim(),
-    body: (p) => ["Signed in the client portal — it can be turned into an invoice draft", who(p.by) && `From ${who(p.by)}`].filter(Boolean).join(" · "),
+    body: (p) => ["Signed in the client portal. It can be turned into an invoice draft", who(p.by) && `From ${who(p.by)}`].filter(Boolean).join(" · "),
     url: (_clientId, entityRef) => `/sales/quotations?focus=${idOf(entityRef) || ""}`,
   },
   "quotation.declined_by_client": {
