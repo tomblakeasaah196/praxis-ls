@@ -28,6 +28,9 @@ const { makeLimiter } = require("../../../shared/http/rate-limit");
 const { asyncHandler } = require("../../../utils/errors");
 const service = require("./careers.service");
 const validator = require("./careers.validator");
+// The bot check (Cloudflare Turnstile) in front of both applications. Off until
+// the tenant enters its keys in Settings › Website › Messages.
+const { requireHuman } = require("../../../shared/http/human-check");
 
 /**
  * Two limits, because the two endpoints are abused differently.
@@ -66,7 +69,7 @@ router.get("/", readLimiter, asyncHandler(async (req, res) =>
 router.get("/:token", readLimiter, asyncHandler(async (req, res) =>
   res.json({ data: await service.get(req, req.params.token) })));
 
-router.post("/:token/apply", applyLimiter, validator.apply, asyncHandler(async (req, res) =>
+router.post("/:token/apply", applyLimiter, validator.apply, requireHuman("careers"), asyncHandler(async (req, res) =>
   res.status(201).json({
     data: await service.applyToToken(req, { token: req.params.token, data: req.body, slug: req.tenant.slug }),
   })));
@@ -89,7 +92,7 @@ router.get("/settings/public", readLimiter, asyncHandler(async (req, res) =>
  * A CV with no role attached. 201 and a reference, like applying to a role —
  * the candidate did the same amount of work and is owed the same receipt.
  */
-router.post("/open-application", applyLimiter, validator.openApplication, asyncHandler(async (req, res) =>
+router.post("/open-application", applyLimiter, validator.openApplication, requireHuman("careers"), asyncHandler(async (req, res) =>
   res.status(201).json({
     data: await service.applyOpen(req, { data: req.body, slug: req.tenant.slug }),
   })));

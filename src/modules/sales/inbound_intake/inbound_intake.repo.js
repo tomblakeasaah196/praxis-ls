@@ -42,6 +42,11 @@ function insertEnquiry(client, data) {
     source: data.source || "WEBSITE",
     enquiry_type: data.enquiry_type || "GENERAL_ENQUIRY",
     internal_notes: blankToNull(data.internal_notes),
+    // 14620: the visitor-facing reference (inbound_intake.reference) and the
+    // page the message was written on. Both null for a message keyed in by
+    // staff, which has no visitor to quote it.
+    public_ref: data.public_ref || null,
+    origin_page: blankToNull(data.origin_page),
     status: "NEW",
   });
 }
@@ -172,7 +177,70 @@ async function listResponses(client, contact_enquiry_id) {
   return rows;
 }
 
+/* ─── attachments (14620) ─────────────────────────────────────────────────── */
+
+const ATTACHMENT_TABLE = "contact_enquiry_attachment";
+
+async function insertAttachments(client, contactEnquiryId, docs) {
+  for (const d of docs) {
+    await client.query(
+      `INSERT INTO ${ATTACHMENT_TABLE}
+         (contact_enquiry_id, doc_id, original_name, content_type, byte_size, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (contact_enquiry_id, doc_id) DO NOTHING`,
+      [contactEnquiryId, d.doc_id, d.original_name || null, d.content_type, d.byte_size, d.sort_order || 0],
+    );
+  }
+}
+
+/** The vault rows move from the staging reference to the message's own. */
+async function refileVault(client, { docIds, from, to }) {
+  if (!docIds.length) return 0;
+  const { rowCount } = await client.query(
+    "UPDATE document_vault SET entity_ref = $1 WHERE doc_id = ANY($2::uuid[]) AND entity_ref = $3",
+    [to, docIds, from],
+  );
+  return rowCount;
+}
+
+async function listAttachments(client, contactEnquiryId) {
+  const { rows } = await client.query(
+    `SELECT a.contact_enquiry_attachment_id, a.doc_id, a.original_name, a.content_type, a.byte_size, a.sort_order, a.created_at
+       FROM ${ATTACHMENT_TABLE} a
+      WHERE a.contact_enquiry_id = $1
+      ORDER BY a.sort_order, a.created_at`,
+    [contactEnquiryId],
+  );
+  return rows;
+}
+
+/** One attachment, only if it belongs to this message. */
+async function attachmentOf(client, contactEnquiryId, docId) {
+  const { rows } = await client.query(
+    `SELECT a.doc_id, a.original_name, a.content_type, a.byte_size
+       FROM ${ATTACHMENT_TABLE} a
+      WHERE a.contact_enquiry_id = $1 AND a.doc_id = $2`,
+    [contactEnquiryId, docId],
+  );
+  return rows[0] || null;
+}
+
+/** Delivery bookkeeping: when each email left, or why it did not. */
+async function markDelivery(client, id, { inbox = false, ack = false, error } = {}) {
+  const sets = [];
+  const params = [id];
+  if (inbox) sets.push("inbox_notified_at = COALESCE(inbox_notified_at, now())");
+  if (ack) sets.push("visitor_acked_at = COALESCE(visitor_acked_at, now())");
+  if (error !== undefined) {
+    params.push(error === null ? null : String(error).slice(0, 2000));
+    sets.push("mail_error = $" + params.length);
+  }
+  if (!sets.length) return;
+  await client.query(`UPDATE ${TABLE} SET ${sets.join(", ")} WHERE contact_enquiry_id = $1`, params);
+}
+
 module.exports = {
+  insertAttachments, refileVault, listAttachments, attachmentOf, markDelivery,
   insertEnquiry, getEnquiry, updEnquiry, listEnquiries, listEnquiriesForExport,
   insertResponse, settleResponse, listResponses,
   buildWhere, WRITABLE,

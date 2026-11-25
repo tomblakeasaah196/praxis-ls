@@ -3,8 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Honeypot, Input, Select, Textarea } from "@/components/ui/field";
 import { SuccessState } from "@/components/state";
-import { contactEnquiries } from "@/lib/intake-api";
+import { FilePicker } from "@/components/ui/file-input";
+import { UploadList } from "@/components/ui/upload-list";
+import { DocumentIcon } from "@/components/ui/icons";
+import { HumanCheck, type HumanState } from "@/components/site/human-check";
+import { sendContactEnquiry } from "@/lib/intake-upload";
 import { useIntake } from "@/lib/use-intake";
+import { useUpload } from "@/lib/use-upload";
 
 /**
  * The general enquiry — `POST /public/intake/contact-enquiries`, which lands in
@@ -21,6 +26,20 @@ import { useIntake } from "@/lib/use-intake";
  * required here. A contact form that demands a phone number from someone who
  * wants to email is a form that gets abandoned.
  */
+/** What a visitor may attach (SmartLS website v2, PR 2): sniffed again on the server. */
+const FILE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
+const FILE_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".docx", ".xlsx"] as const;
+const FILE_ACCEPT = [...FILE_EXTENSIONS, ...FILE_TYPES].join(",");
+
 const TYPES = [
   { value: "GENERAL_ENQUIRY", key: "site.contact.typeGeneral" },
   { value: "PARTNERSHIP", key: "site.contact.typePartnership" },
@@ -41,21 +60,45 @@ export function ContactForm() {
   });
   const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));
 
+  // Files go up with the message, on Send (CLAUDE.md rule three).
+  const upload = useUpload({
+    profile: "document",
+    autoStart: false,
+    types: FILE_TYPES,
+    extensions: FILE_EXTENSIONS,
+    maxFiles: 10,
+    maxTotalBytes: 20 * 1024 * 1024,
+    messages: {
+      badType: t("site.upload.badType"),
+      tooMany: t("site.upload.tooMany"),
+      totalTooBig: t("site.upload.totalTooBig"),
+      unreadable: t("site.upload.unreadable"),
+    },
+  });
+  // The bot check (website v2, PR 2). "off" when the tenant has no keys.
+  const [human, setHuman] = React.useState<HumanState>("pending");
+
   const intake = useIntake<{ received: boolean; reference: string }>({
     send: (body, startedAt) =>
-      contactEnquiries.send(
-        body as Parameters<typeof contactEnquiries.send>[0],
+      sendContactEnquiry(
+        body as Parameters<typeof sendContactEnquiry>[0],
         startedAt,
+        (pct) => upload.setProgress(pct),
       ),
     onRateLimited: t("site.contact.limited"),
     onFailed: t("site.contact.err"),
   });
 
-  const canSend = f.message.trim().length > 0 && !intake.busy;
+  const canSend =
+    f.message.trim().length > 0 &&
+    !intake.busy &&
+    !upload.busy &&
+    (human === "off" || human === "ready");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSend) return;
+    const documents = upload.count ? await upload.payload() : undefined;
     const r = await intake.submit({
       name: f.name.trim() || undefined,
       company_name: f.company_name.trim() || undefined,
@@ -64,8 +107,15 @@ export function ContactForm() {
       subject: f.subject.trim() || undefined,
       enquiry_type: f.enquiry_type,
       message: f.message.trim(),
+      documents,
+      origin_page: window.location.pathname.slice(0, 300) || "/",
     });
-    if (r) setF((s) => ({ ...s, subject: "", message: "" }));
+    if (r) {
+      upload.setProgress(100, true);
+      setF((s) => ({ ...s, subject: "", message: "" }));
+    } else {
+      upload.rewind();
+    }
   }
 
   if (intake.result) {
@@ -157,6 +207,36 @@ export function ContactForm() {
         error={intake.fields.message}
         onChange={(e) => set("message", e.target.value)}
       />
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <FilePicker
+            accept={FILE_ACCEPT}
+            label={t("site.contact.attach")}
+            multiple
+            disabled={intake.busy}
+            onPick={(files) => void upload.pick(files)}
+            trigger={
+              <span className="inline-flex min-h-[44px] items-center gap-2 rounded-[calc(var(--radius)-2px)] border border-dashed px-4 text-sm font-semibold hover:bg-[rgb(var(--ink)/0.03)]">
+                <DocumentIcon size={18} />
+                {t("site.contact.attach")}
+              </span>
+            }
+          />
+          <span className="text-xs text-muted-foreground">{t("site.contact.attachTypes")}</span>
+        </div>
+        <UploadList upload={upload} />
+        {intake.fields.documents ? (
+          <p role="alert" className="text-sm text-[rgb(var(--bad))]">
+            {intake.fields.documents}
+          </p>
+        ) : null}
+      </div>
+      <HumanCheck action="contact" onState={setHuman} />
+      {human === "error" ? (
+        <p role="alert" className="text-sm text-[rgb(var(--bad))]">
+          {t("errors.humanCheckUnavailable")}
+        </p>
+      ) : null}
       <Honeypot value={intake.honeypot} onChange={intake.setHoneypot} />
       <div className="flex justify-end">
         <Button

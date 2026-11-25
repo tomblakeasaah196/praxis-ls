@@ -38,6 +38,20 @@ const PROBES = {
     });
     return { results: data && Array.isArray(data.results) ? data.results.length : 0 };
   },
+
+  // Cloudflare Turnstile (Settings › Website › Messages). siteverify with a
+  // made-up token: a good secret is refused for the TOKEN
+  // ("invalid-input-response"), a bad one for the SECRET. Nothing is consumed.
+  turnstile: async (secret) => {
+    const { verifyToken } = require("../../../services/turnstile.service");
+    const out = await verifyToken({ secret, token: "praxis-settings-probe" });
+    const codes = out.errorCodes || [];
+    if (codes.includes("invalid-input-secret") || codes.includes("missing-input-secret")) {
+      throw new Error("Cloudflare does not recognise this secret key");
+    }
+    if (out.unreachable) throw new Error("Cloudflare could not be reached");
+    return { checked: "siteverify" };
+  },
 };
 
 const hasProbe = (provider) => Boolean(provider && PROBES[provider]);

@@ -94,7 +94,57 @@ function lastUpdate(milestones) {
  * health, delay attribution and cause notes are queried only where needed to
  * compute a stable public state, and are never copied into the response.
  */
-async function get(client, reference) {
+/* ── The reference a visitor types ──────────────────────────────────────────
+ *
+ * HARDENED (SmartLS website v2, PR 2). Three rules, each closing a way the page
+ * could be used to learn something it should not, or fail someone it should not:
+ *
+ * 1. A REFERENCE IS MATCHED THE WAY A PERSON SAYS IT. References are read down
+ *    phones and copied off paper, so case, spaces, dashes, dots and slashes are
+ *    ignored, and the letters the Crockford alphabet never uses are read as the
+ *    digits they get mistaken for: O as 0, I and L as 1. BOTH sides are folded
+ *    (the stored reference too, through `ix_dossier_ref_folded`, 14621), so a
+ *    prefix that really contains an L still matches itself.
+ *
+ * 2. ONLY A RANDOM REFERENCE IS ANSWERED. A reference with separators
+ *    (`SLAS-OPS-2026-0142`, the pre-0682 sequential numbering) or a draft is
+ *    never looked up for a stranger: a sequence is a list anyone can walk, and
+ *    the allocator (`services/documents/operation-reference.js`) exists so that
+ *    no reference a client holds is one. The SQL refuses them too.
+ *
+ * 3. NOT FOUND AND MALFORMED ARE THE SAME ANSWER. Same status, same code, same
+ *    message, and the same database round trip: a malformed input runs the
+ *    identical query with a value nothing can match, so neither the body nor
+ *    the timing tells a prober whether a shape was "nearly right".
+ */
+const UNMATCHABLE = "#";
+
+/** Crockford folding of a typed or stored reference. Pure. */
+function foldReference(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .toUpperCase()
+    .replace(/[\s._/-]+/g, "")
+    .replace(/O/g, "0")
+    .replace(/[IL]/g, "1");
+}
+
+/**
+ * The folded reference to look up, or null when the input cannot be one.
+ * Separators AND a four-digit group is the sequential shape, refused before
+ * the separators are stripped (stripping them is what would let it pass).
+ */
+function lookupKey(raw) {
+  const text = String(raw === null || raw === undefined ? "" : raw).trim();
+  if (!text || text.length > 40) return null;
+  if (/[-/]/.test(text) && /(^|[-/])\d{4}([-/]|$)/.test(text)) return null;
+  if (/^draft-/i.test(text)) return null;
+  const folded = foldReference(text);
+  if (!/^[0-9A-Z]{10,20}$/.test(folded)) return null;
+  return folded;
+}
+
+async function findDossier(client, reference) {
+  const key = lookupKey(reference);
   const { rows } = await client.query(
     `SELECT d.dossier_id, d.ref, d.pol, d.pod, d.place_receipt,
             d.place_delivery, d.details_json,
@@ -103,10 +153,21 @@ async function get(client, reference) {
             st.name_en AS service_name_en
        FROM dossier_visible d
        LEFT JOIN service_type st USING (service_type_id)
-      WHERE d.ref = $1`,
-    [reference],
+      WHERE translate(upper(d.ref), 'OIL', '011') = $1
+        AND d.ref ~ '^[A-Za-z0-9]+$'
+      LIMIT 2`,
+    [key || UNMATCHABLE],
   );
-  const dossier = rows[0];
+  if (!key || rows.length === 0) return null;
+  if (rows.length === 1) return rows[0];
+  // Two references that differ only in O/0 or I/L/1: answer only the one typed
+  // exactly, never a guess between two clients' files.
+  const exact = String(reference).trim().toUpperCase().replace(/[\s._/-]+/g, "");
+  return rows.find((r) => String(r.ref).toUpperCase() === exact) || null;
+}
+
+async function get(client, reference) {
+  const dossier = await findDossier(client, reference);
   if (!dossier) throw missing();
 
   const { rows: milestones } = await client.query(
@@ -169,4 +230,4 @@ async function get(client, reference) {
   };
 }
 
-module.exports = { get, missing, routeLabels, serviceMode, serviceType, lastUpdate };
+module.exports = { get, missing, routeLabels, serviceMode, serviceType, lastUpdate, foldReference, lookupKey, findDossier };

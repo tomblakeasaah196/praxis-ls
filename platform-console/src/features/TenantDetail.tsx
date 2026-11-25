@@ -370,6 +370,7 @@ function DomainsCard({ slug, t, onSaved }: { slug: string; t: TDetail; onSaved: 
 
   const DNS_PILL: Record<DomainDnsRow["state"], { tone: "ok" | "warn" | "bad" | "mute"; label: string }> = {
     ok: { tone: "ok", label: "DNS OK" },
+    proxied: { tone: "ok", label: "DNS OK Through Cloudflare" },
     wrong_target: { tone: "bad", label: "Points elsewhere" },
     unresolved: { tone: "warn", label: "Awaiting DNS" },
     unconfigured: { tone: "mute", label: "No ingress IP set" },
@@ -408,6 +409,8 @@ function DomainsCard({ slug, t, onSaved }: { slug: string; t: TDetail; onSaved: 
                       const title =
                         d.state === "unconfigured"
                           ? "Set PUBLIC_INGRESS_IP so this can be checked"
+                          : d.state === "proxied"
+                          ? `proxied by Cloudflare · found ${d.resolved.join(", ")}`
                           : `expected ${d.expected || "—"} · found ${d.resolved.join(", ") || "nothing"}`;
                       return <span title={title}><Pill tone={p.tone}>{p.label}</Pill></span>;
                     })()}

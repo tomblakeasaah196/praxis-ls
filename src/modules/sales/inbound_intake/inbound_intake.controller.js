@@ -114,4 +114,19 @@ module.exports = {
     res.send("﻿" + lines.join("\r\n"));
   }),
 
+  /** One file a website visitor attached (14620), as a download. */
+  attachment: asyncHandler(async (req, res) => {
+    const out = await req.tenantDb((c) => service.attachmentBytes(c, { id: req.params.id, docId: req.params.docId }));
+    const ascii = String(out.filename).replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+    res.setHeader("Content-Type", out.contentType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(out.filename)}`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(out.buffer);
+  }),
+
+  /** Settings › Website › Messages: send a test message to the website inbox. */
+  testWebsiteMail: asyncHandler(async (req, res) => {
+    const mail = require("../public_intake/enquiry-mail.service");
+    res.json({ data: await req.tenantDb((c) => mail.sendTest(c, { tenantName: (req.tenant && req.tenant.name) || "" })) });
+  }),
 };

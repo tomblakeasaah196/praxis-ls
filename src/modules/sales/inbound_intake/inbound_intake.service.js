@@ -51,6 +51,7 @@ const rules = require("./inbound_intake.rules");
 // `atomically` rather than opening its own, which was the reason the repo was
 // used before: a nested BEGIN/COMMIT that committed the outer transaction early.
 const leads = require("../lead/lead.service");
+const vault = require("../../vault/document_vault/document_vault.service");
 const emailService = require("../../../services/email.service");
 const { mapSmtpError, isSmtpError } = require("../../mail/mail/smtp-error.map");
 const { emitEvent, audit } = require("../../../shared/events/emit");
@@ -335,7 +336,25 @@ async function listEnquiries(client, q = {}) {
 async function getEnquiry(client, id) {
   const row = await repo.getEnquiry(client, id);
   if (!row) throw new AppError("NOT_FOUND", "Enquiry not found", 404);
-  return { ...row, responses: await repo.listResponses(client, id) };
+  return {
+    ...row,
+    responses: await repo.listResponses(client, id),
+    // 14620: the files a website visitor attached, in the order sent.
+    attachments: await repo.listAttachments(client, id),
+  };
+}
+
+/**
+ * One attached file's bytes, for the desk. Only a file that belongs to THIS
+ * message is served, so the enquiry permission that opened the message is the
+ * permission that opens its files, and no vault id can be walked from here.
+ */
+async function attachmentBytes(client, { id, docId }) {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const att = UUID.test(String(docId || "")) ? await repo.attachmentOf(client, id, docId) : null;
+  if (!att) throw new AppError("NOT_FOUND", "Attachment not found", 404);
+  const { buffer } = await vault.fetchBytes(client, docId);
+  return { buffer, filename: att.original_name || "attachment", contentType: att.content_type };
 }
 
 /** Every matching row, for the CSV export. `truncated` is reported, never hidden. */
@@ -343,6 +362,6 @@ const listEnquiriesForExport = (client, q = {}) => repo.listEnquiriesForExport(c
 
 module.exports = {
   submitEnquiry, transition, markRead, updateEnquiry, respond, triageEnquiry,
-  listEnquiries, getEnquiry, listEnquiriesForExport,
+  listEnquiries, getEnquiry, listEnquiriesForExport, attachmentBytes,
   EXPORT_CAP, MAIL_PURPOSE,
 };

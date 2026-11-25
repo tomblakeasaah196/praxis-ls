@@ -204,7 +204,8 @@ export type DomainDnsRow = {
   host: string;
   resolved: string[];
   expected: string | null;
-  state: "ok" | "wrong_target" | "unresolved" | "unconfigured";
+  /** "proxied": every record is a Cloudflare edge, a correct proxied set-up. */
+  state: "ok" | "proxied" | "wrong_target" | "unresolved" | "unconfigured";
   ok: boolean;
   surface: "erp" | "public";
   is_custom_domain: boolean;

@@ -79,6 +79,8 @@ export const apply = (token: string, body: ApplyInput) =>
   publicApi<ApplyResult>(`/careers/${encodeURIComponent(token)}/apply`, {
     method: "POST",
     body,
+    // The bot check (website v2, PR 2): the application form holds the token.
+    human: "careers",
   });
 
 /* ── The page when nothing is open (13792) ──────────────────────────────────*/
@@ -114,7 +116,7 @@ export const getSettings = (): Promise<CareersSettings> =>
 /** An application with no role attached. Same body as `apply`, same receipt —
  *  the candidate did the same work and is owed the same reference. */
 export const applyOpen = (body: ApplyInput) =>
-  publicApi<ApplyResult>("/careers/open-application", { method: "POST", body });
+  publicApi<ApplyResult>("/careers/open-application", { method: "POST", body, human: "careers" });
 
 export type AlertInput = { email: string; name?: string; locale?: "en" | "fr" };
 

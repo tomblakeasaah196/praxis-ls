@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (733)
+## All codes (736)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -97,8 +97,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_DECISION` | 422 | 2× | — |
 | `BAD_DOC_TYPE` | 422 | 3× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
-| `BAD_FILE` | 400, 422 | 17× | — |
-| `BAD_FILE_TYPE` | 422 | 13× | — |
+| `BAD_FILE` | 400, 422 | 18× | — |
+| `BAD_FILE_TYPE` | 422 | 14× | — |
 | `BAD_FONT` | 422 | 3× | — |
 | `BAD_HEADERS` | 422 | 1× | — |
 | `BAD_HOST` | 400 | 3× | — |
@@ -149,7 +149,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_TOTALS` | 422 | 1× | — |
 | `BAD_TRAINING_MODE` | — | 1× | — |
 | `BAD_TRANSITION` | 422 | 3× | — |
-| `BAD_VALUE` | 400, 422 | 13× | — |
+| `BAD_VALUE` | 400, 422 | 14× | — |
 | `BAD_WINDOW` | 422 | 2× | — |
 | `BASE_CURRENCY` | 409, 422 | 2× | — |
 | `BASE_CURRENCY_CORRUPT` | — | 1× | — |
@@ -252,7 +252,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `EXISTS` | 409 | 3× | — |
 | `FEATURE_DISABLED` | 403 | 4× | — |
 | `FIELD_NOT_WRITABLE` | — | 2× | — |
-| `FILES_TOO_LARGE` | 413 | 1× | — |
+| `FILES_TOO_LARGE` | 413 | 2× | — |
 | `FILE_REQUIRED` | 422 | 4× | — |
 | `FILE_TOO_LARGE` | 413 | 6× | — |
 | `FIXED_PARITY` | 422 | 3× | — |
@@ -275,6 +275,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `HAS_SUBSIDIARIES` | 409 | 1× | — |
 | `HINTERLAND_DIRECTION_REQUIRED` | 422 | 1× | — |
 | `HOST_TAKEN` | 409 | 1× | — |
+| `HUMAN_CHECK_FAILED` | 422 | 1× | — |
+| `HUMAN_CHECK_REQUIRED` | — | 1× | — |
 | `IDEMPOTENCY_IN_PROGRESS` | 409 | 1× | — |
 | `IDEMPOTENCY_KEY_INVALID` | 400 | 1× | — |
 | `IDEMPOTENCY_KEY_REUSED` | 422 | 1× | — |
@@ -399,7 +401,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 765× | — |
+| `NOT_FOUND` | 404, 422 | 767× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -491,6 +493,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NO_VALIDATOR` | 422 | 1× | — |
 | `NO_VAT_ACCOUNT` | 422 | 2× | — |
 | `NO_VAT_RATE` | — | 1× | — |
+| `NO_WEBSITE_INBOX` | 422 | 1× | — |
 | `NO_WORKING_DAYS` | 422 | 1× | — |
 | `NUDGE_QUOTA_EXHAUSTED` | 429 | 1× | — |
 | `OAUTH_CANCELLED` | 400 | 2× | — |
@@ -664,7 +667,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SIGNING_PROOF_STALE` | 409 | 1× | — |
 | `SLUG_TAKEN` | 422 | 3× | — |
 | `SMTP_AUTH_FAILED` | 502 | 1× | — |
-| `SMTP_SEND_FAILED` | 502 | 3× | — |
+| `SMTP_SEND_FAILED` | 200, 502 | 4× | — |
 | `SMTP_SEND_REJECTED` | 502 | 2× | — |
 | `SOP_HAS_NO_TEXT` | — | 1× | — |
 | `SOURCE_DOC_REQUIRED` | 422 | 1× | — |
@@ -701,7 +704,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `TOKEN_EXPIRED` | 401 | 1× | — |
 | `TOO_FEW_STAGES` | 422 | 1× | — |
 | `TOO_MANY` | 422 | 1× | — |
-| `TOO_MANY_FILES` | 422 | 1× | — |
+| `TOO_MANY_FILES` | 422 | 2× | — |
 | `TOO_MANY_OVERRIDES` | 422 | 1× | — |
 | `TOO_MANY_STAGES` | 422 | 2× | — |
 | `TOO_MANY_TILES` | 422 | 1× | — |

@@ -81,9 +81,10 @@ describe("CSP permits the blob: URLs this client actually creates", () => {
   });
 
   /** Same discipline for frames: `'self'` for the sandboxed srcDoc previews,
-   *  `blob:` for the vault document viewer — never a remote origin. */
-  it("keeps frame-src to same-origin and blobs", () => {
-    expect(directives()["frame-src"]).toEqual(["'self'", "blob:"]);
+   *  `blob:` for the vault document viewer, and exactly one remote origin:
+   *  Cloudflare Turnstile's widget, the website's bot check (website v2, PR 2). */
+  it("keeps frame-src to same-origin, blobs and the Turnstile widget", () => {
+    expect(directives()["frame-src"]).toEqual(["'self'", "blob:", "https://challenges.cloudflare.com"]);
   });
 
   it("keeps the script-src the caller computed, hashes and all", () => {

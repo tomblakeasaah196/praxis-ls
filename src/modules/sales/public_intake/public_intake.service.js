@@ -2,6 +2,9 @@
 
 const quote = require("../quote_request/quote_request.service");
 const enquiry = require("../inbound_intake/inbound_intake.service");
+const enquiryRepo = require("../inbound_intake/inbound_intake.repo");
+const reference = require("../inbound_intake/inbound_intake.reference");
+const attachments = require("./attachments");
 const geoPlace = require("../../operations/geo_place/geo_place.service");
 const vault = require("../../vault/document_vault/document_vault.service");
 const { quoteRequest } = require("@praxis/shared");
@@ -209,16 +212,51 @@ async function submitQuote(client, data) {
   });
 }
 
-async function submitContact(client, data) {
-  const row = await enquiry.submitEnquiry(client, {
-    data: { ...data, source: "WEBSITE" },
-    actor: {},
+/**
+ * A website message: the contact form, or the floating message button
+ * (SmartLS website v2, PR 2). Both land in General Enquiries exactly as the
+ * contact form always has, and now also carry a reference the visitor can
+ * quote, the files they attached, and the page they were on.
+ *
+ * Order, and why:
+ *   1. The files are decoded, counted and typed from their bytes. Pure; a bad
+ *      file is refused before anything is written.
+ *   2. They are stored in the vault under a staging reference, OUTSIDE the
+ *      transaction (megabytes of writes must not hold a connection).
+ *   3. One transaction: the message with its reference, its attachment rows,
+ *      and the vault rows re-filed under the message.
+ *   4. After commit, the emails are handed to the worker (`afterCommit`), so a
+ *      slow mail server never makes the visitor wait and a mail failure never
+ *      costs the message.
+ */
+async function submitContact(client, data, { source = "WEBSITE", afterCommit = null } = {}) {
+  const prepared = attachments.prepare(data.documents);
+  const stored = await attachments.store(client, prepared);
+  const row = await atomically(client, async () => {
+    const created = await reference.withReference(client, (ref) =>
+      enquiry.submitEnquiry(client, {
+        data: { ...data, documents: undefined, public_ref: ref, source },
+        actor: {},
+      }));
+    if (stored.length) {
+      await enquiryRepo.insertAttachments(client, created.contact_enquiry_id, stored);
+      await enquiryRepo.refileVault(client, {
+        docIds: stored.map((d) => d.doc_id),
+        from: attachments.STAGING_REF,
+        to: "contact_enquiry:" + created.contact_enquiry_id,
+      });
+    }
+    return created;
   });
-  return receipt(row);
+  if (afterCommit) await afterCommit(row);
+  return { ...receipt(row), attachments: stored.length };
 }
 
+/** The floating message button: a message with an email, always. */
+const submitMessage = (client, data, opts = {}) => submitContact(client, data, { ...opts, source: "WEBSITE_MESSAGE" });
+
 module.exports = {
-  submitQuote, submitContact, receipt,
+  submitQuote, submitContact, submitMessage, receipt,
   // Exported for the tests, which assert the two failure asymmetries directly:
   // a place that cannot be resolved must not cost the enquiry, and a file the
   // requester can fix must reach them rather than being swallowed.

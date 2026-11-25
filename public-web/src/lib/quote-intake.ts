@@ -12,6 +12,7 @@
  */
 import { buildUrl, PublicApiError, type FieldErrors } from "./api";
 import { tStatic } from "./i18n";
+import { HUMAN_HEADER, takeHumanToken } from "./human-check";
 import { cleanIntake, quoteRequests, type IntakeReceipt, type QuoteRequest } from "./intake-api";
 
 /**
@@ -33,6 +34,9 @@ function publicPostWithProgress<T = unknown>(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", buildUrl(path));
     xhr.setRequestHeader("Content-Type", "application/json");
+    // The bot check (website v2, PR 2), as `publicApi` sends it.
+    const human = takeHumanToken("quote");
+    if (human) xhr.setRequestHeader(HUMAN_HEADER, human);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
     };

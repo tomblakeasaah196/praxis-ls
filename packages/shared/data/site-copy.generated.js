@@ -2,14 +2,14 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 640 keys in 27 sections.
+ * 678 keys in 29 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
  * SITE_COPY_ENTRIES rows are [key, section, label, en, fr].
  */
 
-exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Quotation","Profile","Careers","Contact","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Page not found"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"profile","label":"Company profile","pages":["Profile"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"quotation","label":"Quotation","pages":["Quotation"]},{"key":"quote","label":"Quote request","pages":["Home","Services","Our work","Quote","Careers","Contact","Client portal"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
+exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Quotation","Profile","Careers","Contact","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"message","label":"Message","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Page not found"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"profile","label":"Company profile","pages":["Profile"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"quotation","label":"Quotation","pages":["Quotation"]},{"key":"quote","label":"Quote request","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Client portal","Page not found"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"upload","label":"Upload","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Page not found"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
 
 exports.SITE_COPY_ENTRIES = [
   ["site.about.carriersLead","about","Carriers Lead","Carriers and networks we book capacity with. Their marks are theirs; we show them with permission.","Les transporteurs et réseaux auprès desquels nous réservons de la capacité. Leurs marques leur appartiennent ; nous les affichons avec leur accord."],
@@ -142,6 +142,8 @@ exports.SITE_COPY_ENTRIES = [
   ["site.chrome.themeLight","chrome","Theme Light","Light theme","Thème clair"],
   ["site.chrome.toEnglish","chrome","To English","Read this page in English","Read this page in English"],
   ["site.chrome.toFrench","chrome","To French","Lire cette page en français","Lire cette page en français"],
+  ["site.contact.attach","contact","Attach","Attach files","Joindre des fichiers"],
+  ["site.contact.attachTypes","contact","Attach Types","PDF, JPG, PNG, HEIC, Word, Excel. 20 MB in all.","PDF, JPG, PNG, HEIC, Word, Excel. 20 Mo au total."],
   ["site.contact.bandCta","contact","Band Cta","Send a message","Envoyer un message"],
   ["site.contact.bandLead","contact","Band Lead","A question, a partnership, or a file that has gone wrong. Every message comes back with a reference, and nothing needs an account.","Une question, un partenariat, ou un dossier qui déraille. Chaque message revient avec une référence, et aucun compte n’est nécessaire."],
   ["site.contact.coverageAlt","contact","Coverage Alt","A diagram linking each office to the places it covers. The same offices and places are listed as text below.","Un schéma reliant chaque bureau aux zones qu’il dessert. Les mêmes bureaux et zones sont listés en texte ci-dessous."],
@@ -274,6 +276,33 @@ exports.SITE_COPY_ENTRIES = [
   ["site.insights.titleAccent","insights","Title Accent","learning","apprenons"],
   ["site.insights.titleMain","insights","Title Main","What we are","Ce que nous"],
   ["site.insights.yearLabel","insights","Year Label","Filter by year","Filtrer par année"],
+  ["site.message.another","message","Another","Write another","Écrire un autre"],
+  ["site.message.attach","message","Attach","Attach files","Joindre des fichiers"],
+  ["site.message.attachTypes","message","Attach Types","PDF, JPG, PNG, HEIC, Word, Excel. 20 MB in all.","PDF, JPG, PNG, HEIC, Word, Excel. 20 Mo au total."],
+  ["site.message.body","message","Body","Message","Message"],
+  ["site.message.bodyPlaceholder","message","Body Placeholder","What you are shipping, from where to where, and when.","Ce que vous expédiez, d’où, vers où, et quand."],
+  ["site.message.change","message","Change","Change","Modifier"],
+  ["site.message.close","message","Close","Close","Fermer"],
+  ["site.message.company","message","Company","Company","Société"],
+  ["site.message.copied","message","Copied","Copied","Copié"],
+  ["site.message.copy","message","Copy","Copy","Copier"],
+  ["site.message.details","message","Details","Your details (optional)","Vos coordonnées (facultatif)"],
+  ["site.message.email","message","Email","Your email","Votre courriel"],
+  ["site.message.emailInvalid","message","Email Invalid","Enter a full email address, like name@company.com.","Saisissez une adresse complète, comme nom@societe.com."],
+  ["site.message.emailPlaceholder","message","Email Placeholder","name@company.com","nom@societe.com"],
+  ["site.message.err","message","Err","Your message could not be sent. Please try again.","Votre message n’a pas pu être envoyé. Veuillez réessayer."],
+  ["site.message.limited","message","Limited","Too many messages from this connection. Please try again in an hour.","Trop de messages depuis cette connexion. Réessayez dans une heure."],
+  ["site.message.name","message","Name","Name","Nom"],
+  ["site.message.next","message","Next","Continue","Continuer"],
+  ["site.message.open","message","Open","Message us","Écrivez-nous"],
+  ["site.message.phone","message","Phone","Phone","Téléphone"],
+  ["site.message.send","message","Send","Send message","Envoyer le message"],
+  ["site.message.sending","message","Sending","Sending…","Envoi…"],
+  ["site.message.sentCopy","message","Sent Copy","A copy with this reference is on its way to {{email}}.","Une copie avec cette référence part vers {{email}}."],
+  ["site.message.sentRef","message","Sent Ref","Your reference","Votre référence"],
+  ["site.message.sentTitle","message","Sent Title","Message sent","Message envoyé"],
+  ["site.message.title","message","Title","Message us","Écrivez-nous"],
+  ["site.message.writingAs","message","Writing As","Replies go to {{email}}","Les réponses iront à {{email}}"],
   ["site.nav.about","nav","About","About","À propos"],
   ["site.nav.careers","nav","Careers","Careers","Carrières"],
   ["site.nav.contact","nav","Contact","Contact","Contact"],
@@ -606,6 +635,15 @@ exports.SITE_COPY_ENTRIES = [
   ["site.trackPage.verdictMoving","trackPage","Verdict Moving","On the move","En mouvement"],
   ["site.trackPage.verdictOpened","trackPage","Verdict Opened","Opened, not yet moving","Ouvert, pas encore en mouvement"],
   ["site.trackPage.whereRef","trackPage","Where Ref","The reference is on the documents your account manager sent you — the booking confirmation, the transport order or the invoice.","La référence figure sur les documents transmis par votre gestionnaire de compte : la confirmation de réservation, l’ordre de transport ou la facture."],
+  ["site.upload.badType","upload","Bad Type","This file cannot be attached. Use a PDF, an image, a Word or an Excel file.","Ce fichier ne peut pas être joint. Utilisez un PDF, une image, un fichier Word ou Excel."],
+  ["site.upload.complete","upload","Complete","Upload complete","Envoi terminé"],
+  ["site.upload.preparing","upload","Preparing","Preparing…","Préparation…"],
+  ["site.upload.remove","upload","Remove","Remove {{name}}","Retirer {{name}}"],
+  ["site.upload.sending","upload","Sending","Sending…","Envoi…"],
+  ["site.upload.tooMany","upload","Too Many","Ten files at most.","Dix fichiers au maximum."],
+  ["site.upload.totalTooBig","upload","Total Too Big","The files together come to more than 20 MB.","Les fichiers dépassent 20 Mo au total."],
+  ["site.upload.unreadable","upload","Unreadable","This file could not be read. Try saving it again, or pick another.","Ce fichier n’a pas pu être lu. Enregistrez-le à nouveau, ou choisissez-en un autre."],
+  ["site.upload.was","upload","Was","{{size}} before","{{size}} avant"],
   ["site.verify.amendedBody","verify","Amended Body","The signature below is genuine, but it no longer covers what the document says today. What changed is listed below.","La signature ci-dessous est authentique, mais elle ne couvre plus ce que le document dit aujourd’hui. Ce qui a changé est indiqué ci-dessous."],
   ["site.verify.amendedTitle","verify","Amended Title","This document has changed since it was signed","Ce document a changé depuis sa signature"],
   ["site.verify.asSigned","verify","As Signed","The document as signed","Le document tel que signé"],

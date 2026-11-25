@@ -393,11 +393,30 @@ const CASES = {
       "title", "kicker", "titleMain", "titleAccent", "bandCta", "otherTitle",
       "coverageKicker", "coverageTitle", "offices", "covers", "otherGo", "subject",
       "type", "typeGeneral", "typePartnership", "typeCareers", "typeMedia", "message",
-      "send", "promise.*.t",
+      "send", "promise.*.t", "attach",
     ],
     PROSE: [
       "sub", "bandLead", "otherTrack", "coverageAlt", "coverageNone", "otherPortal",
-      "otherQuote", "sending", "sent", "err", "limited", "promise.*.d",
+      "otherQuote", "sending", "sent", "err", "limited", "promise.*.d", "attachTypes",
+    ],
+  },
+  "site.message": {
+    LABEL: [
+      "open", "title", "close", "email", "next", "change", "body", "details", "name",
+      "company", "phone", "attach", "send", "sentTitle", "sentRef", "copy", "copied",
+      "another",
+    ],
+    PROSE: [
+      "emailPlaceholder", "emailInvalid", "writingAs", "bodyPlaceholder", "attachTypes",
+      "sending", "sentCopy", "limited", "err",
+    ],
+  },
+  "site.upload": {
+    LABEL: [
+      "complete", "remove",
+    ],
+    PROSE: [
+      "preparing", "sending", "was", "badType", "tooMany", "totalTooBig", "unreadable",
     ],
   },
   "site.corridor": {

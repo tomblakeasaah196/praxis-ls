@@ -89,6 +89,9 @@ export const en = {
     fileTooLarge: "That file is {{size}} MB — the limit is {{limit}} MB.",
     fileUnreadable:
       "That file could not be read. Try saving it again, or pick another.",
+    humanCheck: "The security check did not pass. Please send again.",
+    humanCheckUnavailable:
+      "The security check could not load. Check your connection, then reload the page.",
   },
   shell: {
     signOut: "Sign out",
@@ -557,6 +560,50 @@ export const en = {
         },
       ],
     },
+    /* The floating message button on every marketing page (SmartLS
+       website v2, PR 2): email first, then the message. */
+    message: {
+      open: "Message us",
+      title: "Message us",
+      close: "Close",
+      email: "Your email",
+      emailPlaceholder: "name@company.com",
+      emailInvalid: "Enter a full email address, like name@company.com.",
+      next: "Continue",
+      writingAs: "Replies go to {{email}}",
+      change: "Change",
+      body: "Message",
+      bodyPlaceholder: "What you are shipping, from where to where, and when.",
+      details: "Your details (optional)",
+      name: "Name",
+      company: "Company",
+      phone: "Phone",
+      attach: "Attach files",
+      attachTypes: "PDF, JPG, PNG, HEIC, Word, Excel. 20 MB in all.",
+      send: "Send message",
+      sending: "Sending…",
+      sentTitle: "Message sent",
+      sentRef: "Your reference",
+      sentCopy: "A copy with this reference is on its way to {{email}}.",
+      copy: "Copy",
+      copied: "Copied",
+      another: "Write another",
+      limited: "Too many messages from this connection. Please try again in an hour.",
+      err: "Your message could not be sent. Please try again.",
+    },
+    /* The upload engine's words, shared by the message button and the
+       contact form. */
+    upload: {
+      preparing: "Preparing…",
+      sending: "Sending…",
+      complete: "Upload complete",
+      was: "{{size}} before",
+      remove: "Remove {{name}}",
+      badType: "This file cannot be attached. Use a PDF, an image, a Word or an Excel file.",
+      tooMany: "Ten files at most.",
+      totalTooBig: "The files together come to more than 20 MB.",
+      unreadable: "This file could not be read. Try saving it again, or pick another.",
+    },
     contact: {
       title: "Talk to someone",
       sub: "Questions, partnership, or a shipment that is going wrong — this reaches the desk that handles it.",
@@ -598,6 +645,8 @@ export const en = {
       err: "Something went wrong. Please try again.",
       limited:
         "Too many messages from this connection. Please try again in an hour.",
+      attach: "Attach files",
+      attachTypes: "PDF, JPG, PNG, HEIC, Word, Excel. 20 MB in all.",
       promise: [
         {
           t: "A reference, not a black hole",
@@ -912,6 +961,9 @@ export const fr = {
     fileTooLarge: "Ce fichier fait {{size}} Mo — la limite est de {{limit}} Mo.",
     fileUnreadable:
       "Ce fichier n’a pas pu être lu. Enregistrez-le à nouveau ou choisissez-en un autre.",
+    humanCheck: "La vérification de sécurité a échoué. Veuillez renvoyer.",
+    humanCheckUnavailable:
+      "La vérification de sécurité n’a pas pu se charger. Vérifiez votre connexion, puis rechargez la page.",
   },
   shell: {
     signOut: "Se déconnecter",
@@ -1290,6 +1342,46 @@ export const fr = {
         },
       ],
     },
+    message: {
+      open: "Écrivez-nous",
+      title: "Écrivez-nous",
+      close: "Fermer",
+      email: "Votre courriel",
+      emailPlaceholder: "nom@societe.com",
+      emailInvalid: "Saisissez une adresse complète, comme nom@societe.com.",
+      next: "Continuer",
+      writingAs: "Les réponses iront à {{email}}",
+      change: "Modifier",
+      body: "Message",
+      bodyPlaceholder: "Ce que vous expédiez, d’où, vers où, et quand.",
+      details: "Vos coordonnées (facultatif)",
+      name: "Nom",
+      company: "Société",
+      phone: "Téléphone",
+      attach: "Joindre des fichiers",
+      attachTypes: "PDF, JPG, PNG, HEIC, Word, Excel. 20 Mo au total.",
+      send: "Envoyer le message",
+      sending: "Envoi…",
+      sentTitle: "Message envoyé",
+      sentRef: "Votre référence",
+      sentCopy: "Une copie avec cette référence part vers {{email}}.",
+      copy: "Copier",
+      copied: "Copié",
+      another: "Écrire un autre",
+      limited: "Trop de messages depuis cette connexion. Réessayez dans une heure.",
+      err: "Votre message n’a pas pu être envoyé. Veuillez réessayer.",
+    },
+    upload: {
+      preparing: "Préparation…",
+      sending: "Envoi…",
+      complete: "Envoi terminé",
+      was: "{{size}} avant",
+      remove: "Retirer {{name}}",
+      badType: "Ce fichier ne peut pas être joint. Utilisez un PDF, une image, un fichier Word ou Excel.",
+      tooMany: "Dix fichiers au maximum.",
+      totalTooBig: "Les fichiers dépassent 20 Mo au total.",
+      unreadable: "Ce fichier n’a pas pu être lu. Enregistrez-le à nouveau, ou choisissez-en un autre.",
+    },
     contact: {
       title: "Parler à quelqu’un",
       sub: "Une question, un partenariat, un envoi qui déraille : ce message arrive au bureau qui le traite.",
@@ -1328,6 +1420,8 @@ export const fr = {
       err: "Une erreur est survenue. Veuillez réessayer.",
       limited:
         "Trop de messages depuis cette connexion. Réessayez dans une heure.",
+      attach: "Joindre des fichiers",
+      attachTypes: "PDF, JPG, PNG, HEIC, Word, Excel. 20 Mo au total.",
       promise: [
         {
           t: "Une référence, pas un trou noir",

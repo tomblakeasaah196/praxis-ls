@@ -35,6 +35,12 @@ router.get("/enquiries/export.csv", requirePermission(MODULE, "view"), controlle
 // its own copy of the status list and drift from the one the API partitions on.
 router.get("/enquiries/tiles", requirePermission(MODULE, "view"), controller.tiles);
 router.get("/enquiries/:id", requirePermission(MODULE, "view"), controller.getEnquiry);
+// A file a website visitor attached (14620). Served only through its message,
+// so the permission that reads the message is the one that reads its files.
+router.get("/enquiries/:id/attachments/:docId", requirePermission(MODULE, "view"), controller.attachment);
+// Settings › Website › Messages › Send Test: a real email to the website inbox
+// through the configured sender. A settings action, so the settings grant.
+router.post("/website-mail/test", requirePermission("MOD-70", "edit"), controller.testWebsiteMail);
 
 router.post("/enquiries", requirePermission(MODULE, "create"), validator.enquiry, controller.createEnquiry);
 router.patch("/enquiries/:id", requirePermission(MODULE, "edit"), validator.update,

@@ -2472,6 +2472,16 @@
       "actions": []
     },
     {
+      "id": "settings_website_messages",
+      "title": "Website Messages",
+      "title_fr": "Messages du site web",
+      "route": "/settings/website/messages",
+      "area": "settings",
+      "module_key": "MOD-70",
+      "purpose": "Where website messages are emailed, the mailbox that sends them, and the spam check on the website forms.",
+      "actions": []
+    },
+    {
       "id": "settings_business_policies",
       "title": "Business Policies",
       "title_fr": "Politiques de l'entreprise",

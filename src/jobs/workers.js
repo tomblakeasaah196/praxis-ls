@@ -215,6 +215,10 @@ const PROCESSORS = [
   // each read the same watermark before the other moved it, and every
   // subscriber would receive the digest twice.
   { name: "careers-alerts", concurrency: 1, handler: require("./handlers/careers-alerts") },
+  // Website messages (14620): the inbox copy and the visitor's acknowledgement.
+  // concurrency 2: each job is one message, and its own stamps keep a retry
+  // from sending twice.
+  { name: "site-enquiry-mail", concurrency: 2, handler: require("./handlers/site-enquiry-mail") },
   { name: "careers-alerts-scheduler", concurrency: 1, handler: require("./handlers/careers-alerts-scheduler") },
   // Sandbox auto-wipe (G3, PRD §5.5): daily fan-out honouring each tenant's
   // sandbox_wipe_days + the rebuild worker. concurrency 1 — two concurrent

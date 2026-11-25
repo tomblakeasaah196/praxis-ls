@@ -25,6 +25,7 @@
  */
 
 import { tStatic } from "./i18n";
+import { HUMAN_HEADER, takeHumanToken, type HumanAction } from "./human-check";
 
 export type FieldErrors = Record<string, string[] | string>;
 
@@ -118,6 +119,12 @@ export type PublicApiOpts = Omit<RequestInit, "body"> & {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Abort the in-flight request (used by every read effect on unmount). */
   signal?: AbortSignal;
+  /**
+   * The form's bot-check token travels with this request (`X-Turnstile-Token`),
+   * when the form is holding one. Single use: taken here, so the widget fetches
+   * a fresh one for a second attempt.
+   */
+  human?: HumanAction;
 };
 
 export function buildUrl(path: string, query?: PublicApiOpts["query"]): string {
@@ -141,9 +148,13 @@ export async function publicApi<T = unknown>(
   path: string,
   opts: PublicApiOpts = {},
 ): Promise<T> {
-  const { body, query, headers, ...rest } = opts;
+  const { body, query, headers, human, ...rest } = opts;
   const h = new Headers(headers);
   if (body !== undefined) h.set("Content-Type", "application/json");
+  if (human) {
+    const token = takeHumanToken(human);
+    if (token) h.set(HUMAN_HEADER, token);
+  }
 
   let res: Response;
   try {

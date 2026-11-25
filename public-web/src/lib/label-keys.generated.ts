@@ -11,7 +11,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.announce": true,
   "site.careers": ["address","alertCta","alertEmail","alertName","alertTitle","anotherRole","apply","applyTitle","back","coverNote","cultureMore","cultureTitle","cv","email","empty","expectedSalary","experience","fullName","list","lookingFor","moreTitle","openCta","openFormTitle","openSubmit","openTitle","openWanted","optional","phone","portfolio","published","quietCta","seeOther","submit","title","titleAccent","titleMain","unsubTitle"],
   "site.chrome": ["closeMenu","home","language","login","menu","portalEntry","skip","theme","themeDark","themeLight"],
-  "site.contact": ["bandCta","coverageKicker","coverageTitle","covers","kicker","message","offices","otherGo","otherTitle","promise.*.t","send","subject","title","titleAccent","titleMain","type","typeCareers","typeGeneral","typeMedia","typePartnership"],
+  "site.contact": ["attach","bandCta","coverageKicker","coverageTitle","covers","kicker","message","offices","otherGo","otherTitle","promise.*.t","send","subject","title","titleAccent","titleMain","type","typeCareers","typeGeneral","typeMedia","typePartnership"],
   "site.corridor": ["eyebrow","title"],
   "site.crash": ["home","reload","title"],
   "site.esg": ["environment","governance","kicker","social","title","titleAccent"],
@@ -19,6 +19,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.hero": ["cta","cta2","eyebrow","scrollCue","title","titleAccent","titleMain"],
   "site.how": ["eyebrow","steps.*.t","title"],
   "site.insights": ["all","allYears","backToIndex","by","filterLabel","gallery","gone","kicker","kindAll","kindAnnouncement","kindArticle","kindLabel","lead","minutes","next","none","noneForTag","noneForYear","pageOf","pagination","previous","readArticle","related","share","shareEmail","shareLinkedIn","shareWhatsApp","showAll","title","titleAccent","titleMain","yearLabel"],
+  "site.message": ["another","attach","body","change","close","company","copied","copy","details","email","name","next","open","phone","send","sentRef","sentTitle","title"],
   "site.nav": ["about","careers","contact","insights","portfolio","services","servicesAll","servicesMore","track"],
   "site.notFound": ["home","kicker","title"],
   "site.portalBand": ["cta","eyebrow","title"],
@@ -33,5 +34,6 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.servicesPage": ["back","coverage","cta","faq","gallery","highlights","onThisPage","readLess","readMore","related","title","titleAccent","titleMain","updated","video"],
   "site.track": ["current","kicker","label","reference","submit","title"],
   "site.trackPage": ["askDesk","current","destination","failedTitle","lastUpdate","noMatch","noStages","openPortal","origin","progress","scheduled","searchAgain","service","theAnswer","timeline","title","titleAccent","titleMain","tooMany","verdictDone","verdictMoving","verdictOpened"],
+  "site.upload": ["complete","remove"],
   "site.verify": ["asSigned","changed","close","code","codeLabel","contentHash","device","enterTitle","howTitle","identityH","integrityH","issuer","langSwitch","method","network","onBehalf","reason","revokedReasonLabel","signatureH","signedAt","signedBy","signingWindow","submit","title","traceH"],
 };
