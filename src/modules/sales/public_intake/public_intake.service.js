@@ -214,11 +214,39 @@ async function routeWebsiteQuote(client, data) {
   };
 }
 
+/**
+ * The corporate entity a WEBSITE quote is filed under.
+ *
+ * A visitor cannot say which of the tenant's companies they are writing to,
+ * so the desk's rule (name one, or have only one) cannot apply here: the
+ * moment a tenant added its second company, every quote from the website was
+ * refused with ENTITY_REQUIRED, and the visitor saw a generic error. The
+ * website therefore falls back, in order, to the entity marked as the group
+ * parent, then to the oldest active entity: the company the tenant started
+ * with, which is the one its website was built for. A body that names an
+ * entity, or a single-entity tenant, is unaffected.
+ */
+async function websiteEntityId(client, data) {
+  try {
+    return await quote.resolveEntityId(client, { data });
+  } catch (e) {
+    if (!(e instanceof AppError) || e.code !== "ENTITY_REQUIRED") throw e;
+    const { rows } = await client.query(
+      `SELECT entity_id FROM corporate_entity
+        WHERE is_active IS NOT false
+        ORDER BY is_group_parent DESC NULLS LAST, created_at ASC, entity_id ASC
+        LIMIT 1`,
+    );
+    if (!rows[0]) throw e;
+    return rows[0].entity_id;
+  }
+}
+
 async function submitQuote(client, data) {
   // 14640: a website service names no type; the engine chooses it.
   const routed = data.website_service_id ? await routeWebsiteQuote(client, data) : null;
   if (routed) data = { ...data, ...routed, quote_answers: undefined };
-  const entityId = await quote.resolveEntityId(client, { data });
+  const entityId = await websiteEntityId(client, data);
 
   // Both of these run BEFORE the transaction opens, and that ordering is load
   // bearing: each makes an HTTP call to Geoapify or writes an 8 MB object, and
@@ -315,6 +343,7 @@ async function submitContact(client, data, { source = "WEBSITE", afterCommit = n
 const submitMessage = (client, data, opts = {}) => submitContact(client, data, { ...opts, source: "WEBSITE_MESSAGE" });
 
 module.exports = {
+  websiteEntityId,
   submitQuote, submitContact, submitMessage, receipt,
   // Exported for the tests, which assert the two failure asymmetries directly:
   // a place that cannot be resolved must not cost the enquiry, and a file the

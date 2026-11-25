@@ -146,3 +146,33 @@ describe("the public schema", () => {
     expect(parse({ website_service_id: SEA, quote_answers: { mood: "happy" } }).success).toBe(false);
   });
 });
+
+describe("the company a website quote is filed under", () => {
+  const { AppError } = require("../../src/utils/errors");
+  const refuse = () => {
+    throw new AppError("ENTITY_REQUIRED", "several", 422, { entity_id: ["required"] });
+  };
+
+  test("a tenant with several companies still receives website quotes: group parent, else the oldest", async () => {
+    quote.resolveEntityId.mockImplementation(async () => refuse());
+    const client = fakeClient();
+    const base = client.query.getMockImplementation();
+    client.query.mockImplementation(async (sql, params) => {
+      if (/FROM corporate_entity/.test(sql)) {
+        expect(sql).toMatch(/ORDER BY is_group_parent DESC NULLS LAST, created_at ASC/);
+        return { rows: [{ entity_id: "entity-douala" }] };
+      }
+      return base(sql, params);
+    });
+    await submit({ website_service_id: SEA, quote_answers: { direction: "IMPORT", knows: "YES", incoterm: "CIF" } }, client);
+    expect(created().data.entity_id).toBe("entity-douala");
+  });
+
+  test("a body that names its company keeps it, and other errors are not swallowed", async () => {
+    quote.resolveEntityId.mockImplementation(async (_c, { data }) => data.entity_id);
+    await submit({ entity_id: "entity-mannheim", website_service_id: SEA, quote_answers: { direction: "IMPORT", knows: "YES", incoterm: "CIF" } });
+    expect(created().data.entity_id).toBe("entity-mannheim");
+    quote.resolveEntityId.mockImplementation(async () => { throw new AppError("DB_DOWN", "x", 500); });
+    await expect(submit({ website_service_id: SEA, quote_answers: { direction: "IMPORT", knows: "YES", incoterm: "CIF" } })).rejects.toMatchObject({ code: "DB_DOWN" });
+  });
+});
