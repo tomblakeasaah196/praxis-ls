@@ -26,7 +26,7 @@
 
 import * as React from "react";
 import { tr } from "@/lib/i18n";
-import { tenant } from "@/lib/api-client";
+import { download, tenant } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -259,6 +259,39 @@ export function ManageEnquiryModal({
           <p className="mt-3 whitespace-pre-wrap text-sm text-foreground">
             {cell(detail?.message) === "—" ? "(no message body)" : String(detail?.message)}
           </p>
+          {/* Website v2, PR 2: the reference the visitor was given, where they
+              wrote from, and whether the two emails left. */}
+          {detail?.public_ref ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              <span className="font-mono font-semibold text-foreground">{String(detail.public_ref)}</span>
+              {detail?.origin_page ? ` · ${String(detail.origin_page)}` : ""}
+              {" · "}
+              {detail?.inbox_notified_at ? tr("Emailed to the website inbox") : tr("Not emailed to the website inbox")}
+            </p>
+          ) : null}
+          {detail?.mail_error ? (
+            <p className="mt-1 text-xs text-[rgb(var(--bad))]">{String(detail.mail_error)}</p>
+          ) : null}
+          {Array.isArray(detail?.attachments) && (detail?.attachments as Row[]).length ? (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {(detail?.attachments as Row[]).map((a) => (
+                <li key={String(a.doc_id)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      void download(
+                        `/intake/enquiries/${id}/attachments/${String(a.doc_id)}`,
+                        String(a.original_name || "attachment"),
+                      ).catch((e) => setError(errMsg(e)))
+                    }
+                  >
+                    {String(a.original_name || "attachment")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         {/* Classification + notes. One PATCH, and it cannot move the status. */}

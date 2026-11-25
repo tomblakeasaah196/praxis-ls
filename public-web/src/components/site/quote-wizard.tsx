@@ -9,6 +9,13 @@ import { ErrorState, SuccessState } from "@/components/state";
 import { ArrowRightIcon } from "@/components/ui/icons";
 import type { QuoteRequest } from "@/lib/intake-api";
 import { sendQuoteRequest } from "@/lib/quote-intake";
+import type { HumanState } from "@/components/site/human-check";
+
+/** The bot check (website v2, PR 2), loaded apart so the quote page's first
+ *  paint stays inside its budget (check-bundle F-18). */
+const HumanCheck = React.lazy(() =>
+  import("@/components/site/human-check").then((m) => ({ default: m.HumanCheck })),
+);
 import type { PlacePick } from "@/lib/places-api";
 import { useIntake } from "@/lib/use-intake";
 import { useWizardDraft } from "@/lib/use-wizard-draft";
@@ -184,6 +191,8 @@ export function QuoteWizard({
   const [originPick, setOriginPick] = React.useState<PlacePick | null>(null);
   const [destinationPick, setDestinationPick] = React.useState<PlacePick | null>(null);
   const headingRef = React.useRef<HTMLHeadingElement>(null);
+  // The bot check on Submit (website v2, PR 2). "off" when the tenant has no keys.
+  const [human, setHuman] = React.useState<HumanState>("pending");
 
   const docs = useQuoteDocuments({
     maxBytes: DOC_MAX_BYTES,
@@ -605,6 +614,14 @@ export function QuoteWizard({
       {/* OUTSIDE the animated panel: the honeypot must be present and inert for
           a scraper on every step. */}
       <Honeypot value={intake.honeypot} onChange={intake.setHoneypot} />
+      <React.Suspense fallback={null}>
+        <HumanCheck action="quote" onState={setHuman} className="mt-2" />
+      </React.Suspense>
+      {human === "error" ? (
+        <p role="alert" className="mt-2 text-sm text-[rgb(var(--bad))]">
+          {t("errors.humanCheckUnavailable")}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <p className="text-xs text-muted-foreground">{t("site.quote.privacy")}</p>
@@ -620,7 +637,7 @@ export function QuoteWizard({
               <ArrowRightIcon size={16} className="ml-2" />
             </Button>
           ) : (
-            <Button type="submit" size="lg" loading={intake.busy} disabled={intake.busy}>
+            <Button type="submit" size="lg" loading={intake.busy} disabled={intake.busy || (human !== "off" && human !== "ready")}>
               {intake.busy ? t("site.quote.sending") : t("site.quote.submit")}
             </Button>
           )}

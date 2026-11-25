@@ -28,7 +28,7 @@ const clientFor = (dossierRows, milestoneRows = []) => {
 
 const dossier = (over = {}) => ({
   dossier_id: "d1",
-  ref: "SBL-OPS-2026-0142",
+  ref: "SL7Z3K9QW2M4XBSM",
   pol: "Shanghai",
   pod: "Douala",
   place_receipt: null,
@@ -186,7 +186,7 @@ describe("the response", () => {
         stage({ code: "DELIVERY", internal_status: "PENDING", completed_at: null }),
       ],
     );
-    const out = await get(client, "SBL-OPS-2026-0142");
+    const out = await get(client, "SL7Z3K9QW2M4XBSM");
     expect(out.service_type).toEqual({
       key: "SEA_FREIGHT_IMPORT",
       name_fr: "Fret maritime import",
@@ -203,7 +203,7 @@ describe("the response", () => {
       internal_status: "PENDING",
       completed_at: null,
     })]);
-    const out = await get(client, "SBL-OPS-2026-0142");
+    const out = await get(client, "SL7Z3K9QW2M4XBSM");
     expect(out.service_type).toBeNull();
     expect(out.last_update).toBeNull();
     expect(out.computed_status).toBe("PENDING");
@@ -211,7 +211,7 @@ describe("the response", () => {
 
   it("reads dossier_visible, so a DRAFT file is not publicly trackable", async () => {
     const client = clientFor([dossier()], []);
-    await get(client, "SBL-OPS-2026-0142");
+    await get(client, "SL7Z3K9QW2M4XBSM");
     const sql = client.query.mock.calls[0][0];
     expect(sql).toContain("dossier_visible");
     expect(sql).not.toMatch(/FROM\s+dossier\s/);
@@ -224,7 +224,7 @@ describe("the response", () => {
   it("names no client and leaks no internal status", async () => {
     // The absences are the point of this endpoint.
     const client = clientFor([dossier()], [stage()]);
-    const out = await get(client, "SBL-OPS-2026-0142");
+    const out = await get(client, "SL7Z3K9QW2M4XBSM");
     const json = JSON.stringify(out);
     expect(json).not.toContain("client");
     expect(json).not.toContain("internal_status");

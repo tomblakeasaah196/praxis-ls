@@ -4,6 +4,7 @@ import { getLang } from "@/lib/i18n";
 import { useBranding } from "@/app/branding";
 import { SiteHeader } from "./site-header";
 import { SiteFooter } from "./site-footer";
+import { MessageButton } from "./message-button";
 
 /**
  * The chrome every stranger-facing page wears: skip link, header, main, footer.
@@ -79,6 +80,7 @@ export function PageShell({
         {children}
       </main>
       {footer ? <SiteFooter /> : null}
+      <MessageButton />
     </div>
   );
 }

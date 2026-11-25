@@ -92,6 +92,9 @@ export type QuoteRequest = Trap & {
   documents?: { data_url: string; filename?: string; document_kind?: DocumentKind }[];
 };
 
+/** A visitor's file, as the request carries it (SmartLS website v2, PR 2). */
+export type IntakeDocument = { data_url: string; filename?: string };
+
 export type ContactEnquiry = Trap & {
   name?: string;
   email?: string;
@@ -100,6 +103,21 @@ export type ContactEnquiry = Trap & {
   subject?: string;
   message: string;
   enquiry_type?: "GENERAL_ENQUIRY" | "PARTNERSHIP" | "CAREERS" | "MEDIA";
+  /** Up to ten files, 20 MB in all; the server types them from their bytes. */
+  documents?: IntakeDocument[];
+  /** The site path the visitor wrote from, so the desk knows what they read. */
+  origin_page?: string;
+};
+
+/** The floating message button: the same desk, and the email is required. */
+export type WebsiteMessage = Trap & {
+  email: string;
+  message: string;
+  name?: string;
+  company_name?: string;
+  phone?: string;
+  documents?: IntakeDocument[];
+  origin_page?: string;
 };
 
 /**
@@ -121,12 +139,23 @@ export const cleanIntake = <T>(body: T & Trap, startedAt: number | undefined): T
     ),
   ) as T & Trap;
 
+/** Which bot-check token each intake path carries (`X-Turnstile-Token`). */
+export const HUMAN_ACTION_FOR = {
+  "/public/intake/quote-requests": "quote",
+  "/public/intake/contact-enquiries": "contact",
+  "/public/intake/messages": "message",
+} as const;
+
 const submit = <T>(
-  path: string,
+  path: keyof typeof HUMAN_ACTION_FOR,
   body: T & Trap,
   startedAt: number | undefined,
 ): Promise<IntakeReceipt> =>
-  publicApi<IntakeReceipt>(path, { method: "POST", body: cleanIntake(body, startedAt) });
+  publicApi<IntakeReceipt>(path, {
+    method: "POST",
+    body: cleanIntake(body, startedAt),
+    human: HUMAN_ACTION_FOR[path],
+  });
 
 export const quoteRequests = {
   path: "/public/intake/quote-requests" as const,
@@ -140,6 +169,12 @@ export const contactEnquiries = {
   path: "/public/intake/contact-enquiries" as const,
   send: (body: ContactEnquiry, startedAt?: number) =>
     submit("/public/intake/contact-enquiries", body, startedAt),
+};
+
+export const websiteMessages = {
+  path: "/public/intake/messages" as const,
+  send: (body: WebsiteMessage, startedAt?: number) =>
+    submit("/public/intake/messages", body, startedAt),
 };
 
 /**

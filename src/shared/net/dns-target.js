@@ -30,12 +30,22 @@
  *                   need different replies, and collapsing them into "not
  *                   working" is what makes support threads long.
  *   unresolved    — no A record yet. Either not added, or still propagating.
+ *   proxied       — every record is a Cloudflare edge address: the tenant put
+ *                   the host behind a proxied (orange cloud) record, which is a
+ *                   supported set-up, not a mistake. Cloudflare forwards to us,
+ *                   so we cannot see the origin it points at from DNS, and the
+ *                   honest verdict is "correct, through Cloudflare". It used to
+ *                   read as `wrong_target`, which told an administrator who had
+ *                   done the right thing to undo it.
  *   unconfigured  — WE do not know our own ingress IP (PUBLIC_INGRESS_IP unset),
  *                   so no verdict is possible. Saying so is honest; saying
  *                   "not working" would blame the client for our gap.
  */
+const { isCloudflare } = require("./cloudflare-ranges");
+
 const STATES = Object.freeze({
   OK: "ok",
+  PROXIED: "proxied",
   WRONG_TARGET: "wrong_target",
   UNRESOLVED: "unresolved",
   UNCONFIGURED: "unconfigured",
@@ -54,6 +64,7 @@ function classify(resolved, expected) {
   // record for a host, and requiring an exact single match would report a
   // correctly-pointed domain as broken the moment someone adds a second.
   if (found.includes(expected)) return { state: STATES.OK, ok: true };
+  if (found.every((ip) => isCloudflare(ip))) return { state: STATES.PROXIED, ok: true };
   return { state: STATES.WRONG_TARGET, ok: false };
 }
 

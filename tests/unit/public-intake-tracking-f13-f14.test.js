@@ -21,7 +21,7 @@ test("F14 returns only dedicated public milestone details and service-aware labe
   const query = jest.fn()
     .mockResolvedValueOnce({
       rows: [{
-        dossier_id: "d", ref: "R1", internal_status: "IN_PROGRESS",
+        dossier_id: "d", ref: "SL7Z3K9QW2M4XBSM", internal_status: "IN_PROGRESS",
         service_key: "SEA_IMPORT", pol: "Douala", pod: "Kribi", details_json: {},
       }],
     })
@@ -33,14 +33,16 @@ test("F14 returns only dedicated public milestone details and service-aware labe
         public_progress_note: "Sailed safely",
       }],
     });
-  const out = await tracking.get({ query }, "R1");
+  // A random-shaped reference: the public lookup refuses anything else
+  // (tracking_public.service, website v2 PR 2).
+  const out = await tracking.get({ query }, "SL7Z3K9QW2M4XBSM");
   const milestoneSql = query.mock.calls[1][0];
   expect(milestoneSql).toContain("is_client_visible");
   expect(milestoneSql).toContain("public_location");
   expect(milestoneSql).not.toContain("cause_note");
   expect(milestoneSql).not.toContain("health");
   expect(out).toMatchObject({
-    reference: "R1", origin: "Douala", destination: "Kribi", computed_status: "COMPLETED",
+    reference: "SL7Z3K9QW2M4XBSM", origin: "Douala", destination: "Kribi", computed_status: "COMPLETED",
   });
   expect(out).not.toHaveProperty("status");
   expect(out.milestones[0]).toMatchObject({

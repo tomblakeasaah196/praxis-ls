@@ -28,6 +28,7 @@ const { router: clientErrorsRouter } = require("./routes/client-errors");
 const { router: metricsRouter } = require("./routes/metrics");
 const { initRateLimitStore, apiLimiter } = require("./shared/http/rate-limit");
 const { isPublicMediaPath } = require("./shared/http/media-guard");
+const { visitorIp } = require("./shared/http/visitor-ip");
 const {
   parseDerivativeKey,
   ensureDerivative,
@@ -187,13 +188,23 @@ function buildCspDirectives(defaults, scriptSrc) {
      * Images in the same dialog kept working — `img-src` says `blob:` — which
      * is exactly what hid it, again. `'self'` covers the sandboxed srcDoc
      * iframes (document preview, template preview); `blob:` covers the vault
-     * viewer. Never a remote origin: the only documents this product frames
-     * are documents it fetched itself and holds in memory.
+     * viewer. No remote DOCUMENT origin: the only documents this product
+     * frames are documents it fetched itself and holds in memory. The one
+     * remote entry is Turnstile's check widget, see TURNSTILE_ORIGIN below.
      */
-    "frame-src": ["'self'", "blob:"],
+    "frame-src": ["'self'", "blob:", TURNSTILE_ORIGIN],
     "script-src": scriptSrc,
   };
 }
+
+/**
+ * Cloudflare Turnstile, the bot check on the public website's forms (SmartLS
+ * website v2, PR 2). Its widget is a script from this origin that draws an
+ * iframe from the same origin, so both directives name it: the ONE remote
+ * origin either directive allows, and only this exact host. It loads only on
+ * a page with a protected form, and only for a tenant that has entered keys.
+ */
+const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 
 /**
  * `script-src`: helmet's default, the SPA shells' inline-script hashes, and
@@ -202,7 +213,7 @@ function buildCspDirectives(defaults, scriptSrc) {
  * compile, so the filter always reported "could not load" (calls audit E5).
  */
 function buildScriptSrc(defaults, shellHashes) {
-  return [...(defaults["script-src"] || ["'self'"]), "'wasm-unsafe-eval'", ...shellHashes];
+  return [...(defaults["script-src"] || ["'self'"]), "'wasm-unsafe-eval'", TURNSTILE_ORIGIN, ...shellHashes];
 }
 
 function buildApp() {
@@ -214,6 +225,10 @@ function buildApp() {
   // attacker-controlled. A hop count makes Express take the address the proxy we
   // actually run appended. See TRUST_PROXY_HOPS in config/env.js.
   app.set("trust proxy", config.TRUST_PROXY_HOPS > 0 ? config.TRUST_PROXY_HOPS : false);
+  // The visitor behind a proxied Cloudflare record, not the edge address every
+  // visitor shares. First, so the access log and every limiter key on it.
+  // `CF-Connecting-IP` is believed only from Cloudflare's own ranges.
+  app.use(visitorIp);
   /**
    * SEC-M8 — `unsafe-inline` is GONE. The reason for it no longer exists.
    *

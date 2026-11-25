@@ -2,6 +2,7 @@ import * as React from "react";
 import { PublicApiError } from "./api";
 import { tStatic } from "./i18n";
 import { fieldErrorsOf, type Trap } from "./intake-api";
+import { isHumanCheckCode } from "./human-check";
 
 /**
  * The state every intake form shares: a busy flag, one error line, per-field
@@ -86,7 +87,9 @@ export function useIntake<T = { received: boolean; reference: string }>(opts: {
         setError(
           e instanceof PublicApiError && e.isRateLimited
             ? opts.onRateLimited || tStatic("errors.intakeRateLimited")
-            : opts.onFailed || tStatic("errors.generic"),
+            : e instanceof PublicApiError && isHumanCheckCode(e.code)
+              ? tStatic("errors.humanCheck")
+              : opts.onFailed || tStatic("errors.generic"),
         );
       }
       return null;

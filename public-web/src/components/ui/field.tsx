@@ -204,18 +204,21 @@ export function Select({
 export function Honeypot({
   value,
   onChange,
+  id = "website-url",
 }: {
   value: string;
   onChange: (v: string) => void;
+  /** A second form on the same page (the message button) needs its own id. */
+  id?: string;
 }) {
   return (
     <div
       className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden"
       aria-hidden
     >
-      <label htmlFor="website-url">Website</label>
+      <label htmlFor={id}>Website</label>
       <input
-        id="website-url"
+        id={id}
         name="website_url"
         type="text"
         tabIndex={-1}

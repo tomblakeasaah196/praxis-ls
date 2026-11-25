@@ -139,6 +139,20 @@ const RAISED = [
     advertises: 12 * 1024 * 1024,
     why: "A quote request's documents: the website's three (12 MB in all), the desk's one (10 MB).",
   },
+  {
+    name: "website-message-attachments",
+    /* POST /api/tenant/public/intake/contact-enquiries  (the contact form)
+       POST /api/tenant/public/intake/messages           (the message button)
+
+       SmartLS website v2, PR 2: a visitor may attach PDF, images, Word and
+       Excel files, 20 MB in all (the owner's number, `@praxis/shared`
+       websiteMessages.ATTACHMENTS_TOTAL_BYTES), in one anonymous JSON body.
+       `advertises` is the TOTAL here, because the files travel together. */
+    path: /^\/api\/(v\d+\/)?tenant\/public\/intake\/(contact-enquiries|messages)\/?$/,
+    limit: "28mb",
+    advertises: 20 * 1024 * 1024,
+    why: "A website message's attachments: up to ten files, 20 MB in all.",
+  },
 ];
 
 module.exports = { RAISED, DEFAULT_LIMIT, encodedSize, parseLimit };

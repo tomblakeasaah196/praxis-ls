@@ -1633,3 +1633,27 @@ export declare namespace companyProfile {
   const logo: z.ZodType<{ name: string; data_url: string }, { name: string; data_url: string }>;
   const cover: z.ZodType<{ data_url: string }, { data_url: string }>;
 }
+
+/** Settings › Website › Messages. The password and the Turnstile secret are
+ *  integration secrets and never appear in these shapes. */
+export type WebsiteMessagesDelivery = {
+  inbox?: string | null;
+  from_address?: string | null;
+  from_name?: string | null;
+  smtp_host?: string | null;
+  smtp_port?: number | null;
+  smtp_user?: string | null;
+};
+export type WebsiteMessagesTurnstile = { site_key?: string | null };
+
+export declare namespace websiteMessages {
+  const deliverySetting: z.ZodType<WebsiteMessagesDelivery, unknown>;
+  const turnstileSetting: z.ZodType<WebsiteMessagesTurnstile, unknown>;
+  const ATTACHMENTS_TOTAL_BYTES: number;
+  const ATTACHMENTS_MAX_FILES: number;
+  const ATTACHMENTS_INLINE_BYTES: number;
+  const ATTACHMENT_LINK_DAYS: number;
+  const ATTACHMENT_TYPES: ReadonlyArray<string>;
+  const DOCX: string;
+  const XLSX: string;
+}

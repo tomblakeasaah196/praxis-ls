@@ -6,6 +6,7 @@ import { useIntake } from "@/lib/use-intake";
 import { FileInput, type Attachment } from "@/components/ui/file-input";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/field";
+import { HumanCheck, type HumanState } from "@/components/site/human-check";
 // Registers `site.careers.*`, which lives in this chunk rather than in the
 // entry dictionary. Imported for the side effect; see careers-i18n.ts.
 import "./careers-i18n";
@@ -83,7 +84,10 @@ export function CandidateForm({
     onFailed: t("site.careers.err"),
   });
 
+  // The bot check (website v2, PR 2). "off" when the tenant has no keys.
+  const [human, setHuman] = React.useState<HumanState>("pending");
   const canSend =
+    (human === "off" || human === "ready") &&
     f.full_name.trim().length > 1 &&
     /.+@.+\..+/.test(f.email.trim()) &&
     (!requireCover || f.cover_note.trim().length > 0) &&
@@ -256,6 +260,12 @@ export function CandidateForm({
         )}
       </div>
 
+      <HumanCheck action="careers" onState={setHuman} />
+      {human === "error" ? (
+        <p role="alert" className="text-sm text-bad">
+          {t("errors.humanCheckUnavailable")}
+        </p>
+      ) : null}
       <Button
         type="submit"
         size="lg"

@@ -12,6 +12,8 @@ const KNOWN_SECTIONS = [
   "numbering", "commercial", "procurement", "security", "ai", "hr", "sales",
   // Pixie-parity gap-fixes hosted in the generic setting store:
   "document_template", "custom_field", "integration_secret", "email_signature",
+  // Settings › Website › Messages: the inbox, the sender mailbox, the bot check.
+  "website_messages",
 ];
 
 // document_template.status vocabulary and custom_field.field_type vocabulary —
@@ -72,6 +74,15 @@ function assertValue(section, key, value) {
     const parsed = require("@praxis/shared").lead.defaultOwnerSetting.safeParse(value);
     if (!parsed.success) {
       throw new AppError("BAD_VALUE", "sales.default_owner must be { user_id: <a user id or null> }", 422);
+    }
+  }
+  // Settings › Website › Messages. The shared definition, so the screen and the
+  // API refuse the same things: a sender host with no From address cannot send.
+  if (section === "website_messages" && (key === "delivery" || key === "turnstile")) {
+    const wm = require("@praxis/shared").websiteMessages;
+    const parsed = (key === "delivery" ? wm.deliverySetting : wm.turnstileSetting).safeParse(value);
+    if (!parsed.success) {
+      throw new AppError("BAD_VALUE", "website_messages." + key + " is not valid", 422, parsed.error.flatten().fieldErrors);
     }
   }
   if (section === "numbering" && value && typeof value === "object" && !Array.isArray(value)) {
