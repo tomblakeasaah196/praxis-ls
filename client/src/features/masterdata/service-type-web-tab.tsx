@@ -32,6 +32,8 @@ import { useFormDraft } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/ui/draft-banner";
 import { ServiceTypeWebPillars } from "./service-type-web-pillars";
 import { ServiceTypeWebAiDialog } from "./service-type-web-ai-dialog";
+import { ServiceTypeWebQuoting } from "./service-type-web-quoting";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp";
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -384,6 +386,10 @@ function draftFromProfile(
       claim_fr: p?.claim_fr ?? "",
       claim_en: p?.claim_en ?? "",
       accent: p?.accent ?? "PRIMARY",
+      // 14640: the website's name for the service, and the homepage band.
+      web_name_fr: p?.web_name_fr ?? "",
+      web_name_en: p?.web_name_en ?? "",
+      is_featured: p?.is_featured ?? false,
   };
 }
 
@@ -437,7 +443,7 @@ function buildDirtyPatch(
       // video_url empty → null so the server clears the column.
       if (k === "video_url" && a === "") {
         out.video_url = null;
-      } else if ((k === "claim_fr" || k === "claim_en") && a === "") {
+      } else if ((k === "claim_fr" || k === "claim_en" || k === "web_name_fr" || k === "web_name_en") && a === "") {
         // A cleared claim is an absent claim. Sending "" would store a blank
         // string that every "is this set?" test in the tree has to special-case
         // — including the backfill seed's, which reads blank as empty and would
@@ -995,6 +1001,7 @@ export function ServiceTypeWebTab({
   const slugKey = `slug_${lang}` as const;
   const highlightsKey = `highlights_${lang}` as const;
   const claimKey = `claim_${lang}` as const;
+  const webNameKey = `web_name_${lang}` as const;
 
   const slugSuggestion = suggestSlug(
     lang === "fr" ? nameFr || serviceTypeKey : nameEn || nameFr || serviceTypeKey,
@@ -1221,6 +1228,32 @@ export function ServiceTypeWebTab({
         <h3 className="text-sm font-semibold text-foreground">
           {tr("Card on the services page")}
         </h3>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Field
+            label={`${tr("Website Name")} (${lang.toUpperCase()})`}
+            about={tr("The name the website shows, such as Sea Freight where the service type is Sea Freight Import. Blank uses the service type's own name.")}
+          >
+            <Input
+              value={String(draft[webNameKey] ?? "")}
+              disabled={readOnly}
+              maxLength={L.WEB_NAME_MAX}
+              placeholder={String((lang === "fr" ? data?.service_type.name_fr : data?.service_type.name_en) ?? "")}
+              onChange={(e) => setField(webNameKey, e.target.value)}
+              data-testid={`web-name-${lang}`}
+            />
+          </Field>
+          <Field
+            label={tr("Homepage")}
+            about={tr("A featured service is drawn on the homepage band with its one line and its closing line.")}
+          >
+            <Checkbox
+              checked={Boolean(draft.is_featured)}
+              disabled={readOnly}
+              label={tr("Featured on the Homepage")}
+              onCheckedChange={(on) => setField("is_featured", on === true)}
+            />
+          </Field>
+        </div>
         <Field
           label={`${tr("Closing line")} (${lang.toUpperCase()})`}
           about={tr("One sentence the card ends on. Not a slogan: say what the service does for them.")}
@@ -1311,6 +1344,17 @@ export function ServiceTypeWebTab({
           tab.reload();
         }}
       />
+
+      {/* ── Quoting (14640) ─────────────────────────────────────────────── */}
+      {data && (
+        <ServiceTypeWebQuoting
+          serviceTypeId={serviceTypeId}
+          tab={data}
+          types={types.data || []}
+          canWrite={canWrite && !isArchived}
+          onSaved={(next) => applyTab(next, RESEED_NONE)}
+        />
+      )}
 
       {/* ── Media ───────────────────────────────────────────────────────── */}
       <section className="space-y-4 rounded-xl border bg-card p-4">
