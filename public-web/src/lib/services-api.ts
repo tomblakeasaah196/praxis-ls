@@ -66,7 +66,7 @@ export type WebsiteQuote = {
   /** False when the service puts no question (one type, no direction, no term). */
   asks: boolean;
   members: QuoteMember[];
-  /** The generic rules and this service's own, merged by `use-services`. */
+  /** The generic rules and this service's own, as the server sends them. */
   rules: QuoteRule[];
 };
 

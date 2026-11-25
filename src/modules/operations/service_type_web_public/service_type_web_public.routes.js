@@ -122,9 +122,10 @@ router.get("/", limit, asyncHandler(async (req, res) => {
           flow: m.flow,
           incoterms: m.incoterms,
         })),
-        // This service's own rules; the generic ones travel once, beside the
-        // groups, as `routing_rules`.
-        rules: own,
+        // Every rule that applies to this service: the generic set, then its
+        // own (an own rule wins for its cell). Sent whole so the website needs
+        // no code of its own to assemble them; its first paint has no room.
+        rules: [...generic, ...own],
       },
       /* The transport mode, in the glyph vocabulary the tracking page uses
          (storage is WAREHOUSE). Since 14300 it is the service's own
