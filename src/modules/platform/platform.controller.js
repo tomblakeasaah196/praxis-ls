@@ -146,6 +146,12 @@ const addDomain = asyncHandler(async (req, res) =>
   }),
 );
 
+const removeDomain = asyncHandler(async (req, res) =>
+  res.json({
+    data: await tenants.removeDomain(req.params.slug, req.body, actor(req)),
+  }),
+);
+
 const setDomainSurface = asyncHandler(async (req, res) =>
   res.json({
     data: await tenants.setDomainSurface(req.params.slug, req.body, actor(req)),
@@ -410,6 +416,7 @@ module.exports = {
   setPlan,
   setCapacity,
   addDomain,
+  removeDomain,
   setDomainSurface,
   setDomainBase,
   setSandbox,

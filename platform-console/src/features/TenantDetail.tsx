@@ -320,7 +320,11 @@ function DomainsCard({ slug, t, onSaved }: { slug: string; t: TDetail; onSaved: 
   const [host, setHost] = useState("");
   const [surface, setSurface] = useState<"public" | "erp">("public");
   const [busy, setBusy] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const rows = t.subdomains || [];
+  // The last host has nowhere else for the tenant to live; the server refuses it
+  // too, but a button that can only fail should not be offered.
+  const canRemove = rows.length > 1;
 
   /**
    * Registering a domain does not make it resolve — that half is at the client's
@@ -458,13 +462,20 @@ function DomainsCard({ slug, t, onSaved }: { slug: string; t: TDetail; onSaved: 
                         Sign-in host
                       </span>
                     ) : (
-                      <Button
-                        size="sm"
-                        loading={busy === sd.host}
-                        onClick={() => flip(sd.host, isPublic ? "erp" : "public")}
-                      >
-                        {isPublic ? "Serve workspace" : "Serve public site"}
-                      </Button>
+                      <span className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                        <Button
+                          size="sm"
+                          loading={busy === sd.host}
+                          onClick={() => flip(sd.host, isPublic ? "erp" : "public")}
+                        >
+                          {isPublic ? "Serve workspace" : "Serve public site"}
+                        </Button>
+                        {canRemove && (
+                          <Button size="sm" variant="danger" onClick={() => setRemoving(sd.host)}>
+                            Remove
+                          </Button>
+                        )}
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -509,6 +520,28 @@ function DomainsCard({ slug, t, onSaved }: { slug: string; t: TDetail; onSaved: 
           wildcard does not cover it.
         </dd>
       </dl>
+
+      {removing && (
+        <ConfirmModal
+          title={`Remove ${removing}?`}
+          danger
+          confirmLabel="Remove Domain"
+          body={
+            <>
+              <span className="mono">{removing}</span> stops serving this tenant at once: its
+              site, portal links and anything printed with it stop working. Adding it back later
+              is possible, but links sent in the meantime will have failed.
+            </>
+          }
+          onClose={() => setRemoving(null)}
+          onConfirm={() =>
+            platform
+              .removeDomain(slug, removing)
+              .then(() => { toast(`${removing} removed`); onSaved(); })
+              .catch(fail)
+          }
+        />
+      )}
     </Card>
   );
 }

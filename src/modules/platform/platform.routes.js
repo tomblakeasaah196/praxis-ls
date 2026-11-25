@@ -83,6 +83,8 @@ router.patch("/tenants/:slug/sandbox", requireCap("tenants.write"), validate("sa
 router.post("/tenants/:slug/domains", requireCap("tenants.write"), validate("domainAdd"), c.addDomain);
 router.patch("/tenants/:slug/domains", requireCap("tenants.write"), validate("domainSurface"), c.setDomainSurface);
 router.patch("/tenants/:slug/domains/base", requireCap("tenants.write"), validate("domainBase"), c.setDomainBase);
+// Refuses the primary (sign-in) host and a tenant's last host; see removeDomain.
+router.delete("/tenants/:slug/domains", requireCap("tenants.write"), validate("domainRemove"), c.removeDomain);
 // Read-only DNS verdict per registered host. `tenants.read`, not
 // `tenants.write`: it resolves names and writes nothing, so anyone who can see
 // the tenant can see whether its domains point here.

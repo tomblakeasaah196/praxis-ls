@@ -306,6 +306,56 @@ function setDomainBase(slug, { host, base }, actorId) {
   });
 }
 
+/**
+ * Take a host away from a tenant.
+ *
+ * The console could add a domain and never remove one, so a rehearsal host
+ * (staging.smartls.cm) stayed registered and served the site after the tenant
+ * moved to its real domain.
+ *
+ * Two refusals, both 409:
+ *   · the PRIMARY host is where the tenant's staff sign in and what the uptime
+ *     probe watches; removing it would leave the workspace with no address.
+ *   · the LAST host, for the same reason, whatever its flags say.
+ *
+ * Read and delete under one lock on the tenant's rows, so two removals racing
+ * cannot each see "one other host left" and together remove both.
+ */
+function removeDomain(slug, { host }, actorId) {
+  const h = String(host || "").trim().toLowerCase().replace(/\.$/, "");
+  if (!h) throw new AppError("BAD_HOST", "A hostname is required.", 400);
+  return withPlatform(async (pf) => {
+    const id = await tenantIdOf(pf, slug);
+    await pf.query("BEGIN");
+    let removed;
+    try {
+      const { rows } = await pf.query(
+        "SELECT lower(host::text) AS host, is_primary, surface FROM platform.subdomain WHERE tenant_id=$1 FOR UPDATE",
+        [id],
+      );
+      removed = rows.find((r) => r.host === h);
+      if (!removed) throw new AppError("NOT_FOUND", `'${h}' is not a host of this tenant.`, 404);
+      if (removed.is_primary) {
+        throw new AppError("PRIMARY_HOST", `'${h}' is where this tenant's staff sign in, so it cannot be removed.`, 409);
+      }
+      if (rows.length <= 1) {
+        throw new AppError("LAST_HOST", `'${h}' is this tenant's only host, so it cannot be removed.`, 409);
+      }
+      await pf.query("DELETE FROM platform.subdomain WHERE tenant_id=$1 AND host=$2", [id, h]);
+      await audit(pf, actorId, id, "tenant.domain_removed", slug, { host: h, surface: removed.surface });
+      await pf.query("COMMIT");
+    } catch (err) {
+      await pf.query("ROLLBACK").catch(() => { /* @silent:teardown: the rollback IS the cleanup */ });
+      throw err;
+    }
+    // Both caches key off the host: without these the removed domain keeps
+    // resolving to the tenant for up to a minute, and its head for five.
+    registry.invalidateHost(h);
+    publicHead.invalidateHost(h);
+    return { host: h, removed: true };
+  });
+}
+
 function setDomainSurface(slug, { host, surface }, actorId) {
   const h = String(host || "").trim().toLowerCase();
   const sf = surface === "public" ? "public" : "erp";
@@ -457,6 +507,7 @@ const listPlans = () =>
 module.exports = {
   checkDomainDns,
   addDomain,
+  removeDomain,
   setDomainSurface,
   setDomainBase,
   list,
