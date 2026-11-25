@@ -507,7 +507,7 @@ export function SiteHeader({
             <ThemeToggle onDark={overlay} />
             <button
               type="button"
-              className="btn-surface grid h-11 w-11 place-items-center rounded-[calc(var(--radius)-2px)] lg:hidden"
+              className="btn-outline grid h-11 w-11 place-items-center rounded-[calc(var(--radius)-2px)] lg:hidden"
               aria-expanded={open}
               aria-controls="site-menu"
               onClick={() => setOpen((v) => !v)}
