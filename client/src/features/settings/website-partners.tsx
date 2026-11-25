@@ -213,6 +213,23 @@ export function WebsitePartnersPage() {
                     </select>
                     <p className="text-xs text-muted-foreground">{tr(KIND_HELP[p.kind])}</p>
                   </Field>
+                  {p.kind === "network" ? (
+                    <Field
+                      label={tr("Member Number")}
+                      about={tr("Printed beside the network's name, so an agent can find you in the network's own directory. A membership not yet approved stays hidden until you show it.")}
+                    >
+                      <Input
+                        defaultValue={p.member_number ?? ""}
+                        maxLength={60}
+                        onBlur={(e) =>
+                          (e.target.value || null) !== (p.member_number ?? null) &&
+                          run(() =>
+                            api.updatePartner(p.partner_id, { member_number: e.target.value || null }),
+                          )
+                        }
+                      />
+                    </Field>
+                  ) : null}
                 </div>
 
                 <div className="mt-3">

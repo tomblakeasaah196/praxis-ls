@@ -48,7 +48,7 @@ const {
   SITE_FONT_DEFAULTS,
 } = require("@praxis/shared/design/site-fonts");
 const { SOCIAL_IDS, isValidSocialUrl } = require("@praxis/shared/design/social");
-const { coverage, siteLanguages } = require("@praxis/shared");
+const { coverage, siteLanguages, siteSettings: siteSettingsShared } = require("@praxis/shared");
 
 const ref = (kind, id) => `${kind}:${id}`;
 
@@ -217,7 +217,7 @@ async function saveSocial(client, { links, actor = {} }) {
  * prefix and the event names — so a reader can see at a glance that the three
  * resources behave identically, which they should.
  */
-function crud({ name, idKey, list, get, create, update, remove, created, updated, deleted }) {
+function crud({ name, idKey, list, get, create, update, remove, created, updated, deleted, checkMerged = null }) {
   return {
     list,
     async create(client, { patch, actor = {} }) {
@@ -236,6 +236,10 @@ function crud({ name, idKey, list, get, create, update, remove, created, updated
     async update(client, { id, patch, actor = {} }) {
       const before = await get(client, id);
       if (!before) throw new AppError("NOT_FOUND", "Not found", 404);
+      // A PATCH carries one field; the rules that span fields (a note before
+      // showing a mark, an expiry after an issue date) are judged on the row
+      // as it will be once the patch lands.
+      if (checkMerged) checkMerged({ ...before, ...patch });
       return atomically(client, async () => {
         const row = await update(client, id, patch, actor.user_id);
         await audit(client, {
@@ -267,8 +271,20 @@ function crud({ name, idKey, list, get, create, update, remove, created, updated
   };
 }
 
+/** The whole-row rule from the shared schema, applied to a merged row. Dates
+ *  come back from node-pg as Date objects and are compared as ISO days. */
+const wholeRow = (schema) => (row) => {
+  const iso = (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : v);
+  const flat = Object.fromEntries(Object.entries(row).map(([k, v]) => [k, iso(v)]));
+  const parsed = schema.safeParse(flat);
+  if (!parsed.success) {
+    throw new AppError("VALIDATION_ERROR", "Invalid body", 422, parsed.error.flatten().fieldErrors);
+  }
+};
+
 const partners = crud({
   name: "site_partner",
+  checkMerged: wholeRow(siteSettingsShared.partner),
   idKey: "partner_id",
   list: repo.listPartners, get: repo.getPartner,
   create: repo.createPartner, update: repo.updatePartner, remove: repo.deletePartner,
@@ -277,6 +293,7 @@ const partners = crud({
 
 const credentials = crud({
   name: "site_credential",
+  checkMerged: wholeRow(siteSettingsShared.credential),
   idKey: "credential_id",
   list: repo.listCredentials, get: repo.getCredential,
   create: repo.createCredential, update: repo.updateCredential, remove: repo.deleteCredential,

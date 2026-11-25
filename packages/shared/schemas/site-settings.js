@@ -110,7 +110,7 @@ const socialLink = z
 
 /* ── partners and credentials ───────────────────────────────────────────────*/
 
-const partner = z
+const partnerShape = z
   .object({
     name: z.string().trim().min(1).max(TITLE),
     /** Three different claims. See 13782 — a grid that mixes them makes none. */
@@ -122,8 +122,9 @@ const partner = z
     member_number: text(60),
     sort_order: z.coerce.number().int().min(0).max(9999).optional(),
     is_active: z.boolean().optional(),
-  })
-  .superRefine((val, ctx) => {
+  });
+
+const partnerRule = (val, ctx) => {
     if (val.is_active && !String(val.permission_note || "").trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -132,9 +133,20 @@ const partner = z
           "Record who cleared this mark, and when, before showing it. These are other companies' trademarks.",
       });
     }
-  });
+  };
 
-const credential = z
+const partner = partnerShape.superRefine(partnerRule);
+
+/**
+ * A PATCH from the partners screen: one field at a time (a kind, the switch,
+ * the note). The whole-row rule cannot judge one field, so the server merges
+ * the patch over the stored row and checks THAT with `partner` (see
+ * site_settings.service `partners.update`). Without this, every inline edit
+ * was refused for lacking a name (found building PR 4, 25 Nov 2026).
+ */
+const partnerPatch = partnerShape.partial();
+
+const credentialShape = z
   .object({
     name: z.string().trim().min(1).max(TITLE),
     issuer: text(TITLE),
@@ -144,8 +156,9 @@ const credential = z
     url: httpsUrl,
     sort_order: z.coerce.number().int().min(0).max(9999).optional(),
     is_active: z.boolean().optional(),
-  })
-  .superRefine((val, ctx) => {
+  });
+
+const credentialRule = (val, ctx) => {
     if (val.issued_on && val.expires_on && val.expires_on < val.issued_on) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -153,7 +166,13 @@ const credential = z
         message: "A credential cannot expire before it was issued.",
       });
     }
-  });
+  };
+
+const credential = credentialShape.superRefine(credentialRule);
+
+/** One field at a time, like `partnerPatch`; the dates are checked on the
+ *  merged row by the server. */
+const credentialPatch = credentialShape.partial();
 
 /* ── about ──────────────────────────────────────────────────────────────────*/
 
@@ -505,6 +524,8 @@ const siteSwitches = z
 exports.siteSwitches = siteSwitches;
 exports.SITE_SWITCHES = SITE_SWITCHES;
 exports.careers = careers;
+exports.partnerPatch = partnerPatch;
+exports.credentialPatch = credentialPatch;
 exports.socialSet = socialSet;
 exports.theme = theme;
 exports.socialLink = socialLink;

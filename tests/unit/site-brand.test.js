@@ -213,3 +213,54 @@ describe("photograph slots", () => {
     expect(media.SITE_MEDIA_SLOTS["leader-portrait"].evidence).toBe(true);
   });
 });
+
+describe("editing one field of a leader", () => {
+  const v = require("../../src/modules/site/site_settings/site_settings.validator");
+
+  test("a PATCH carrying one field is accepted, and an empty name is still refused", () => {
+    expect(v.schemas.updateLeader.safeParse({ role_en: "Managing Director" }).success).toBe(true);
+    expect(v.schemas.updateLeader.safeParse({ partner_desk: true, email: "" }).success).toBe(true);
+    expect(v.schemas.updateLeader.safeParse({ full_name: "" }).success).toBe(false);
+  });
+
+  test("a contact's email and phone are published only for the partner desk", async () => {
+    const settings = require("../../src/modules/site/site_settings/site_settings.service");
+    const client = stubClient({
+      site_about: [{ headline_en: "We Hold Both Ends of the Line", sections: { hero_eyebrow: { en: "About Us" } } }],
+      site_leader: [
+        { leader_id: "l1", entity_id: null, full_name: "Desk Person", is_active: true, partner_desk: true, email: "desk@example.com", phone: "+237 1" },
+        { leader_id: "l2", entity_id: null, full_name: "Private Person", is_active: true, partner_desk: false, email: "private@example.com", phone: "+237 2" },
+      ],
+    });
+    const about = await settings.publicAbout(client);
+    const body = JSON.stringify(about);
+    expect(body).toContain("desk@example.com");
+    expect(body).not.toContain("private@example.com");
+    expect(body).not.toContain("+237 2");
+    expect(about.sections.hero_eyebrow.en).toBe("About Us");
+  });
+});
+
+describe("editing one field of a partner or a credential", () => {
+  const v = require("../../src/modules/site/site_settings/site_settings.validator");
+  const settings = require("../../src/modules/site/site_settings/site_settings.service");
+
+  test("a PATCH of one field is accepted at the door", () => {
+    expect(v.schemas.updatePartner.safeParse({ kind: "client" }).success).toBe(true);
+    expect(v.schemas.updatePartner.safeParse({ member_number: "123456" }).success).toBe(true);
+    expect(v.schemas.updateCredential.safeParse({ is_active: true }).success).toBe(true);
+  });
+
+  test("showing a mark with no clearance on file is still refused, on the merged row", async () => {
+    const client = {
+      async query(sql) {
+        if (/FROM site_partner WHERE partner_id/.test(sql)) {
+          return { rows: [{ partner_id: "p1", name: "GIZ", kind: "client", permission_note: null, is_active: false }] };
+        }
+        return { rows: [] };
+      },
+    };
+    await expect(settings.partners.update(client, { id: "p1", patch: { is_active: true } }))
+      .rejects.toMatchObject({ status: 422, details: { permission_note: expect.any(Array) } });
+  });
+});

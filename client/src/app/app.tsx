@@ -398,6 +398,14 @@ const WebsiteOptionsPage = lazyNamed(
   () => import("@/features/settings/website-options"),
   "WebsiteOptionsPage",
 );
+const WebsiteImagesPage = lazyNamed(
+  () => import("@/features/settings/website-images"),
+  "WebsiteImagesPage",
+);
+const WebsiteDocumentsPage = lazyNamed(
+  () => import("@/features/settings/website-documents"),
+  "WebsiteDocumentsPage",
+);
 const WebsiteInsightEditorPage = lazyNamed(
   () => import("@/features/settings/website-insight-editor"),
   "WebsiteInsightEditorPage",
@@ -932,6 +940,8 @@ export function App() {
               <Route path="settings/website/careers" element={<WebsiteCareersPage />} />
               <Route path="settings/website/messages" element={<WebsiteMessagesPage />} />
               <Route path="settings/website/options" element={<WebsiteOptionsPage />} />
+              <Route path="settings/website/photographs" element={<WebsiteImagesPage />} />
+              <Route path="settings/website/documents" element={<WebsiteDocumentsPage />} />
               <Route
                 path="settings/website/articles"
                 element={<WebsiteInsightsPage />}

@@ -30,6 +30,7 @@ import { ErrorState } from "@/components/ui/states";
 import { tr } from "@/lib/i18n";
 import { dateFmt } from "@/lib/format";
 import { errMsg } from "@/lib/use-resource";
+import { useCan } from "@/lib/route-access";
 import * as api from "@/lib/site-brand-api";
 import { WebsiteNav } from "./website-nav";
 
@@ -352,6 +353,8 @@ export function WebsiteDocumentsPage() {
   const [open, setOpen] = React.useState<string | "new" | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [confirm, confirmElement] = useConfirm();
+  // The routes are guarded by MOD-29 `edit` (site_brand.routes.js).
+  const can = useCan("MOD-29");
 
   const load = React.useCallback(async () => {
     setError(null);
@@ -399,14 +402,16 @@ export function WebsiteDocumentsPage() {
           "Your policies and your privacy policy, as the website publishes them. Each has a draft you edit and a published copy visitors read and download as a PDF.",
         )}
         action={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void draftPrivacy()} disabled={busy}>
-              {tr("Draft Privacy Policy")}
-            </Button>
-            <Button onClick={() => setOpen("new")} disabled={busy}>
-              {tr("New Document")}
-            </Button>
-          </div>
+          can("edit") && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void draftPrivacy()} disabled={busy}>
+                {tr("Draft Privacy Policy")}
+              </Button>
+              <Button onClick={() => setOpen("new")} disabled={busy}>
+                {tr("New Document")}
+              </Button>
+            </div>
+          )
         }
       />
       <WebsiteNav />
