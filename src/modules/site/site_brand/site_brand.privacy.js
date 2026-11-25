@@ -20,18 +20,19 @@
  * that adds a tool the product does not ship adds its paragraph by hand.
  */
 
+const { legalNameWithForm, phoneDisplay } = require("@praxis/shared/text/display");
+
 const has = (v) => v !== null && v !== undefined && String(v).trim() !== "";
 const EU = new Set(["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO"]);
 
 /** One company as the controller paragraph prints it. */
 function controllerBlock(e, L) {
-  const name = [e.legal_name, e.legal_form && !e.legal_name.includes(e.legal_form) ? e.legal_form : null]
-    .filter(has).join(" ");
+  const name = legalNameWithForm(e.legal_name, e.legal_form);
   const lines = [`**${name}**`, ...e.address_lines];
   const reps = e.representatives.map((r) => r.name).filter(has);
   if (reps.length) lines.push(`${L.represented}: ${reps.join(", ")}`);
   if (has(e.email)) lines.push(`${L.email}: ${e.email}`);
-  if (has(e.phone)) lines.push(`${L.phone}: ${e.phone}`);
+  if (has(e.phone)) lines.push(`${L.phone}: ${phoneDisplay(e.phone)}`);
   return lines.join("  \n");
 }
 

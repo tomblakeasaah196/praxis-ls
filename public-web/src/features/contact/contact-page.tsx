@@ -14,6 +14,7 @@ import { listPublicEntities, type PublicEntity } from "@/lib/site-api";
 import { afterPaint } from "@/lib/after-paint";
 import * as React from "react";
 import { p } from "@/lib/base-path";
+import { phoneDisplay, phoneHref } from "@/lib/brand-api";
 
 /**
  * `/contact` — the general enquiry desk, on its own page.
@@ -113,10 +114,10 @@ function OfficeList({ entities }: { entities: PublicEntity[] }) {
                     <dt className="text-muted-foreground">{t("site.contact.phone")}</dt>
                     <dd>
                       <a
-                        href={`tel:${e.phone.replace(/[^\d+]/g, "")}`}
+                        href={phoneHref(e.phone)}
                         className="text-primary-ink underline-offset-4 hover:underline"
                       >
-                        {e.phone}
+                        {phoneDisplay(e.phone)}
                       </a>
                     </dd>
                   </div>

@@ -14,6 +14,17 @@ import { publicGet } from "./api";
 import { mediaSrcSet, mediaUrl, type MediaVariants } from "./site-api";
 import type { Lang } from "./i18n";
 
+import * as display from "@praxis/shared/text/display";
+
+// The legal-name and phone display rules (packages/shared/text/display.js),
+// WRAPPED rather than re-exported, so they share this module's chunk. Rollup
+// links a re-export straight to the original module, which then became a chunk
+// of its own, and its filename in the preload map alone pushed the first paint
+// over budget.
+export const legalNameWithForm = (name: string, form?: string | null) => display.legalNameWithForm(name, form);
+export const phoneDisplay = (phone: string) => display.phoneDisplay(phone);
+export const phoneHref = (phone: string) => display.phoneHref(phone);
+
 /* ── photographs ────────────────────────────────────────────────────────────*/
 
 export type SiteImage = {
