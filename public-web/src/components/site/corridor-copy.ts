@@ -32,7 +32,7 @@ export const en = {
        than letting an ornament be read as a route map. */
     sub: "Every lane here is one we have completed files on. Move through it.",
     subAbstract: "A picture of how a network fits together. Ours fills in as files complete.",
-    figureLabel: "Corridor network — use the arrow keys to move between places",
+    figureLabel: "Corridor network. Use the arrow keys to move between places.",
     figureLabelAbstract: "An illustration of a network",
     /* Shown only where a public entity of the tenant's covers that country —
        "we are here", which is a stronger claim than "we deliver here". */
@@ -46,7 +46,7 @@ export const fr = {
     title: "Les corridors que nous opérons",
     sub: "Chaque ligne ici est une ligne sur laquelle nous avons des dossiers clos. Parcourez-la.",
     subAbstract: "Une image de la façon dont un réseau s’assemble. Le nôtre se remplit à mesure que les dossiers se clôturent.",
-    figureLabel: "Réseau de corridors — utilisez les flèches pour passer d’un lieu à l’autre",
+    figureLabel: "Réseau de corridors. Utilisez les flèches pour passer d’un lieu à l’autre.",
     figureLabelAbstract: "Une illustration de réseau",
     present: "Nous y sommes implantés",
     files: "dossiers",

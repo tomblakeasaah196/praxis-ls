@@ -60,10 +60,10 @@ export const en = {
     scheduled: "Scheduled",
     noSchedule: "No stage has been scheduled on this file yet.",
     whereRef:
-      "The reference is on the documents your account manager sent you — the booking confirmation, the transport order or the invoice.",
+      "The reference is on the documents your account manager sent you: the booking confirmation, the transport order or the invoice.",
     noMatch: "No match",
     notFoundNotLost:
-      "This says nothing about your cargo. It means no file on this site carries that exact reference — most often a digit read across from a photograph, or a reference from a different provider.",
+      "This says nothing about your cargo. It means no file on this site carries that exact reference. Most often a digit was misread from a photograph, or the reference belongs to a different provider.",
     askDesk: "Ask the desk",
     tooMany: "Too many lookups",
     /* SHORT, because it sits at display size. `errors.loadFailed` is a full
@@ -104,7 +104,7 @@ export const fr = {
       "La référence figure sur les documents transmis par votre gestionnaire de compte : la confirmation de réservation, l’ordre de transport ou la facture.",
     noMatch: "Aucune correspondance",
     notFoundNotLost:
-      "Cela ne dit rien de votre marchandise. Aucun dossier de ce site ne porte cette référence exacte — le plus souvent un chiffre relevé sur une photo, ou une référence provenant d’un autre prestataire.",
+      "Cela ne dit rien de votre marchandise. Aucun dossier de ce site ne porte cette référence exacte. Le plus souvent, un chiffre a été mal lu sur une photo, ou la référence provient d’un autre prestataire.",
     askDesk: "Contacter le bureau",
     tooMany: "Trop de recherches",
     failedTitle: "La recherche n’a pas abouti",

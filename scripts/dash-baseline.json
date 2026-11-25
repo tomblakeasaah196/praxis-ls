@@ -178,7 +178,7 @@
   "client/src/features/sales/quote-request-forms.tsx": 4,
   "client/src/features/sales/use-dictation.ts": 2,
   "client/src/features/scaffold/screen-scaffold.tsx": 2,
-  "client/src/features/scaffold/screen-specs.ts": 53,
+  "client/src/features/scaffold/screen-specs.ts": 52,
   "client/src/features/support/new-ticket-modal.tsx": 1,
   "client/src/features/support/ticket-thread.tsx": 1,
   "client/src/features/wms/equipment.tsx": 1,
@@ -233,6 +233,6 @@
   "public-web/src/features/portal/portal-copy.ts": 40,
   "public-web/src/features/portal/screens/quotation.tsx": 1,
   "public-web/src/lib/careers-api.ts": 1,
-  "public-web/src/lib/i18n-dict.ts": 42,
+  "public-web/src/lib/i18n-dict.ts": 33,
   "public-web/src/lib/quote-scope.ts": 1
 }
