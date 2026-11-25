@@ -52,6 +52,9 @@ const rules = require("./inbound_intake.rules");
 // used before: a nested BEGIN/COMMIT that committed the outer transaction early.
 const leads = require("../lead/lead.service");
 const vault = require("../../vault/document_vault/document_vault.service");
+// The website's sending mailbox (Settings › Website › Messages) also answers enquiries.
+const websiteSettings = require("../public_intake/website-messages.settings");
+const enquiryMail = require("../public_intake/enquiry-mail.service");
 const emailService = require("../../../services/email.service");
 const { mapSmtpError, isSmtpError } = require("../../mail/mail/smtp-error.map");
 const { emitEvent, audit } = require("../../../shared/events/emit");
@@ -154,7 +157,91 @@ async function updateEnquiry(client, { id, patch = {}, actor = {} }) {
  *       and raise the mapped SMTP error. THE STATUS DOES NOT MOVE. An operator
  *       whose reply bounced must still see the enquiry as unanswered.
  */
-async function respond(client, { id, body, subject = null, actor = {} }) {
+/* ─── files on a reply (14623) ────────────────────────────────────────────── */
+
+/** All files on one reply together. Base64 grows them by a third in the email,
+ *  and most mail servers refuse a message much over 20 MB. */
+const REPLY_FILES_MAX_BYTES = 15 * 1024 * 1024;
+const REPLY_FILES_MAX = 10;
+const STAGED = (id) => `${ref(id)}:reply-staged`;
+
+/**
+ * Upload one file for a reply that has not been sent yet. Typed from its bytes
+ * (the website's own rules: PDF, images, Word, Excel), stored in the vault
+ * under the enquiry's staging reference, and named back to the screen.
+ */
+async function stageReplyAttachment(client, { id, file, slug = null, actor = {} }) {
+  const before = await repo.getEnquiry(client, id);
+  if (!before) throw new AppError("NOT_FOUND", "Enquiry not found", 404);
+  if (!file || !Buffer.isBuffer(file.buffer) || !file.buffer.length) {
+    throw new AppError("BAD_FILE", "Choose a file to attach", 422, { file: ["required"] });
+  }
+  const attachments = require("../public_intake/attachments");
+  const type = attachments.sniffAttachment(file.buffer);
+  if (!type) {
+    throw new AppError("BAD_FILE_TYPE", "Only PDF, images, Word and Excel files can be attached", 422, {
+      file: ["PDF, JPG, PNG, WEBP, HEIC, DOCX or XLSX only"],
+    });
+  }
+  if (file.buffer.length > REPLY_FILES_MAX_BYTES) {
+    throw new AppError("FILE_TOO_LARGE", "This file is over 15 MB, the most one reply can carry", 413);
+  }
+  const name = attachments.cleanName(file.originalname, type);
+  const doc = await vault.createDocument(client, {
+    file: { buffer: file.buffer, mimetype: type, originalname: name },
+    docType: "ENQUIRY_REPLY_ATTACHMENT",
+    entityRef: STAGED(id),
+    originalName: name,
+    maxBytes: REPLY_FILES_MAX_BYTES,
+    allowedTypes: require("@praxis/shared").websiteMessages.ATTACHMENT_TYPES,
+    sniff: type !== "image/heic",
+    slug,
+    actor,
+  });
+  return { doc_id: doc.doc_id, original_name: name, content_type: type, byte_size: file.buffer.length };
+}
+
+/**
+ * The staged files a reply names, as nodemailer attachments and as the record
+ * kept on the reply. Every id must be staged for THIS enquiry.
+ */
+async function replyFiles(client, id, docIds = []) {
+  const ids = [...new Set((docIds || []).map(String))];
+  if (!ids.length) return { nodemailer: [], record: [] };
+  if (ids.length > REPLY_FILES_MAX) {
+    throw new AppError("TOO_MANY_FILES", `At most ${REPLY_FILES_MAX} files on one reply`, 422, { attachment_doc_ids: [`at most ${REPLY_FILES_MAX}`] });
+  }
+  const rows = await repo.stagedReplyFiles(client, id, ids);
+  if (rows.length !== ids.length) {
+    throw new AppError("BAD_ATTACHMENT", "A file on this reply is no longer available. Remove it and attach it again", 422, {
+      attachment_doc_ids: ["not staged for this enquiry"],
+    });
+  }
+  const nodemailer = [];
+  const record = [];
+  let total = 0;
+  for (const row of rows) {
+    const { buffer } = await vault.fetchBytes(client, row.doc_id);
+    total += buffer.length;
+    if (total > REPLY_FILES_MAX_BYTES) {
+      throw new AppError("FILES_TOO_LARGE", "The files on this reply come to more than 15 MB", 413, { attachment_doc_ids: ["15 MB in all"] });
+    }
+    const ext = String(row.storage_path || "").split(".").pop().toLowerCase();
+    const contentType = REPLY_EXT_TYPE[ext] || "application/octet-stream";
+    const filename = row.original_name || `attachment.${ext || "bin"}`;
+    nodemailer.push({ filename, content: buffer, contentType });
+    record.push({ doc_id: row.doc_id, original_name: filename, content_type: contentType, byte_size: buffer.length });
+  }
+  return { nodemailer, record };
+}
+
+const REPLY_EXT_TYPE = {
+  pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+async function respond(client, { id, body, subject = null, attachmentDocIds = [], actor = {} }) {
   const before = await repo.getEnquiry(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Enquiry not found", 404);
   if (rules.isClosed(before.status)) {
@@ -171,7 +258,13 @@ async function respond(client, { id, body, subject = null, actor = {} }) {
   rules.assertTransition(before.status, "RESPONDED");
 
   const to = String(before.email);
-  const subj = subject || ("Re: " + (before.subject || "your enquiry"));
+  // A website message has a reference (14620); quoting it keeps the visitor's
+  // thread and the inbox's thread the same conversation.
+  const subj = subject || ("Re: " + (before.subject || (before.public_ref ? `your message ${before.public_ref}` : "your enquiry")));
+
+  // 14623: files staged for this reply. Loaded and checked BEFORE the attempt
+  // row is written, so a refused file costs nothing.
+  const files = await replyFiles(client, id, attachmentDocIds);
 
   // Step 2 — committed on its own, before anything leaves the building.
   const attempt = await repo.insertResponse(client, {
@@ -184,19 +277,34 @@ async function respond(client, { id, body, subject = null, actor = {} }) {
 
   let info;
   try {
-    info = await emailService.send(client, {
-      to,
-      subject: subj,
-      text: body,
-      html: htmlBody(body),
-      purpose: MAIL_PURPOSE,
-      moduleKey: events.MODULE,
-      entityRef: ref(id),
-      // §3.5. A reply to a website enquiry is the first thing a prospect ever
-      // receives from us, and it is the send point a tenant most reliably wants
-      // on a sales address rather than the generic notifications one.
-      sendPoint: "intake.reply",
-    });
+    // The website's sending mailbox when it is set up (Settings › Website ›
+    // Messages; SmartLS: support@), replies to the website inbox: the visitor
+    // hears back from the same company address that acknowledged them, not
+    // from the system sender. Otherwise the tenant's own chain, as before.
+    const mailbox = await websiteSettings.senderMailbox(client);
+    if (mailbox) {
+      const delivery = await websiteSettings.delivery(client);
+      info = await enquiryMail.sendVia(client, {
+        mailbox, to, replyTo: delivery.inbox || undefined,
+        subject: subj, text: body, html: htmlBody(body),
+        attachments: files.nodemailer, sendPoint: "intake.reply", entityRef: ref(id),
+      });
+    } else {
+      info = await emailService.send(client, {
+        to,
+        subject: subj,
+        text: body,
+        html: htmlBody(body),
+        attachments: files.nodemailer,
+        purpose: MAIL_PURPOSE,
+        moduleKey: events.MODULE,
+        entityRef: ref(id),
+        // §3.5. A reply to a website enquiry is the first thing a prospect ever
+        // receives from us, and it is the send point a tenant most reliably wants
+        // on a sales address rather than the generic notifications one.
+        sendPoint: "intake.reply",
+      });
+    }
   } catch (err) {
     await repo.settleResponse(client, attempt.contact_enquiry_response_id, {
       send_status: "FAILED",
@@ -230,7 +338,16 @@ async function respond(client, { id, body, subject = null, actor = {} }) {
     send_status: "SENT",
     provider_message_id: (info && (info.messageId || info.message_id)) || null,
     sent_at: new Date().toISOString(),
+    attachments: JSON.stringify(files.record),
   });
+  // The files now belong to the reply that carried them, not to the staging area.
+  if (files.record.length) {
+    await repo.refileVault(client, {
+      docIds: files.record.map((f) => f.doc_id),
+      from: `${ref(id)}:reply-staged`,
+      to: `contact_enquiry_response:${attempt.contact_enquiry_response_id}`,
+    });
+  }
 
   const row = await repo.updEnquiry(client, id, {
     status: "RESPONDED",
@@ -362,6 +479,6 @@ const listEnquiriesForExport = (client, q = {}) => repo.listEnquiriesForExport(c
 
 module.exports = {
   submitEnquiry, transition, markRead, updateEnquiry, respond, triageEnquiry,
-  listEnquiries, getEnquiry, listEnquiriesForExport, attachmentBytes,
+  listEnquiries, getEnquiry, listEnquiriesForExport, attachmentBytes, stageReplyAttachment, replyFiles,
   EXPORT_CAP, MAIL_PURPOSE,
 };

@@ -51,6 +51,8 @@ const schemas = {
   respond: z.object({
     body: z.string().trim().min(1).max(20000),
     subject: text255,
+    // 14623: files uploaded first to /enquiries/:id/reply-attachments.
+    attachment_doc_ids: z.array(z.string().uuid()).max(10).optional(),
   }),
 
   /** The pre-F9 body `{to_lead, close}`. */

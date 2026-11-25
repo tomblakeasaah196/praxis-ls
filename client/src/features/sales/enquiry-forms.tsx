@@ -26,7 +26,9 @@
 
 import * as React from "react";
 import { tr } from "@/lib/i18n";
-import { download, tenant } from "@/lib/api-client";
+import { tenant, tenantDownload, uploadFile } from "@/lib/api-client";
+import { FilePicker, UploadList } from "@/components/ui/image-upload";
+import { useUpload } from "@/lib/use-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -107,6 +109,19 @@ export function ManageEnquiryModal({
   const [notes, setNotes] = React.useState("");
   const [reply, setReply] = React.useState("");
   const [subject, setSubject] = React.useState("");
+  /* Files on the reply (14623): picked, previewed and compressed now, uploaded
+     on Send. Profile "document": a scan is never tonally corrected. */
+  const upload = useUpload<{ doc_id: string }>({
+    profile: "document",
+    multiple: true,
+    maxBytes: 15 * 1024 * 1024,
+    autoStart: false,
+    send: (file, ctx) =>
+      uploadFile<{ doc_id: string }>(`/tenant/intake/enquiries/${enquiry ? String(enquiry.contact_enquiry_id) : ""}/reply-attachments`, file, {
+        onProgress: ctx.onProgress,
+        signal: ctx.signal,
+      }),
+  });
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -190,12 +205,26 @@ export function ManageEnquiryModal({
    *  case where the operator most needs their words back — SMTP refusing the
    *  recipient must not also delete what they wrote. */
   const sendReply = async () => {
+    // Files go up first (14623), then the reply names them. A file that failed
+    // to upload stops the send, so nobody receives a reply missing its rate sheet.
+    const staged = upload.items.length ? await upload.start() : { ok: true as const, results: [] as { doc_id: string }[] };
+    if (!staged.ok) {
+      setError(tr("A file did not upload. Remove it or try again before sending."));
+      return;
+    }
+    const docIds = upload.items.map((i) => (i.result as { doc_id?: string } | null)?.doc_id).filter(Boolean) as string[];
     const sent = await run(
       "reply",
-      () => tenant(`/intake/enquiries/${id}/respond`, { method: "POST", body: { body: reply, subject } }),
+      () => tenant(`/intake/enquiries/${id}/respond`, {
+        method: "POST",
+        body: { body: reply, subject, ...(docIds.length ? { attachment_doc_ids: docIds } : {}) },
+      }),
       "Reply sent. The enquiry is now marked responded.",
     );
-    if (sent) setReply("");
+    if (sent) {
+      setReply("");
+      upload.reset();
+    }
   };
 
   const triage = () =>
@@ -280,7 +309,7 @@ export function ManageEnquiryModal({
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      void download(
+                      void tenantDownload(
                         `/intake/enquiries/${id}/attachments/${String(a.doc_id)}`,
                         String(a.original_name || "attachment"),
                       ).catch((e) => setError(errMsg(e)))
@@ -351,8 +380,19 @@ export function ManageEnquiryModal({
                   placeholder="Write the reply that will be emailed to this person…"
                 />
               </Field>
+              {mayEdit && !closed && (
+                <>
+                  <FilePicker
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.docx,.xlsx"
+                    multiple
+                    onPick={upload.pick}
+                    label={tr("Attach Files")}
+                  />
+                  <UploadList items={upload.items} onRemove={upload.remove} onRetry={upload.retry} />
+                </>
+              )}
               {mayEdit && (
-                <Button loading={busy === "reply"} disabled={closed || !reply.trim()} onClick={sendReply}>
+                <Button loading={busy === "reply" || upload.busy} disabled={closed || !reply.trim() || upload.busy} onClick={sendReply}>
                   Send reply
                 </Button>
               )}

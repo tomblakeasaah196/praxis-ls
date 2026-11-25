@@ -67,7 +67,7 @@ module.exports = {
    * can show what went out rather than just a green tick.
    */
   respond: asyncHandler(async (req, res) =>
-    res.json({ data: await req.tenantDb((c) => service.respond(c, { id: req.params.id, body: req.body.body, subject: req.body.subject || null, actor: actor(req) })) }),
+    res.json({ data: await req.tenantDb((c) => service.respond(c, { id: req.params.id, body: req.body.body, subject: req.body.subject || null, attachmentDocIds: req.body.attachment_doc_ids || [], actor: actor(req) })) }),
   ),
 
   triage: asyncHandler(async (req, res) => {
@@ -113,6 +113,11 @@ module.exports = {
     // French names as UTF-8 instead of Latin-1.
     res.send("﻿" + lines.join("\r\n"));
   }),
+
+  /** One file for a reply not sent yet (14623), multipart . */
+  stageReplyAttachment: asyncHandler(async (req, res) =>
+    res.status(201).json({ data: await req.tenantDb((c) => service.stageReplyAttachment(c, { id: req.params.id, file: req.file, slug: req.tenant && req.tenant.slug, actor: actor(req) })) }),
+  ),
 
   /** One file a website visitor attached (14620), as a download. */
   attachment: asyncHandler(async (req, res) => {
