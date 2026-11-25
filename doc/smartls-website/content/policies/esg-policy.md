@@ -5,7 +5,7 @@ sort_order: 30
 title: Environmental, Social and Governance Policy
 summary: The effect our work has on the environment, on the people it touches and on the way we are run, and what we do about each.
 version: "1.0"
-approved_by: Managing Director
+approved_by: Chief Executive Officer
 ---
 
 ## Why It Matters to a Forwarder
@@ -37,4 +37,4 @@ Trade between Europe and Central Africa is being asked new questions. European b
 
 ## Review
 
-The Managing Director is accountable for this policy and reviews it every year with the Strategic Planning Committee. Progress against it is part of the Operational Excellence Committee's quarterly review.
+The Chief Executive Officer is accountable for this policy and reviews it every year with the Strategic Planning Committee. Progress against it is part of the Operational Excellence Committee's quarterly review.

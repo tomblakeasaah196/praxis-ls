@@ -5,7 +5,7 @@ sort_order: 20
 title: Health, Safety and Environment Policy
 summary: How we protect the people who handle our cargo, the communities it passes through, and the places it is stored.
 version: "1.0"
-approved_by: Managing Director
+approved_by: Chief Executive Officer
 ---
 
 ## Our Commitment
@@ -26,7 +26,7 @@ This policy applies to our staff in Douala and Mannheim, to the warehouses and v
 
 ## Incidents
 
-Every accident, injury, near miss, spill and damage is reported the same day, recorded and investigated. We look for the cause and change how we work. Serious incidents are reported to the Managing Director at once and to the authorities where the law requires it.
+Every accident, injury, near miss, spill and damage is reported the same day, recorded and investigated. We look for the cause and change how we work. Serious incidents are reported to the Chief Executive Officer at once and to the authorities where the law requires it.
 
 ## Subcontractors
 
@@ -34,4 +34,4 @@ We choose hauliers, warehouses and handling contractors who can show they work s
 
 ## Review
 
-Our Operational Excellence Committee reviews incidents and near misses every quarter, with the changes made in response. The Managing Director reviews this policy every year and is accountable for it. Every person working for us is responsible for their own safety and for that of the people around them.
+Our Operational Excellence Committee reviews incidents and near misses every quarter, with the changes made in response. The Chief Executive Officer reviews this policy every year and is accountable for it. Every person working for us is responsible for their own safety and for that of the people around them.

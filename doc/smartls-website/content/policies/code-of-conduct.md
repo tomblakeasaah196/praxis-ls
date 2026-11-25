@@ -5,7 +5,7 @@ sort_order: 40
 title: Code of Conduct
 summary: How everyone who works for Smart Logistics and Services is expected to behave, with clients, with partners, with authorities and with one another.
 version: "1.0"
-approved_by: Managing Director
+approved_by: Chief Executive Officer
 ---
 
 ## Who This Applies To
@@ -45,7 +45,7 @@ Use company money, vehicles, systems and information for company work. Keep reco
 
 ## Speaking Up
 
-Anyone who sees a breach of this Code, or is asked to commit one, should say so: to their manager, or directly and in confidence to the Managing Director. We protect anyone who raises a concern in good faith, and we do not tolerate retaliation against them.
+Anyone who sees a breach of this Code, or is asked to commit one, should say so: to their manager, or directly and in confidence to the Chief Executive Officer. We protect anyone who raises a concern in good faith, and we do not tolerate retaliation against them.
 
 ## Consequences
 
@@ -53,4 +53,4 @@ A breach of this Code is treated as a disciplinary matter and may lead to dismis
 
 ## Responsibility
 
-The Managing Director is accountable for this Code and reviews it every year. Managers make sure their teams know it. Every person who works for us is responsible for following it.
+The Chief Executive Officer is accountable for this Code and reviews it every year. Managers make sure their teams know it. Every person who works for us is responsible for following it.

@@ -5,7 +5,7 @@ sort_order: 50
 title: Anti-Corruption Policy
 summary: We do not pay bribes, we do not make facilitation payments, and we do not accept either. This is how we hold that line at ports, borders and offices.
 version: "1.0"
-approved_by: Managing Director
+approved_by: Chief Executive Officer
 ---
 
 ## Our Position
@@ -26,15 +26,15 @@ This policy applies to all staff in Douala and Mannheim, and to every agent, hau
 
 ## Official Fees Are Different
 
-Duties, taxes, port charges, inspection fees and other charges set by law are paid in full, to the authority entitled to them, against an official receipt that goes on the file. If a charge cannot be supported by an official receipt or a published tariff, it is not paid until the Managing Director has reviewed it.
+Duties, taxes, port charges, inspection fees and other charges set by law are paid in full, to the authority entitled to them, against an official receipt that goes on the file. If a charge cannot be supported by an official receipt or a published tariff, it is not paid until the Chief Executive Officer has reviewed it.
 
 ## Safety Comes First
 
-If a member of staff or a driver is threatened with harm unless they pay, they may pay to protect themselves. They must report it to the Managing Director the same day, and the payment is recorded as what it was.
+If a member of staff or a driver is threatened with harm unless they pay, they may pay to protect themselves. They must report it to the Chief Executive Officer the same day, and the payment is recorded as what it was.
 
 ## Gifts and Hospitality
 
-Modest gifts and hospitality that are customary, given openly and could not be mistaken for an inducement are allowed: a meal during a business visit, a diary at the year's end. Anything of greater value, anything offered to or by a public official, and anything offered while a decision is pending must be declared to the Managing Director before it is given or accepted, and is recorded.
+Modest gifts and hospitality that are customary, given openly and could not be mistaken for an inducement are allowed: a meal during a business visit, a diary at the year's end. Anything of greater value, anything offered to or by a public official, and anything offered while a decision is pending must be declared to the Chief Executive Officer before it is given or accepted, and is recorded.
 
 ## Agents and Partners
 
@@ -46,7 +46,7 @@ Every payment we make is recorded accurately, with its purpose and its receipt, 
 
 ## Speaking Up
 
-Anyone who is asked for a bribe, or suspects one, should report it to the Managing Director, in person or in writing, in confidence. No one will be penalised for refusing to pay a bribe, even if the refusal costs us a shipment or a client. Retaliation against a person who reports in good faith is itself a breach of this policy.
+Anyone who is asked for a bribe, or suspects one, should report it to the Chief Executive Officer, in person or in writing, in confidence. No one will be penalised for refusing to pay a bribe, even if the refusal costs us a shipment or a client. Retaliation against a person who reports in good faith is itself a breach of this policy.
 
 ## Consequences
 
@@ -54,4 +54,4 @@ Breaching this policy is gross misconduct and may lead to dismissal and to refer
 
 ## Responsibility
 
-The Managing Director is accountable for this policy and reviews it every year. The Operational Excellence Committee reviews every reported request, gift declaration and unreceipted charge at its quarterly meeting.
+The Chief Executive Officer is accountable for this policy and reviews it every year. The Operational Excellence Committee reviews every reported request, gift declaration and unreceipted charge at its quarterly meeting.

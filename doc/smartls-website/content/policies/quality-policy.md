@@ -5,7 +5,7 @@ sort_order: 10
 title: Quality Policy
 summary: What we promise on every shipment, how we keep the promise, and how we find out when we have not.
 version: "1.0"
-approved_by: Managing Director
+approved_by: Chief Executive Officer
 ---
 
 ## Our Commitment
@@ -31,7 +31,7 @@ This policy applies to every shipment handled by Smart Logistics and Services, i
 
 **Every quarter.** Our Operational Excellence Committee reviews how we performed: shipments delivered on the date promised, customs holds and their causes, claims, complaints and the time it took to resolve them. Each review ends with changes to how we work, and the next review checks that they were made.
 
-**Every year.** Our Strategic Planning Committee sets the objectives this policy is measured against, and the Managing Director reviews this policy and publishes any change.
+**Every year.** Our Strategic Planning Committee sets the objectives this policy is measured against, and the Chief Executive Officer reviews this policy and publishes any change.
 
 ## When Something Goes Wrong
 
@@ -43,4 +43,4 @@ Carriers, hauliers, warehouses and overseas agents are chosen for their record, 
 
 ## Responsibility
 
-The Managing Director is accountable for this policy. Every member of staff is responsible for applying it to the files they handle, and for raising a risk to a client's shipment the moment they see it.
+The Chief Executive Officer is accountable for this policy. Every member of staff is responsible for applying it to the files they handle, and for raising a risk to a client's shipment the moment they see it.
