@@ -49,6 +49,7 @@ import {
 } from "@/lib/site-api";
 import "@/components/site/brand-i18n";
 import "./about-i18n";
+import { phoneDisplay, phoneHref } from "@/lib/brand-api";
 
 /**
  * `/about`, rebuilt for website v2 (doc/smartls-website/ENGINEERING_GUIDE.md
@@ -566,9 +567,9 @@ function Offices({
                   {phone || email ? (
                     <p className="about-office-contact">
                       {phone ? (
-                        <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>
+                        <a href={phoneHref(phone)}>
                           <span className="sr-only">{t("site.brand.phone")} </span>
-                          {phone}
+                          {phoneDisplay(phone)}
                         </a>
                       ) : null}
                       {email ? (

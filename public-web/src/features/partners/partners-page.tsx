@@ -32,6 +32,7 @@ import {
 import { getLegalEntities, useSiteImages, type LegalEntity } from "@/lib/brand-api";
 import "@/components/site/brand-i18n";
 import "./partners-i18n";
+import { phoneDisplay, phoneHref } from "@/lib/brand-api";
 
 /**
  * `/partners`: For Partners (PR 4, item 7). Written for the overseas agent or
@@ -224,7 +225,7 @@ export function PartnersPage() {
                         ) : null}
                         {o.phone || o.email ? (
                           <p className="about-office-contact">
-                            {o.phone ? <a href={`tel:${o.phone.replace(/[^\d+]/g, "")}`}>{o.phone}</a> : null}
+                            {o.phone ? <a href={phoneHref(o.phone)}>{phoneDisplay(o.phone)}</a> : null}
                             {o.email ? <a href={`mailto:${o.email}`}>{o.email}</a> : null}
                           </p>
                         ) : null}
@@ -323,7 +324,7 @@ function PartnerContact({ leader }: { leader: PublicLeader }) {
         <span className="font-semibold">{leader.name}</span>
         {role ? <span className="text-sm text-muted-foreground">{role}</span> : null}
         {leader.email ? <a href={`mailto:${leader.email}`}>{leader.email}</a> : null}
-        {leader.phone ? <a href={`tel:${leader.phone.replace(/[^\d+]/g, "")}`}>{leader.phone}</a> : null}
+        {leader.phone ? <a href={phoneHref(leader.phone)}>{phoneDisplay(leader.phone)}</a> : null}
       </span>
     </li>
   );

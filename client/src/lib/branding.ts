@@ -28,6 +28,9 @@ export type Branding = {
   warn?: string | null;
   danger?: string | null;
   logoAltUrl?: string | null;
+  /** The homepage hero photograph. Its own slot since the website and the
+   *  staff sign-in screen stopped sharing one picture. */
+  siteHeroUrl?: string | null;
   faviconUrl?: string | null;
   fontDisplay?: string | null;
   fontBody?: string | null;
@@ -88,6 +91,24 @@ export const uploadImage = (
         onProgress,
       )
     : tenant<{ logoUrl: string }>("/branding/logo", {
+        method: "POST",
+        body: { dataUrl },
+      });
+
+/** Gated(edit). Uploads the homepage hero photograph; returns its /media URL.
+ *  The URL is stored by `saveBranding({ siteHeroUrl })`, so the website and the
+ *  sign-in background can differ. */
+export const uploadSiteHero = (
+  dataUrl: string,
+  onProgress?: (percent: number) => void,
+) =>
+  onProgress
+    ? tenantWithProgress<{ siteHeroUrl: string }>(
+        "/branding/site/hero",
+        { dataUrl },
+        onProgress,
+      )
+    : tenant<{ siteHeroUrl: string }>("/branding/site/hero", {
         method: "POST",
         body: { dataUrl },
       });

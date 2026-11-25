@@ -5,6 +5,12 @@ import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { getLegalEntities, type LegalEntity } from "@/lib/brand-api";
 import "@/components/site/brand.css";
 import "./legal-i18n";
+import { legalNameWithForm, phoneDisplay, phoneHref } from "@/lib/brand-api";
+
+/** The name carries the form as written ("... UG (haftungsbeschränkt)"),
+ *  not just an equivalent of it ("LTD" for a SARL). */
+const nameSpellsForm = (name: string, form: string) =>
+  name.toUpperCase().replace(/\./g, "").includes(form.toUpperCase().replace(/\./g, ""));
 
 /**
  * `/legal/impressum` (PR 4, item 8): who operates this website, in English and
@@ -68,10 +74,14 @@ export function ImpressumPage() {
             {(rows || []).map((e) => (
               <article key={e.id} className="legal-entity">
                 <h2 className="font-display text-h3 font-semibold">
-                  {[e.legal_name, e.legal_form && !e.legal_name.includes(e.legal_form) ? e.legal_form : null]
-                    .filter(Boolean)
-                    .join(" ")}
+                  {legalNameWithForm(e.legal_name, e.legal_form)}
                 </h2>
+                {/* The form on its own line when the name does not spell it:
+                    "SMART LOGISTICS AND SERVICES LTD" is a Cameroonian SARL,
+                    and § 5 DDG wants the form stated, not translated. */}
+                {e.legal_form && !nameSpellsForm(e.legal_name, e.legal_form) ? (
+                  <p className="text-muted-foreground">{e.legal_form}</p>
+                ) : null}
                 <dl className="legal-facts">
                   {e.address_lines.length ? (
                     <>
@@ -118,7 +128,7 @@ export function ImpressumPage() {
                       <dd>
                         {e.phone ? (
                           <span>
-                            {L("phone")}: <a href={`tel:${e.phone.replace(/[^\d+]/g, "")}`}>{e.phone}</a>
+                            {L("phone")}: <a href={phoneHref(e.phone)}>{phoneDisplay(e.phone)}</a>
                           </span>
                         ) : null}
                         {e.email ? (

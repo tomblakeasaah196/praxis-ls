@@ -24,7 +24,8 @@ import { Callout } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { SettingsCard, Field } from "@/components/settings/controls";
+import { SettingsCard, Field, ImageField } from "@/components/settings/controls";
+import { fetchBranding, saveBranding, uploadSiteHero } from "@/lib/branding";
 import { ErrorState } from "@/components/ui/states";
 import { tr } from "@/lib/i18n";
 import { errMsg } from "@/lib/use-resource";
@@ -217,6 +218,68 @@ function SlotRow({
   );
 }
 
+/**
+ * The homepage hero. It lives in branding (`site_hero_url`, POST
+ * /branding/site/hero) rather than in site_image, because the public hero and
+ * the portal read it from there and fall back to the sign-in background when
+ * it is empty. Until this card, nothing in the admin wrote it, so the website
+ * showed the staff sign-in photograph (visitor pass, 25 Nov 2026).
+ */
+function HomepageHeroCard() {
+  const [url, setUrl] = React.useState<string>("");
+  const [err, setErr] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState(false);
+
+  React.useEffect(() => {
+    let alive = true;
+    fetchBranding()
+      .then((b) => alive && setUrl(b.siteHeroUrl || ""))
+      .catch((e) => alive && setErr(errMsg(e)));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function store(next: string) {
+    setErr(null);
+    setSaved(false);
+    try {
+      const b = await saveBranding({ siteHeroUrl: next || null });
+      setUrl(b.siteHeroUrl || next);
+      setSaved(true);
+    } catch (e) {
+      setErr(errMsg(e));
+    }
+  }
+
+  return (
+    <SettingsCard title={tr("Homepage: Hero")}>
+      <ImageField
+        label={tr("Hero Photograph")}
+        value={url}
+        onChange={(next) => void store(next)}
+        shape="wide"
+        profile="photo"
+        maxBytes={1_000_000}
+        upload={(d, onProgress) => uploadSiteHero(d, onProgress).then((r) => r.siteHeroUrl)}
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {url ? (
+          <Button size="sm" variant="ghost" onClick={() => void store("")}>
+            {tr("Use the Sign-In Background")}
+          </Button>
+        ) : null}
+        {saved ? <span className="text-xs text-muted-foreground">{tr("Saved")}</span> : null}
+      </div>
+      {err ? (
+        <p role="alert" className="text-xs text-destructive">
+          {err}
+        </p>
+      ) : null}
+    </SettingsCard>
+  );
+}
+
 export function WebsiteImagesPage() {
   const [slots, setSlots] = React.useState<api.ImageSlot[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -254,6 +317,8 @@ export function WebsiteImagesPage() {
       {slots && !groups.length ? (
         <Callout tone="info">{tr("There are no photograph slots on this website yet.")}</Callout>
       ) : null}
+
+      <HomepageHeroCard />
 
       {groups.map((g) => (
         <SettingsCard key={g.page} title={PAGE_TITLE[g.page]()}>
