@@ -16,7 +16,6 @@ import { afterPaint } from "@/lib/after-paint";
 import { aboutSections, type AboutSectionsView } from "@/lib/about-sections";
 import {
   EMPTY_PROOF,
-  featureList,
   getPublicAbout,
   getPublicProof,
   heroBlock,
@@ -43,9 +42,10 @@ import "./partners-i18n";
  *
  * ── THE WORDS ARE THE TENANT'S PAGE ───────────────────────────────────────
  *
- * The hero, the "what we handle" cards and the nomination steps are the
- * tenant's `partners` page (Settings › Website › Pages: a hero block, a card
- * grid, a feature list). One build serves every tenant, so no sentence about
+ * The hero, the "what we handle" list and the nomination steps are the
+ * tenant's `partners` page (Settings › Website › Pages: a Hero block and two
+ * How It Works blocks, in that order; a Card Grid, if a page has one, still
+ * takes the first list's place). One build serves every tenant, so no sentence about
  * Douala or Mannheim is written into this file; what the file supplies is the
  * structure and the furniture.
  */
@@ -57,18 +57,28 @@ const ContactForm = React.lazy(() =>
 );
 
 type Card = { title: string; text: string };
+type List = { title: string; items: Card[] };
 
-function cardGrid(page: SitePage | null, lang: Lang): { title: string; items: Card[] } | null {
-  const block = (page?.blocks || []).find((b) => b.type === "card_grid");
-  if (!block) return null;
-  const c = block.content || {};
-  const items = (Array.isArray(c.items) ? c.items : [])
-    .map((i) => {
-      const r = (i || {}) as { title?: Bilingualish; text?: Bilingualish };
-      return { title: pickBilingual(r.title, lang), text: pickBilingual(r.text, lang) };
+/**
+ * The page's titled lists, in the order the tenant placed them: every card grid
+ * and every How It Works block. The page editor offers How It Works, so the
+ * usual page is two of those; reading both shapes keeps a page built either
+ * way working.
+ */
+function lists(page: SitePage | null, lang: Lang): List[] {
+  return (page?.blocks || [])
+    .filter((b) => b.type === "card_grid" || b.type === "feature_list")
+    .map((block) => {
+      const c = block.content || {};
+      const items = (Array.isArray(c.items) ? c.items : [])
+        .map((i) => {
+          const r = (i || {}) as { title?: Bilingualish; text?: Bilingualish };
+          return { title: pickBilingual(r.title, lang), text: pickBilingual(r.text, lang) };
+        })
+        .filter((i) => i.title);
+      return { title: pickBilingual(c.title as Bilingualish, lang), items };
     })
-    .filter((i) => i.title);
-  return items.length ? { title: pickBilingual(c.title as Bilingualish, lang), items } : null;
+    .filter((l) => l.items.length);
 }
 
 type Data = {
@@ -85,8 +95,7 @@ export function PartnersPage() {
   const images = useSiteImages();
   const { page } = useSitePage("partners");
   const hero = heroBlock(page);
-  const handles = cardGrid(page, lang);
-  const steps = featureList(page);
+  const [handles, steps] = lists(page, lang);
   const [data, setData] = React.useState<Data>({
     proof: EMPTY_PROOF,
     entities: [],
@@ -176,7 +185,7 @@ export function PartnersPage() {
       {steps ? (
         <section className="band band-muted">
           <PageContainer>
-            {steps.title ? <SectionHead as="h2" title={pickBilingual(steps.title, lang)} /> : null}
+            {steps.title ? <SectionHead as="h2" title={steps.title} /> : null}
             <ol className="about-principles">
               {steps.items.map((s, i) => (
                 <li key={i}>
@@ -184,8 +193,8 @@ export function PartnersPage() {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <h3>{pickBilingual(s.title, lang)}</h3>
-                    {s.text ? <p>{pickBilingual(s.text, lang)}</p> : null}
+                    <h3>{s.title}</h3>
+                    {s.text ? <p>{s.text}</p> : null}
                   </div>
                 </li>
               ))}
