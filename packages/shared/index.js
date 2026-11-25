@@ -40,6 +40,7 @@ const legalForms = require("./data/legal-forms");
 const taxRegimes = require("./data/tax-regimes");
 const incoterms = require("./data/incoterms");
 const serviceScope = require("./rules/service-scope");
+const quoteEngine = require("./rules/quote-engine");
 const emailDomain = require("./rules/email-domain");
 const quoteRequest = require("./schemas/quote-request");
 const lead = require("./schemas/lead");
@@ -203,6 +204,7 @@ exports.incoterms = incoterms;
 // its flow (from territory), plus the key ladder that defaults the card. The
 // service-type form suggests a card from it and the API stores and serves it.
 exports.serviceScope = serviceScope;
+exports.quoteEngine = quoteEngine;
 // Which part of an email says who the sender works for — and the public
 // webmail domains where it says nothing. The API matches a requester to a
 // client with it; the quote-request form explains why it did not suggest one.

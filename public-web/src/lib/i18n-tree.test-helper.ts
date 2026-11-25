@@ -11,6 +11,7 @@ import {
   en as quoteStepsEn,
   fr as quoteStepsFr,
 } from "@/components/quote/quote-steps-copy";
+import { en as quoteEngineEn, fr as quoteEngineFr } from "@/components/quote/quote-engine-copy";
 import {
   en as profileEn,
   fr as profileFr,
@@ -79,12 +80,12 @@ import {
  */
 export const en = {
   ...baseEn,
-  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn, brand: brandEn, aboutPage: aboutPageEn, partnersPage: partnersPageEn, trust: trustEn, legal: legalEn },
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, quoteEngine: quoteEngineEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn, brand: brandEn, aboutPage: aboutPageEn, partnersPage: partnersPageEn, trust: trustEn, legal: legalEn },
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
-  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr, brand: brandFr, aboutPage: aboutPageFr, partnersPage: partnersPageFr, trust: trustFr, legal: legalFr },
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, quoteEngine: quoteEngineFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr, brand: brandFr, aboutPage: aboutPageFr, partnersPage: partnersPageFr, trust: trustFr, legal: legalFr },
   portal: { ...baseFr.portal, ...portalFr },
 };

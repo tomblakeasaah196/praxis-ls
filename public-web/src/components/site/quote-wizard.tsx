@@ -20,7 +20,9 @@ import type { PlacePick } from "@/lib/places-api";
 import { useIntake } from "@/lib/use-intake";
 import { useWizardDraft } from "@/lib/use-wizard-draft";
 import { getLang } from "@/lib/i18n";
-import type { ServiceCard } from "@/lib/services-api";
+import { pickText, type ServiceCard } from "@/lib/services-api";
+import { WebsiteServiceStep } from "@/components/quote/website-service-step";
+import type { QeAnswers, QeResult } from "@praxis/shared/rules/quote-engine";
 import {
   asQuoteService,
   incotermToSend,
@@ -31,14 +33,19 @@ import {
   type QuoteService,
 } from "@/lib/quote-scope";
 import { useQuoteDocuments } from "@/lib/use-quote-documents";
-import {
-  EMPTY_PICK,
-  QuoteServiceStep,
-  pickedService,
-  pickProblems,
-  type ServicePick,
-} from "@/components/quote/quote-service-step";
-import { IncotermChoice } from "@/components/quote/incoterm-choice";
+import { EMPTY_PICK, pickedService, pickProblems, type ServicePick } from "@/lib/quote-pick";
+
+/**
+ * The cards-and-flows first step and the Incoterm chips are drawn only for a
+ * payload with no website services (an older API, a cached tab), so they load
+ * on demand (website v2, PR 3) and the quote page stays inside its budget.
+ */
+const QuoteServiceStep = React.lazy(() =>
+  import("@/components/quote/quote-service-step").then((m) => ({ default: m.QuoteServiceStep })),
+);
+const IncotermChoice = React.lazy(() =>
+  import("@/components/quote/incoterm-choice").then((m) => ({ default: m.IncotermChoice })),
+);
 // The shared quote steps' copy lives outside the entry dictionary; see
 // quote-steps-i18n.ts. Imported for the side effect.
 import "@/components/quote/quote-steps-i18n";
@@ -52,6 +59,12 @@ import "@/components/quote/quote-steps-i18n";
  * fallback is what someone sees only if they get there faster than a request.
  */
 const loadDocumentsStep = () => import("@/components/quote/quote-documents");
+/**
+ * "Your Terms" (website v2, PR 3) carries the quote engine, so it is a chunk of
+ * its own like the documents step, fetched as soon as the wizard is on screen.
+ */
+const loadTermsStep = () => import("@/components/quote/quote-terms-step");
+const QuoteTermsStep = React.lazy(() => loadTermsStep().then((m) => ({ default: m.QuoteTermsStep })));
 const QuoteDocumentsStep = React.lazy(() => loadDocumentsStep().then((m) => ({ default: m.QuoteDocumentsStep })));
 
 /**
@@ -113,6 +126,10 @@ const EMAIL_RE = /.+@.+\..+/;
 const DRAFT_KEY = "praxis.quote.draft";
 
 type Draft = ServicePick & {
+  /** The website service picked (14640), when the tenant offers them. */
+  websiteServiceId: string;
+  /** The answers to the quote engine's questions for that service. */
+  answers: QeAnswers;
   /** Typed only on the pre-launch fallback, where there is no service to pick. */
   service_category: string;
   origin_location: string;
@@ -133,6 +150,8 @@ type Draft = ServicePick & {
 
 const EMPTY: Draft = {
   ...EMPTY_PICK,
+  websiteServiceId: "",
+  answers: {},
   service_category: "",
   origin_location: "",
   destination_location: "",
@@ -166,6 +185,8 @@ const readAsDataUrl = (file: File): Promise<string> =>
 
 export function QuoteWizard({
   services: rows = [],
+  /** The families the services page uses, for grouping the first question. */
+  groups,
   /**
    * The service this form was opened FROM — a service page's own quote band.
    * The first step arrives already answered, and stays editable: somebody may
@@ -174,12 +195,21 @@ export function QuoteWizard({
   preselect = null,
 }: {
   services?: ServiceCard[];
+  groups?: { key: string | null; name_en: string | null; name_fr: string | null; services: ServiceCard[] }[];
   preselect?: ServiceCard | null;
 }) {
   const { t } = useTranslation();
   const lang = getLang();
   const services = React.useMemo<QuoteService[]>(() => rows.map(asQuoteService), [rows]);
   const fallback = services.length === 0;
+  /**
+   * WEBSITE SERVICES (14640): every published row carries the quote engine's
+   * view of it, so the visitor picks "Sea Freight" and the engine, on the next
+   * step, works out the exact service, the Incoterm and the scope. A payload
+   * from before that (a cached tab, an older API) keeps the cards and flows.
+   */
+  const websitePath = rows.length > 0 && rows.every((r) => Boolean(r.quote));
+  const [terms, setTerms] = React.useState<{ id: string; result: QeResult } | null>(null);
   const [f, setF, clearDraft] = useWizardDraft<Draft>(DRAFT_KEY, EMPTY);
   const [step, setStep] = React.useState(0);
   /** Whether the visitor has changed step yet — see `goTo`. */
@@ -211,7 +241,8 @@ export function QuoteWizard({
   // Off the critical path, ahead of need — see `loadDocumentsStep`.
   React.useEffect(() => {
     void loadDocumentsStep();
-  }, []);
+    if (websitePath) void loadTermsStep();
+  }, [websitePath]);
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setF((s) => ({ ...s, [k]: v }));
 
@@ -224,14 +255,27 @@ export function QuoteWizard({
     onFailed: t("site.quote.err"),
   });
 
-  const chosen = pickedService(services, f);
+  const chosen = websitePath ? null : pickedService(services, f);
+  const chosenWeb = websitePath ? rows.find((r) => r.service_type_id === f.websiteServiceId) || null : null;
+  const asksTerms = Boolean(chosenWeb && chosenWeb.quote && chosenWeb.quote.asks);
+  const termsResult = terms && chosenWeb && terms.id === chosenWeb.service_type_id ? terms.result : null;
+  const onTermsResult = React.useCallback(
+    (result: QeResult) => setTerms(chosenWeb ? { id: chosenWeb.service_type_id, result } : null),
+    [chosenWeb],
+  );
 
   /**
    * What this enquiry has to ask — the service's own answer (13774) where one
    * is chosen. On the pre-launch fallback the card is all there is: storage is
    * a place and a duration, anything else a route.
    */
-  const shape: EnquiryShape = chosen ? chosen.enquiry_shape : f.card === "STORAGE" ? "STORAGE" : "ROUTE";
+  const shape: EnquiryShape = chosenWeb
+    ? chosenWeb.enquiry_shape || "ROUTE"
+    : chosen
+      ? chosen.enquiry_shape
+      : f.card === "STORAGE"
+        ? "STORAGE"
+        : "ROUTE";
   const warehousing = shape === "STORAGE";
   /* No movement to describe, so no step to describe it in. */
   const noRoute = shape === "NONE";
@@ -241,6 +285,10 @@ export function QuoteWizard({
     if (!preselect || !preselectId) return;
     // Never over a draft in progress: somebody who half-filled this form and
     // came back through a different service page keeps what they chose.
+    if (preselect.quote) {
+      setF((prev) => (prev.websiteServiceId ? prev : { ...prev, websiteServiceId: preselect.service_type_id, answers: {} }));
+      return;
+    }
     const svc = asQuoteService(preselect);
     setF((prev) => (prev.serviceTypeId || prev.card ? prev : { ...prev, card: svc.card, serviceTypeId: svc.service_type_id, hinterland: "" }));
     // `preselectId` only — the row object is rebuilt on every parent render.
@@ -254,6 +302,7 @@ export function QuoteWizard({
    */
   const STEPS: Step[] = [
     { key: "need", label: t("site.quote.stepNeed") },
+    ...(asksTerms ? [{ key: "terms", label: t("site.quoteSteps.stepTerms") }] : []),
     ...(noRoute ? [] : [{ key: "route", label: warehousing ? t("site.quote.stepStorage") : t("site.quote.stepRoute") }]),
     { key: "details", label: t("site.quote.stepDetails") },
     { key: "documents", label: t("site.quote.stepDocuments") },
@@ -271,9 +320,14 @@ export function QuoteWizard({
   function problems(key: string): Record<string, string> {
     const out: Record<string, string> = {};
     if (key === "need") {
-      Object.assign(out, pickProblems(services, f, t));
-      if (fallback && !f.service_category.trim()) out.service_category = t("site.quote.errService");
+      if (websitePath) {
+        if (!chosenWeb) out.service = t("site.quote.errService");
+      } else {
+        Object.assign(out, pickProblems(services, f, t));
+        if (fallback && !f.service_category.trim()) out.service_category = t("site.quote.errService");
+      }
     }
+    if (key === "terms" && !(termsResult && termsResult.complete)) out.terms = t("site.quoteSteps.errTerms");
     if (key === "route") {
       if (warehousing) {
         if (f.warehouse_location.trim().length < 2) out.warehouse_location = t("site.quote.errWarehouse");
@@ -340,7 +394,15 @@ export function QuoteWizard({
       requester_company: f.requester_company.trim() || undefined,
       requester_email: f.requester_email.trim(),
       requester_phone: f.requester_phone.trim() || undefined,
-      ...(chosen
+      ...(chosenWeb
+        ? {
+            website_service_id: chosenWeb.service_type_id,
+            // The engine's own normalised answers: only the questions that
+            // applied, exactly as the server will ask them again.
+            quote_answers: (termsResult ? termsResult.answers : {}) as QuoteRequest["quote_answers"],
+            service_category: pickText(chosenWeb, "name", lang) || undefined,
+          }
+        : chosen
         ? {
             service_type_id: chosen.service_type_id,
             service_category: serviceName(chosen, lang),
@@ -354,7 +416,11 @@ export function QuoteWizard({
       // The schema requires one. A service with no delivery term sends N/A,
       // "Not sure" — or the pre-launch form, which has no list to ask from —
       // sends TBD: both are answers, not blanks.
-      incoterm: chosen ? incotermToSend(chosen, f.incoterm) : warehousing || noRoute ? "N/A" : INCOTERM_NOT_SURE,
+      // The engine decides the term for a website service (the server, not
+      // this form); the older path still sends one.
+      ...(chosenWeb
+        ? {}
+        : { incoterm: chosen ? incotermToSend(chosen, f.incoterm) : warehousing || noRoute ? "N/A" : INCOTERM_NOT_SURE }),
       ...(noRoute
         ? {}
         : warehousing
@@ -400,7 +466,7 @@ export function QuoteWizard({
     );
   }
 
-  const labels = routeLabelKeys(f.card);
+  const labels = routeLabelKeys(chosenWeb && chosenWeb.quote ? chosenWeb.quote.card : f.card);
 
   return (
     <form onSubmit={onSubmit} className="space-y-6" noValidate>
@@ -422,12 +488,42 @@ export function QuoteWizard({
         <h3 ref={headingRef} tabIndex={-1} className="font-display text-h3 font-semibold tracking-tight outline-none">
           {STEPS[stepIndex].label}
         </h3>
-        <p className="mx-auto mt-2 max-w-measure text-muted-foreground">{t(`site.quote.stepHint_${stepKey}`)}</p>
+        <p className="mx-auto mt-2 max-w-measure text-muted-foreground">
+          {stepKey === "terms" ? t("site.quoteSteps.stepHintTerms") : t(`site.quote.stepHint_${stepKey}`)}
+        </p>
       </div>
 
       <div key={`panel-${stepKey}`} className={cn(moved && "step-panel")}>
-        {stepKey === "need" && (
+        {stepKey === "need" && websitePath && (
+          <WebsiteServiceStep
+            groups={groups && groups.length ? groups : [{ key: null, name_en: null, name_fr: null, services: rows }]}
+            value={f.websiteServiceId}
+            onChange={(id) => setF((prev) => ({ ...prev, websiteServiceId: id, answers: id === prev.websiteServiceId ? prev.answers : {} }))}
+            error={err("service") || err("website_service_id")}
+            idPrefix="quote"
+          />
+        )}
+
+        {stepKey === "terms" && chosenWeb && (
+          <React.Suspense fallback={<p className="text-sm text-muted-foreground">{t("common.loading")}</p>}>
+            <QuoteTermsStep
+              service={chosenWeb}
+              answers={f.answers}
+              onAnswers={(answers) => set("answers", answers)}
+              onResult={onTermsResult}
+              idPrefix="quote"
+            />
+            {err("terms") || Object.keys(intake.fields).find((k) => k.startsWith("quote_answers")) ? (
+              <p role="alert" className="mt-3 text-sm text-[rgb(var(--bad))]">
+                {err("terms") || t("site.quoteSteps.errTerms")}
+              </p>
+            ) : null}
+          </React.Suspense>
+        )}
+
+        {stepKey === "need" && !websitePath && (
           <div className="space-y-4">
+            <React.Suspense fallback={<p className="text-sm text-muted-foreground">{t("common.loading")}</p>}>
             <QuoteServiceStep
               services={services}
               value={f}
@@ -436,6 +532,7 @@ export function QuoteWizard({
               idPrefix="quote"
               errors={{ card: err("card") || err("mode"), service: err("service") || err("service_type_id"), hinterland: err("hinterland") || err("hinterland_direction") }}
             />
+            </React.Suspense>
             {fallback ? (
               <Input
                 label={t("site.quote.service")}
@@ -479,7 +576,11 @@ export function QuoteWizard({
                 placeholder={t("site.quote.destinationPlaceholder")}
               />
             </div>
-            <IncotermChoice service={chosen} value={f.incoterm} onChange={(code) => set("incoterm", code)} variant="site" idPrefix="quote" />
+            {websitePath ? null : (
+              <React.Suspense fallback={null}>
+                <IncotermChoice service={chosen} value={f.incoterm} onChange={(code) => set("incoterm", code)} variant="site" idPrefix="quote" />
+              </React.Suspense>
+            )}
             {err("incoterm") ? (
               <p role="alert" className="text-sm text-[rgb(var(--bad))]">
                 {err("incoterm")}

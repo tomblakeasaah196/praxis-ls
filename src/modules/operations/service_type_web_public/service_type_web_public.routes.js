@@ -37,8 +37,9 @@ const { publishedMonth } = require("../../../shared/date/published-month");
 const repo = require("../service_type_web/service_type_web.repo");
 const { siteLanguages } = require("@praxis/shared");
 const siteSwitches = require("../../site/site_settings/site_switches");
-const { serviceScope, incoterms } = require("@praxis/shared");
+const { serviceScope, incoterms, quoteEngine } = require("@praxis/shared");
 const grouping = require("./service_type_web_public.service");
+const websiteService = require("../service_type_web/website-service");
 
 const router = express.Router();
 const limit = makeLimiter({ name: "services-public", max: 120, windowMs: 15 * 60 * 1000 });
@@ -83,17 +84,49 @@ router.get("/", limit, asyncHandler(async (req, res) => {
   // The switches come from the same LIVE read: an English-only tenant's
   // services are served with no French in them (website v2), so a card with
   // no English line prints nothing rather than the French one.
-  const { rows, site } = await req.tenantDbIn("live", async (client) => ({
-    rows: await repo.publicList(client),
-    site: await siteSwitches.load(client),
-  }));
-  res.json({
-    data: siteLanguages.withoutUnofferedLanguage(grouping.groupServices(rows, (row) => ({
+  const { rows, site, quote } = await req.tenantDbIn("live", async (client) => {
+    const list = await repo.publicList(client);
+    return {
+      rows: list,
+      site: await siteSwitches.load(client),
+      // The quote engine's view of each website service (14640): its members
+      // and the routing rules, so the wizard runs the engine on exactly what
+      // the intake will run it on again.
+      quote: await websiteService.descriptorsFor(client, list),
+    };
+  });
+  const generic = quote.rules.filter((r) => !r.website_service_id);
+  const grouped = grouping.groupServices(rows, (row) => {
+    const descriptor = quote.descriptors.get(String(row.service_type_id));
+    const own = quote.rules.filter((r) => r.website_service_id && String(r.website_service_id) === String(row.service_type_id));
+    // Whether the wizard has questions to put for this service at all (a
+    // direction, the Incoterm, two types to choose between). Decided by the
+    // engine here so the website can lay out its steps before it loads it.
+    const asks = !quoteEngine.evaluate(descriptor, {}, [...generic, ...own]).complete;
+    return {
       service_type_id: row.service_type_id,
       slug_fr: row.slug_fr,
       slug_en: row.slug_en,
-      name_fr: row.name_fr,
-      name_en: row.name_en,
+      // The website's name for the service ("Sea Freight") where one is set,
+      // else the service type's own (14640).
+      name_fr: row.web_name_fr || row.name_fr,
+      name_en: row.web_name_en || row.name_en,
+      is_featured: row.is_featured === true,
+      quote: {
+        card: descriptor.card,
+        asks,
+        members: descriptor.members.map((m) => ({
+          service_type_id: m.id,
+          name_en: m.name_en,
+          name_fr: m.name_fr,
+          flow: m.flow,
+          incoterms: m.incoterms,
+        })),
+        // Every rule that applies to this service: the generic set, then its
+        // own (an own rule wins for its cell). Sent whole so the website needs
+        // no code of its own to assemble them; its first paint has no room.
+        rules: [...generic, ...own],
+      },
       /* The transport mode, in the glyph vocabulary the tracking page uses
          (storage is WAREHOUSE). Since 14300 it is the service's own
          `transport_mode` column, falling back to the key's reading — the same
@@ -144,7 +177,10 @@ router.get("/", limit, asyncHandler(async (req, res) => {
       has_video: row.has_video,
       sort_order: row.sort_order,
       published_month: publishedMonth(row.published_at),
-    })), site),
+    };
+  });
+  res.json({
+    data: siteLanguages.withoutUnofferedLanguage({ ...grouped, routing_rules: generic }, site),
   });
 }));
 
@@ -177,8 +213,8 @@ router.get("/:slug", limit, asyncHandler(async (req, res) => {
       slug_fr: row.slug_fr,
       slug_en: row.slug_en,
       alternates: { fr: row.slug_fr, en: row.slug_en },
-      name_fr: row.name_fr,
-      name_en: row.name_en,
+      name_fr: row.web_name_fr || row.name_fr,
+      name_en: row.web_name_en || row.name_en,
       short_description_fr: row.short_description_fr,
       short_description_en: row.short_description_en,
       long_description_fr: row.long_description_fr,

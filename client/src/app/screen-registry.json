@@ -1420,6 +1420,8 @@
         "get_service_type",
         "get_service_type_360",
         "list_service_quote_cards",
+        "list_website_services",
+        "preview_quote_route",
         "get_service_type_commercial",
         "list_service_type_commercial_block"
       ],

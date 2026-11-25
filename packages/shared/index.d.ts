@@ -1399,6 +1399,9 @@ export declare namespace serviceScope {
   ): boolean;
 }
 
+/** The quote engine: website service + answers to one service type or desk review. See rules/quote-engine.js. */
+export declare const quoteEngine: typeof import("./rules/quote-engine");
+
 /**
  * Which part of an email says who the sender works for, and the public
  * webmail domains where it says nothing. See rules/email-domain.js.

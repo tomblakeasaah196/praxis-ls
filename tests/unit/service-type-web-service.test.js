@@ -25,8 +25,17 @@ jest.mock("../../src/modules/operations/service_type_web/service_type_web.repo",
   publicDetail: jest.fn(),
   publicRelated: jest.fn(),
   publicFaq: jest.fn(),
+  // 14640 — the website service section of the tab.
+  membersOf: jest.fn(async () => []),
+  listMembers: jest.fn(async () => []),
+  routeRules: jest.fn(async () => []),
   IMAGE_TYPES: ["image/png", "image/jpeg", "image/webp"],
   UUID_RE: /^[0-9a-f-]{36}$/i,
+}));
+// The site's languages decide whether French is required to publish (website
+// v2). These tests were written for a bilingual site, which is the default here.
+jest.mock("../../src/modules/site/site_settings/site_switches", () => ({
+  load: jest.fn(async () => ({ languages: ["en", "fr"] })),
 }));
 jest.mock("../../src/shared/events/emit", () => ({
   emitEvent: jest.fn(), audit: jest.fn(), resolveActorId: jest.fn(async (_c, id) => id || null),
@@ -137,6 +146,24 @@ describe("service_type_web.service — publish gate (guide §4.2)", () => {
     });
     await expect(service.publish({}, { serviceTypeId: ST, actor: {} }))
       .rejects.toMatchObject({ code: "INCOMPLETE_PROFILE" });
+  });
+
+  test("on an English-only site, a missing French half does not block publishing (website v2)", async () => {
+    const switches = require("../../src/modules/site/site_settings/site_switches");
+    switches.load.mockResolvedValueOnce({ languages: ["en"] }).mockResolvedValueOnce({ languages: ["en"] });
+    const p = { ...baseProfile, cover_vault_id: COVER, short_description_fr: null, long_description_fr: null, slug_fr: null };
+    repo.lockProfile.mockResolvedValue(p);
+    repo.vaultMediaForServe.mockResolvedValue({
+      doc_id: COVER, public_media_entity_ref: `service_type:${ST}`,
+      public_media_role: "COVER", public_media_content_type: "image/png",
+    });
+    repo.setPublished.mockResolvedValue({ ...p, is_published: true });
+    await expect(service.publish({}, { serviceTypeId: ST, actor: { user_id: "u-1" } })).resolves.toBeDefined();
+    // English stays required.
+    switches.load.mockResolvedValueOnce({ languages: ["en"] });
+    repo.lockProfile.mockResolvedValue({ ...p, short_description_en: null });
+    await expect(service.publish({}, { serviceTypeId: ST, actor: {} }))
+      .rejects.toMatchObject({ code: "INCOMPLETE_PROFILE", details: { missing: ["short_description_en"] } });
   });
 
   test("publish refuses when the service type is inactive (archive auto-unpublishes)", async () => {

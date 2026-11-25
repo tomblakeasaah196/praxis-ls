@@ -21,7 +21,8 @@ const storage = require("../../../services/storage.service");
 const vault = require("../../vault/document_vault/document_vault.service");
 const events = require("./service_type_web.events");
 const repo = require("./service_type_web.repo");
-const { siteLanguages } = require("@praxis/shared");
+const { siteLanguages, quoteEngine } = require("@praxis/shared");
+const websiteService = require("./website-service");
 const siteSwitches = require("../../site/site_settings/site_switches");
 
 /**
@@ -64,6 +65,8 @@ const WRITABLE = [
   "video_url",
   "sort_order",
   "group_id", "claim_fr", "claim_en", "accent",
+  // 14640 — the website's name for the service, and the homepage band.
+  "web_name_en", "web_name_fr", "is_featured",
 ];
 
 /** `pick` of the patch — every key present in the request body is sent
@@ -90,8 +93,13 @@ const pickWritable = (patch) => {
  * endpoint also throws on missing.length > 0, and the FE checklist renders
  * the same array.
  */
-function computeReadiness({ profile, serviceType }) {
+function computeReadiness({ profile, serviceType, site = null }) {
   const has = (v) => v !== null && v !== undefined && String(v).trim() !== "";
+  // English first (website v2): on an English-only site the French half is
+  // optional, so a missing French line never blocks publishing. Where French
+  // is offered, both halves are required, exactly as before. A caller that
+  // passes no switches keeps the old rule.
+  const frenchOptional = site !== null && !siteLanguages.offersFrench(site);
   const coverSet = Boolean(profile && profile.cover_vault_id);
   const cover = {
     present: coverSet,
@@ -114,11 +122,11 @@ function computeReadiness({ profile, serviceType }) {
   };
   const missing = [];
   if (!items.name_en) missing.push("name_en");
-  if (!items.short_fr) missing.push("short_description_fr");
+  if (!items.short_fr && !frenchOptional) missing.push("short_description_fr");
   if (!items.short_en) missing.push("short_description_en");
-  if (!items.long_fr) missing.push("long_description_fr");
+  if (!items.long_fr && !frenchOptional) missing.push("long_description_fr");
   if (!items.long_en) missing.push("long_description_en");
-  if (!items.slug_fr) missing.push("slug_fr");
+  if (!items.slug_fr && !frenchOptional) missing.push("slug_fr");
   if (!items.slug_en) missing.push("slug_en");
   if (!items.cover) missing.push("cover_image");
   return {
@@ -160,7 +168,10 @@ async function getTab(client, serviceTypeId) {
     profile: profile || null,
     faq,
     related,
-    readiness: computeReadiness({ profile: effective, serviceType }),
+    readiness: computeReadiness({ profile: effective, serviceType, site: await siteSwitches.load(client) }),
+    // The website service (14640): the other types it quotes for, its own
+    // routing rules beside the generic ones, and what the engine warns about.
+    ...(await websiteSection(client, serviceType)),
     service_type: { is_active: serviceType.is_active, name_fr: serviceType.name_fr, name_en: serviceType.name_en },
   };
 }
@@ -265,7 +276,7 @@ async function publish(client, { serviceTypeId, actor = {} }) {
     }
     // cover_allowed is a server-side allowlist truth, not the FE checkbox.
     const enriched = { ...profile, cover_allowed: await isCoverAllowed(client, profile.cover_vault_id, serviceTypeId) };
-    const readiness = computeReadiness({ profile: enriched, serviceType });
+    const readiness = computeReadiness({ profile: enriched, serviceType, site: await siteSwitches.load(client) });
     if (!readiness.publishable) {
       throw new AppError(
         "INCOMPLETE_PROFILE",
@@ -457,6 +468,180 @@ async function removeMedia(client, { serviceTypeId, documentId, actor = {} }) {
     });
     return getTab(client, serviceTypeId);
   });
+}
+
+/* ── WEBSITE SERVICE: members and quote routing (14640) ──────────────────── */
+
+/**
+ * What the tab shows about the website service: the other types it quotes
+ * for, the routing rules (its own and the generic ones), the engine's
+ * warnings, and a preview of where each picked Incoterm lands, so the person
+ * editing it sees the consequence before a visitor does.
+ */
+async function websiteSection(client, serviceType) {
+  const serviceTypeId = serviceType.service_type_id;
+  const [members, rules, listed] = await Promise.all([
+    repo.membersOf(client, [serviceTypeId]),
+    repo.routeRules(client, [serviceTypeId]),
+    repo.listMembers(client, serviceTypeId),
+  ]);
+  const descriptor = websiteService.descriptorOf(serviceType, members || []);
+  const forEngine = (rules || []).map(websiteService.ruleOut);
+  const preview = [];
+  for (const direction of quoteEngine.directionsOf(descriptor)) {
+    for (const incoterm of quoteEngine.incotermsOf(descriptor)) {
+      const r = quoteEngine.evaluate(descriptor, { direction, knows: "YES", incoterm }, forEngine);
+      preview.push({
+        direction,
+        incoterm,
+        span: r.span,
+        outcome: r.next === "member" ? "CHOOSE" : r.outcome,
+        reason: r.reason,
+        service_type_id: r.service_type_id,
+      });
+    }
+  }
+  return {
+    members: listed || [],
+    routing: {
+      kind: quoteEngine.kindOf(descriptor),
+      own: (rules || []).filter((r) => r.website_service_id),
+      generic: (rules || []).filter((r) => !r.website_service_id),
+      preview,
+    },
+    engine_warnings: quoteEngine.validateService(descriptor, forEngine),
+  };
+}
+
+/**
+ * Set the other ERP types this website service quotes for (set-replace).
+ *
+ * A type belongs to one website service at most, and a type that is itself a
+ * published website service cannot also stand under another: either would let
+ * one request route two ways. Both are refused with the holder named.
+ */
+async function replaceMembers(client, { serviceTypeId, memberIds, actor = {} }) {
+  const exists = await repo.serviceTypeExists(client, serviceTypeId);
+  if (!exists) throw new AppError("NOT_FOUND", "Service type not found", 404);
+  const ids = [...new Set(memberIds || [])];
+  if (ids.includes(serviceTypeId)) {
+    throw new AppError("MEMBER_IS_SELF", "A website service already quotes for its own service type", 422, {
+      member_service_type_ids: ["its own service type is always included"],
+    });
+  }
+  if (ids.length) {
+    const { rows: found } = await client.query(
+      "SELECT service_type_id FROM service_type WHERE service_type_id = ANY($1::uuid[]) AND is_active = true",
+      [ids],
+    );
+    const ok = new Set(found.map((r) => r.service_type_id));
+    const bad = ids.filter((id) => !ok.has(id));
+    if (bad.length) {
+      throw new AppError("MEMBER_INVALID", "Choose active service types only", 422, {
+        member_service_type_ids: bad.map((id) => `${id} is not an active service type`),
+      });
+    }
+    const held = await repo.memberHolders(client, ids, serviceTypeId);
+    if (held.length) {
+      throw new AppError("MEMBER_TAKEN", "A service type belongs to one website service only", 422, {
+        member_service_type_ids: held.map((h) => (h.held_as === "MEMBER"
+          ? `already quoted under ${h.holder_name_en}`
+          : `${h.holder_name_en} is a published website service of its own`)),
+      });
+    }
+  }
+  return atomically(client, async () => {
+    const profile = await repo.lockProfile(client, serviceTypeId);
+    if (!profile) throw new AppError("NOT_FOUND", "Web profile not found: create one first", 404);
+    const before = await repo.listMembers(client, serviceTypeId);
+    const after = await repo.replaceMembers(client, serviceTypeId, ids);
+    // A rule naming a type that is no longer a member would send quotes to
+    // the desk with NO_MEMBER; drop it with the membership it depended on.
+    await client.query(
+      `DELETE FROM quote_route_rule
+        WHERE website_service_id = $1 AND outcome = 'TYPE'
+          AND service_type_id <> $1 AND NOT (service_type_id = ANY($2::uuid[]))`,
+      [serviceTypeId, ids],
+    );
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.MEMBERS_UPDATED,
+      moduleKey: events.MODULE,
+      entityRef: ref(serviceTypeId),
+      before: { members: before.map((m) => m.service_type_id) },
+      after: { members: after.map((m) => m.service_type_id) },
+    });
+    return getTab(client, serviceTypeId);
+  });
+}
+
+/** 422 with each problem named by row, from the engine's own rule check. */
+function assertRules(rows, { requireComplete }) {
+  const issues = quoteEngine.validateRules(rows, { requireComplete });
+  if (!issues.length) return;
+  const fields = {};
+  for (const i of issues) {
+    const key = i.index === null ? "rows" : `rows.${i.index}.${i.field}`;
+    fields[key] = [...(fields[key] || []), i.message];
+  }
+  throw new AppError("ROUTING_INVALID", issues[0].message, 422, fields);
+}
+
+/**
+ * Set the routing rules for one website service (its overrides; empty means
+ * "the generic rules decide every cell"), or, with no service, the generic set,
+ * which must cover all twelve cells so no work is ever unrouted.
+ */
+async function replaceRules(client, { serviceTypeId = null, rows = [], actor = {} }) {
+  const scoped = (rows || []).map((r) => ({
+    website_service_id: serviceTypeId,
+    direction: r.direction,
+    span: r.span,
+    outcome: r.outcome,
+    service_type_id: r.outcome === "TYPE" ? r.service_type_id || null : null,
+    note: r.note || null,
+  }));
+  assertRules(scoped, { requireComplete: !serviceTypeId });
+  if (serviceTypeId) {
+    const exists = await repo.serviceTypeExists(client, serviceTypeId);
+    if (!exists) throw new AppError("NOT_FOUND", "Service type not found", 404);
+    const members = await repo.membersOf(client, [serviceTypeId]);
+    const ids = new Set(members.map((m) => m.service_type_id));
+    const fields = {};
+    scoped.forEach((r, i) => {
+      if (r.outcome === "TYPE" && !ids.has(r.service_type_id)) {
+        fields[`rows.${i}.service_type_id`] = ["not one of this website service's types"];
+      }
+    });
+    if (Object.keys(fields).length) {
+      throw new AppError("ROUTING_INVALID", "A rule can only name one of this website service's types", 422, fields);
+    }
+  }
+  const actorId = await resolveActorId(client, actor.user_id);
+  return atomically(client, async () => {
+    if (serviceTypeId) {
+      const profile = await repo.lockProfile(client, serviceTypeId);
+      if (!profile) throw new AppError("NOT_FOUND", "Web profile not found: create one first", 404);
+    }
+    const mine = (r) => (serviceTypeId ? Boolean(r.website_service_id) : !r.website_service_id);
+    const before = await repo.routeRules(client, serviceTypeId ? [serviceTypeId] : []);
+    const after = await repo.replaceRules(client, serviceTypeId, scoped.map((r) => ({ ...r, updated_by: actorId })));
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.ROUTING_UPDATED,
+      moduleKey: events.MODULE,
+      entityRef: serviceTypeId ? ref(serviceTypeId) : "quote_route_rule:generic",
+      before: { rules: before.filter(mine).map(websiteService.ruleOut) },
+      after: { rules: after.filter(mine).map(websiteService.ruleOut) },
+    });
+    return serviceTypeId ? getTab(client, serviceTypeId) : genericRules(client);
+  });
+}
+
+/** The generic rules, for the Master Data panel that edits them. */
+async function genericRules(client) {
+  const rows = await repo.routeRules(client, []);
+  return { generic: rows.filter((r) => !r.website_service_id), defaults: quoteEngine.DEFAULT_RULES };
 }
 
 /* ── FAQ + RELATED ───────────────────────────────────────────────────────── */
@@ -660,6 +845,9 @@ module.exports = {
   removeMedia,
   replaceFaq,
   replaceRelated,
+  replaceMembers,
+  replaceRules,
+  genericRules,
   draftCopy,
   // hooks
   autoUnpublishForArchive,

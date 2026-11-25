@@ -39,6 +39,7 @@ import {
 } from "@/lib/lead-api";
 import { AttachmentsPanel, QuoteRequestForm } from "./quote-request-forms";
 import { useStartQuotation } from "./new-quotation";
+import { QuoteRoutingFacts } from "./quote-routing-facts";
 
 /* ═══════════════════════════════ the bar ════════════════════════════════ */
 
@@ -383,6 +384,8 @@ export function RequestSheet({
             <Fact label={tr("Reference")}>{cell(r.public_ref)}</Fact>
             <Fact label={tr("Received")}>{dateFmt(r.created_at)}</Fact>
           </dl>
+
+          <QuoteRoutingFacts request={r as Record<string, unknown>} />
 
           <AttachmentsPanel requestId={r.quote_request_id} />
         </div>

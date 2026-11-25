@@ -649,14 +649,22 @@ const CASES = {
       "hinterlandINTO", "hinterlandOUT_OF", "incotermNotSure", "docsKind",
       "docCOMMERCIAL_INVOICE", "docPROFORMA", "docPACKING_LIST", "docBL_AWB",
       "docCARGO_PHOTOS", "docOTHER", "docRecommended", "docsAdd", "docsAddAs",
+      "stepTerms",
     ],
     PROSE: [
       "otherServicesHint", "hinterlandINTOHint", "hinterlandOUT_OFHint", "errFlow",
       "errHinterland", "docsWhy", "docsRequired", "docsOptional", "docsWas",
       "docsPreparing", "docsSending", "docsComplete", "docsRemove", "docsTooBig",
       "docsTooMany", "docsTotalTooBig", "docsUnreadable", "errDocs",
+      "stepHintTerms",
+      "engineDirectionIMPORTHint",
+      "engineDirectionEXPORTHint",
+      "engineKnowsNOHint",
+      "engineDesk",
+      "errTerms",
     ],
   },
+  "site.quoteEngine": LABEL,
   "site.services": {
     LABEL: [
       "eyebrow", "title", "more", "all", "items.*.t",
