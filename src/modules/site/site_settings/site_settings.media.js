@@ -55,8 +55,31 @@ const outbox = require("../../vault/document_vault/attachment_outbox.service");
 const { VARIANT_WIDTHS, VARIANT_FORMATS, variantKey } = require("../../vault/document_vault/attachment_variants");
 const events = require("./site_settings.events");
 const {
-  SITE_MEDIA_SLOTS,
+  SITE_MEDIA_SLOTS: SETTINGS_SLOTS,
 } = require("@praxis/shared").siteSettings;
+const { SITE_IMAGE_LIMITS } = require("@praxis/shared").siteBrand;
+
+/**
+ * The slot contract, with the photograph slots of 14660 added.
+ *
+ * `site-image` is one slot TYPE for every scene-setting photograph on the site
+ * (the homepage steps, the About bands, the partners and trust heroes). Which
+ * of those a row is lives on the row (`site_image.slot_key`); what they have in
+ * common is that they picture no named person and no company's mark, which is
+ * why the vault role is ATMOSPHERE and why, alone among the slots here, a
+ * generated image is accepted (13789 allows it for that role and no other).
+ */
+const SITE_MEDIA_SLOTS = {
+  ...SETTINGS_SLOTS,
+  "site-image": {
+    role: "ATMOSPHERE",
+    evidence: false,
+    transparent: false,
+    maxBytes: SITE_IMAGE_LIMITS.maxBytes,
+    minWidth: SITE_IMAGE_LIMITS.minWidth,
+    aspect: "16:9",
+  },
+};
 
 /** What the vault's own sniffer can verify (`document_vault.service.js`), and
  *  therefore what may be stored.
@@ -191,6 +214,29 @@ const OWNERS = {
                AND v.public_media_content_type = ANY($3::text[])
                AND o.public_enabled = true
                AND o.registration_status = 'ACTIVE'`,
+  },
+  /* 14660: a photograph slot. The owner id is `site_image.image_id`, a uuid,
+     so the slot key (text) never has to pass for one. Nothing to gate beyond
+     the pointer itself: a slot has no "inactive" state, and an image taken out
+     of its slot stops being servable because the join stops matching. */
+  "site-image": {
+    refPrefix: "site_image",
+    table: "site_image",
+    event: "site.image_updated",
+    read: `SELECT vault_id FROM site_image WHERE image_id = $1`,
+    lock: `SELECT vault_id FROM site_image WHERE image_id = $1 FOR UPDATE`,
+    set: `UPDATE site_image
+             SET vault_id = $2, updated_at = now(), updated_by = $3
+           WHERE image_id = $1 RETURNING *`,
+    column: "vault_id",
+    serve: `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
+              FROM document_vault v
+              JOIN site_image o ON o.vault_id = v.doc_id
+             WHERE v.doc_id = $1
+               AND v.status = 'VERIFIED'
+               AND v.public_media_scope = 'SITE'
+               AND v.public_media_role = $2
+               AND v.public_media_content_type = ANY($3::text[])`,
   },
 };
 
@@ -646,6 +692,7 @@ function resolveVariant(doc, width, format) {
 module.exports = {
   IMAGE_TYPES,
   OWNERS,
+  SITE_MEDIA_SLOTS,
   VARIANT_WIDTHS,
   VARIANT_FORMATS,
   variantKey,

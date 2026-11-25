@@ -16,6 +16,7 @@ const partyCommon = require("./schemas/party-common");
 const partyConfig = require("./schemas/party-config");
 const entityCommon = require("./schemas/entity-common");
 const siteSettings = require("./schemas/site-settings");
+const siteBrand = require("./schemas/site-brand");
 const callSummary = require("./schemas/call-summary");
 const dictionaryPosting = require("./schemas/dictionary-posting");
 const expenseRate = require("./schemas/expense-rate");
@@ -77,6 +78,7 @@ exports.entityCommon = entityCommon;
 // them is a FORM: the settings screen must refuse exactly what the API refuses,
 // or a tenant learns their colour was invalid from a 422 after pressing Save.
 exports.siteSettings = siteSettings;
+exports.siteBrand = siteBrand;
 // The call summary contract (guide §4.10): the API parses the provider's JSON
 // with it, the caller's screen renders and edits the stored draft with it.
 // Shared because the draft is EDITED before it is sent — a shape the client
