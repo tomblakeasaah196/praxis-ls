@@ -76,7 +76,7 @@ export function PinDialog({
           onSubmit(endOfDayIso(day));
         }}
       >
-        <p className="text-sm text-muted-foreground">{row.title_fr}</p>
+        <p className="text-sm text-muted-foreground">{api.headline(row)}</p>
         <Field
           label={tr("Show It Until")}
           required

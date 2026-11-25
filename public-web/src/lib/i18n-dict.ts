@@ -258,7 +258,7 @@ export const en = {
       title: "What we are learning",
       titleMain: "What we are",
       titleAccent: "learning",
-      sub: "Notes from the desk on customs, freight and the corridors we work — written by the people doing the work.",
+      sub: "Notes from the desk on customs, freight and the routes we work, written by the people doing the work.",
       filterLabel: "Filter by topic",
       /* §8.6's kind filter. The COARSER cut, above the topics: "articles or
          announcements" is a different question from "which subject", and a
@@ -278,7 +278,7 @@ export const en = {
       noneHint:
         "The desk writes these as the work throws up something worth passing on. Come back, or ask us directly.",
       noneForTag: "Nothing under that topic yet",
-      noneForTagHint: "Other topics have articles — clear the filter to see them.",
+      noneForTagHint: "Other topics have articles. Clear the filter to see them.",
       showAll: "Show every article",
       by: "By",
       backToIndex: "All articles",
@@ -288,6 +288,18 @@ export const en = {
       otherLanguageOnly:
         "This article has not been translated yet. Switch language to read it.",
       gallery: "Images from this article",
+      /* 14680: the library. */
+      lead: "Latest",
+      yearLabel: "Filter by year",
+      allYears: "All years",
+      noneForYear: "Nothing from that year",
+      minutes: "{{count}} min read",
+      share: "Share this article",
+      shareLinkedIn: "Share on LinkedIn",
+      shareWhatsApp: "Share on WhatsApp",
+      shareEmail: "Share by email",
+      related: "Read next",
+      readArticle: "Read the article",
     },
     hero: {
       eyebrow: "Logistics · Customs · Warehousing",
@@ -1019,7 +1031,7 @@ export const fr = {
       title: "Ce que nous apprenons",
       titleMain: "Ce que nous",
       titleAccent: "apprenons",
-      sub: "Les notes du bureau sur la douane, le fret et les corridors où nous opérons — écrites par ceux qui font le travail.",
+      sub: "Les notes du bureau sur la douane, le fret et les routes où nous opérons, écrites par ceux qui font le travail.",
       filterLabel: "Filtrer par thème",
       kindLabel: "Filtrer par type",
       kindAll: "Tout",
@@ -1036,7 +1048,7 @@ export const fr = {
       noneHint:
         "Le bureau écrit ces notes quand le travail fait apparaître quelque chose qui mérite d’être transmis. Revenez, ou demandez-nous directement.",
       noneForTag: "Rien sous ce thème pour l’instant",
-      noneForTagHint: "D’autres thèmes contiennent des articles — retirez le filtre pour les voir.",
+      noneForTagHint: "D’autres thèmes contiennent des articles. Retirez le filtre pour les voir.",
       showAll: "Afficher tous les articles",
       by: "Par",
       backToIndex: "Tous les articles",
@@ -1045,6 +1057,17 @@ export const fr = {
       otherLanguageOnly:
         "Cet article n’est pas encore traduit. Changez de langue pour le lire.",
       gallery: "Images de cet article",
+      lead: "À la une",
+      yearLabel: "Filtrer par année",
+      allYears: "Toutes les années",
+      noneForYear: "Rien pour cette année",
+      minutes: "{{count}} min de lecture",
+      share: "Partager cet article",
+      shareLinkedIn: "Partager sur LinkedIn",
+      shareWhatsApp: "Partager sur WhatsApp",
+      shareEmail: "Partager par e-mail",
+      related: "À lire ensuite",
+      readArticle: "Lire l’article",
     },
     hero: {
       eyebrow: "Logistique · Douane · Entreposage",

@@ -2,7 +2,7 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 629 keys in 27 sections.
+ * 640 keys in 27 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
@@ -236,6 +236,7 @@ exports.SITE_COPY_ENTRIES = [
   ["site.how.sub","how","Sub","Three moves, and you always know which one you are in.","Trois temps, et vous savez toujours lequel vous êtes en train de vivre."],
   ["site.how.title","how","Title","What working with us looks like","Ce que travailler avec nous veut dire"],
   ["site.insights.all","insights","All","All","Tout"],
+  ["site.insights.allYears","insights","All Years","All years","Toutes les années"],
   ["site.insights.backToIndex","insights","Back To Index","All articles","Tous les articles"],
   ["site.insights.by","insights","By","By","Par"],
   ["site.insights.filterLabel","insights","Filter Label","Filter by topic","Filtrer par thème"],
@@ -247,22 +248,32 @@ exports.SITE_COPY_ENTRIES = [
   ["site.insights.kindAnnouncement","insights","Kind Announcement","Announcements","Annonces"],
   ["site.insights.kindArticle","insights","Kind Article","Articles","Articles"],
   ["site.insights.kindLabel","insights","Kind Label","Filter by kind","Filtrer par type"],
+  ["site.insights.lead","insights","Lead","Latest","À la une"],
   ["site.insights.loading","insights","Loading","Loading the articles…","Chargement des articles…"],
   ["site.insights.loadingArticle","insights","Loading Article","Loading the article…","Chargement de l’article…"],
+  ["site.insights.minutes","insights","Minutes","{{count}} min read","{{count}} min de lecture"],
   ["site.insights.next","insights","Next","Next","Suivant"],
   ["site.insights.none","insights","None","Nothing published yet","Rien de publié pour l’instant"],
   ["site.insights.noneForTag","insights","None For Tag","Nothing under that topic yet","Rien sous ce thème pour l’instant"],
-  ["site.insights.noneForTagHint","insights","None For Tag Hint","Other topics have articles — clear the filter to see them.","D’autres thèmes contiennent des articles — retirez le filtre pour les voir."],
+  ["site.insights.noneForTagHint","insights","None For Tag Hint","Other topics have articles. Clear the filter to see them.","D’autres thèmes contiennent des articles. Retirez le filtre pour les voir."],
+  ["site.insights.noneForYear","insights","None For Year","Nothing from that year","Rien pour cette année"],
   ["site.insights.noneHint","insights","None Hint","The desk writes these as the work throws up something worth passing on. Come back, or ask us directly.","Le bureau écrit ces notes quand le travail fait apparaître quelque chose qui mérite d’être transmis. Revenez, ou demandez-nous directement."],
   ["site.insights.otherLanguageOnly","insights","Other Language Only","This article has not been translated yet. Switch language to read it.","Cet article n’est pas encore traduit. Changez de langue pour le lire."],
   ["site.insights.pageOf","insights","Page Of","Page {{page}} of {{total}}","Page {{page}} sur {{total}}"],
   ["site.insights.pagination","insights","Pagination","Pages","Pages"],
   ["site.insights.previous","insights","Previous","Previous","Précédent"],
+  ["site.insights.readArticle","insights","Read Article","Read the article","Lire l’article"],
+  ["site.insights.related","insights","Related","Read next","À lire ensuite"],
+  ["site.insights.share","insights","Share","Share this article","Partager cet article"],
+  ["site.insights.shareEmail","insights","Share Email","Share by email","Partager par e-mail"],
+  ["site.insights.shareLinkedIn","insights","Share Linked In","Share on LinkedIn","Partager sur LinkedIn"],
+  ["site.insights.shareWhatsApp","insights","Share Whats App","Share on WhatsApp","Partager sur WhatsApp"],
   ["site.insights.showAll","insights","Show All","Show every article","Afficher tous les articles"],
-  ["site.insights.sub","insights","Sub","Notes from the desk on customs, freight and the corridors we work — written by the people doing the work.","Les notes du bureau sur la douane, le fret et les corridors où nous opérons — écrites par ceux qui font le travail."],
+  ["site.insights.sub","insights","Sub","Notes from the desk on customs, freight and the routes we work, written by the people doing the work.","Les notes du bureau sur la douane, le fret et les routes où nous opérons, écrites par ceux qui font le travail."],
   ["site.insights.title","insights","Title","What we are learning","Ce que nous apprenons"],
   ["site.insights.titleAccent","insights","Title Accent","learning","apprenons"],
   ["site.insights.titleMain","insights","Title Main","What we are","Ce que nous"],
+  ["site.insights.yearLabel","insights","Year Label","Filter by year","Filtrer par année"],
   ["site.nav.about","nav","About","About","À propos"],
   ["site.nav.careers","nav","Careers","Careers","Carrières"],
   ["site.nav.contact","nav","Contact","Contact","Contact"],

@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DateField } from "@/components/ui/date-field";
 import { Pill } from "@/components/ui/pill";
 import { Segmented } from "@/components/ui/segmented";
 import { PinDialog } from "./website-insight-pin";
@@ -71,6 +72,10 @@ type Draft = {
   meta_description_fr: string; meta_description_en: string;
   tags: string;
   kind: api.InsightKind;
+  /* 14680. The byline as printed, and the article's date as a day. */
+  byline_name: string;
+  byline_role: string;
+  published_at: string;
 };
 
 const EMPTY: Draft = {
@@ -82,6 +87,17 @@ const EMPTY: Draft = {
   meta_description_fr: "", meta_description_en: "",
   tags: "",
   kind: "article",
+  byline_name: "",
+  byline_role: "",
+  published_at: "",
+};
+
+/** The stored instant as the day it prints as. Days are stored at noon UTC
+ *  (see the validator), so the UTC date is the day in every time zone. */
+const toDay = (iso: string | null | undefined): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 };
 
 const s = (v: string | null | undefined) => v ?? "";
@@ -101,6 +117,9 @@ function toDraft(row: api.InsightArticle): Draft {
        from a deploy mid-roll. It is an article: that is what everything was
        before the column existed, and it is the column's own default. */
     kind: row.kind === "announcement" ? "announcement" : "article",
+    byline_name: s(row.byline_name),
+    byline_role: s(row.byline_role),
+    published_at: toDay(row.published_at),
   };
 }
 
@@ -143,20 +162,32 @@ export function WebsiteInsightEditorPage() {
      stored and there is no surprise address on a published article. */
   const suggestedFr = suggestSlug(draft.title_fr, articleId);
   const suggestedEn = suggestSlug(draft.title_en || draft.title_fr, articleId);
-  const slugFr = slugTouched ? draft.slug_fr : draft.slug_fr || suggestedFr;
-  const slugEn = slugTouched ? draft.slug_en : draft.slug_en || suggestedEn;
+  /* Only the address of the language the piece is written in is suggested. An
+     English-only article given a French address too would carry a second URL
+     for a page that does not exist in French. */
+  const slugFr = slugTouched
+    ? draft.slug_fr
+    : draft.slug_fr || (draft.title_fr.trim() ? suggestedFr : "");
+  const slugEn = slugTouched
+    ? draft.slug_en
+    : draft.slug_en || (draft.title_en.trim() ? suggestedEn : "");
 
   const slugFrBad = Boolean(slugFr) && !isValidSlug(slugFr);
   const slugEnBad = Boolean(slugEn) && !isValidSlug(slugEn);
-  const canSave =
-    dirty && !busy && Boolean(draft.title_fr.trim()) && !slugFrBad && !slugEnBad;
+  // 14680: a headline in EITHER language.
+  const hasTitle = Boolean(draft.title_en.trim() || draft.title_fr.trim());
+  const canSave = dirty && !busy && hasTitle && !slugFrBad && !slugEnBad;
 
   async function save() {
     setBusy(true);
     setSaveError(null);
     try {
+      /* The date is sent only when the DAY changed. Sending it on every save
+         would move an article first published at 14:23 to noon of the same
+         day, which is harmless and also a write nobody asked for. */
+      const dayChanged = draft.published_at !== toDay(data?.published_at);
       await api.updateInsight(articleId, {
-        title_fr: draft.title_fr.trim(),
+        title_fr: orNull(draft.title_fr),
         title_en: orNull(draft.title_en),
         slug_fr: orNull(slugFr),
         slug_en: orNull(slugEn),
@@ -171,6 +202,9 @@ export function WebsiteInsightEditorPage() {
         // Split, trimmed, blanks dropped — "logistique, douane," is two tags.
         tags: draft.tags.split(",").map((t) => t.trim()).filter(Boolean),
         kind: draft.kind,
+        byline_name: orNull(draft.byline_name),
+        byline_role: orNull(draft.byline_role),
+        ...(dayChanged ? { published_at: draft.published_at || null } : {}),
       });
       setDirty(false);
       reload();
@@ -252,9 +286,44 @@ export function WebsiteInsightEditorPage() {
   const galleryReset = React.useRef<(() => void) | null>(null);
   galleryReset.current = galleryUpload.reset;
 
+  /* 14680. The byline photo: profile `avatar`, so a portrait is cropped and
+     corrected like every other face in the product. */
+  const bylineUpload = useUpload({
+    profile: "avatar",
+    send: async (file, ctx) =>
+      api.setInsightBylinePhoto(
+        articleId,
+        { data_url: await fileToDataUrl(file), original_name: file.name },
+        ctx.onProgress,
+      ),
+    onAllComplete: () => reload(),
+  });
+
+  function onPickBylinePhoto(file: File | null) {
+    setCoverError(null);
+    if (!file) return bylineUpload.reset();
+    const problem = imageProblem(file);
+    if (problem) return setCoverError(problem);
+    void bylineUpload.pick([file]);
+  }
+
+  async function onRemoveBylinePhoto() {
+    setCoverError(null);
+    setCoverBusy(true);
+    try {
+      await api.removeInsightBylinePhoto(articleId);
+      bylineUpload.reset();
+      reload();
+    } catch (err) {
+      setCoverError(errMsg(err));
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
   /** An upload in flight. Separate from `coverBusy`, which also covers the
    *  reorder and remove calls that are not uploads. */
-  const uploadBusy = [coverUpload.items[0], galleryUpload.items[0]].some(
+  const uploadBusy = [coverUpload.items[0], galleryUpload.items[0], bylineUpload.items[0]].some(
     (i) => i?.state === "uploading" || i?.state === "compressing",
   );
 
@@ -316,13 +385,14 @@ export function WebsiteInsightEditorPage() {
 
   const published = Boolean(data?.is_published);
   const coverId = data?.cover_vault_id ?? null;
+  const bylinePhotoId = data?.byline_photo_vault_id ?? null;
   const gallery = data?.gallery_vault_ids ?? [];
 
   return (
     <section className={cn(pageShell.standard, "pb-24")}>
       <PageHeader
         eyebrow={<HubCrumb area="Insights" to="/settings/website/articles" />}
-        title={data ? data.title_fr : tr("Article")}
+        title={data ? api.headline(data) || tr("Article") : tr("Article")}
         description="What it is called, where it lives on your site, and what it says."
         action={
           <div className="flex items-center gap-3">
@@ -448,32 +518,97 @@ export function WebsiteInsightEditorPage() {
       )}
 
       <SettingsCard
-        title={tr("Headline and address")}
-        desc="French is required; English is optional and the public page falls back to French when it is missing."
+        title={tr("Headline and Address")}
+        desc="A headline in English or French is required; the other language is optional and the public page falls back to the one that exists."
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr("Headline (French)")} required
-            error={!draft.title_fr.trim() ? tr("French is required.") : undefined}>
-            <Input value={draft.title_fr} onChange={(e) => set("title_fr", e.target.value)} />
-          </Field>
-          <Field label={tr("Headline (English)")}>
+          <Field label={tr("Headline (English)")}
+            error={!hasTitle ? tr("A headline in English or French is required.") : undefined}>
             <Input value={draft.title_en} onChange={(e) => set("title_en", e.target.value)} />
           </Field>
-          <Field
-            label={tr("Address (French)")}
-            about="The last part of the article's URL, suggested from the headline until you type here."
-            error={slugFrBad ? tr("Lowercase letters, digits and hyphens.") : undefined}
-          >
-            <Input className="font-mono" value={slugFr}
-              onChange={(e) => { setSlugTouched(true); set("slug_fr", e.target.value); }} />
+          <Field label={tr("Headline (French)")}>
+            <Input value={draft.title_fr} onChange={(e) => set("title_fr", e.target.value)} />
           </Field>
           <Field
             label={tr("Address (English)")}
+            about="The last part of the article's URL, suggested from the headline until you type here."
             error={slugEnBad ? tr("Lowercase letters, digits and hyphens.") : undefined}
           >
             <Input className="font-mono" value={slugEn}
               onChange={(e) => { setSlugTouched(true); set("slug_en", e.target.value); }} />
           </Field>
+          <Field
+            label={tr("Address (French)")}
+            error={slugFrBad ? tr("Lowercase letters, digits and hyphens.") : undefined}
+          >
+            <Input className="font-mono" value={slugFr}
+              onChange={(e) => { setSlugTouched(true); set("slug_fr", e.target.value); }} />
+          </Field>
+        </div>
+      </SettingsCard>
+
+      {/* ── BYLINE AND DATE (14680) ─────────────────────────────────────────
+       *
+       * A byline is what was printed: a name and the role held ON THE
+       * ARTICLE'S DATE. It is typed here rather than picked from staff because
+       * a library that runs back years is signed by people who have left, and
+       * by people whose title has since changed; a join to today's HR record
+       * would re-title old pieces every time somebody is promoted.
+       *
+       * The date is the one the article prints with. A past date backdates a
+       * piece to the event it discusses; a future one schedules it, and the
+       * public site shows it from that day. Left empty, publishing stamps today. */}
+      <SettingsCard
+        title={tr("Byline and Date")}
+        desc="The name and role printed under the headline, as they were on the article's date, and the date it prints with. A future date schedules the article: it is published but stays off the site until that day."
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label={tr("Byline")}>
+            <Input value={draft.byline_name}
+              onChange={(e) => set("byline_name", e.target.value)} />
+          </Field>
+          <Field label={tr("Role")}>
+            <Input value={draft.byline_role}
+              onChange={(e) => set("byline_role", e.target.value)} />
+          </Field>
+          <Field label={tr("Date")}>
+            <DateField value={draft.published_at}
+              onChange={(iso) => set("published_at", iso)} min="1990-01-01" />
+          </Field>
+        </div>
+        {draft.published_at && published &&
+          new Date(`${draft.published_at}T12:00:00Z`).getTime() > Date.now() && (
+            <Callout className="mt-3" tone="info" title={tr("Scheduled")}>
+              {tr("Published, and shown on your site from") + " " + fmtDay(`${draft.published_at}T12:00:00Z`) + "."}
+            </Callout>
+          )}
+        <div className="mt-4">
+          <FileDrop
+            {...fileDropProps(bylineUpload.items[0])}
+            onPick={onPickBylinePhoto}
+            accept={IMAGE_ACCEPT}
+            disabled={coverBusy || uploadBusy}
+            label={bylinePhotoId ? tr("Replace the photo") : tr("Add a byline photo")}
+          />
+          {bylinePhotoId && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {published ? (
+                <img
+                  src={api.insightCoverUrl(bylinePhotoId) || undefined}
+                  alt=""
+                  className="h-14 w-14 rounded-full border object-cover"
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {tr("Stored: visible once the article is published")}
+                </span>
+              )}
+              <Button size="sm" variant="outline" disabled={coverBusy || uploadBusy}
+                onClick={() => void onRemoveBylinePhoto()}>
+                {tr("Remove photo")}
+              </Button>
+            </div>
+          )}
         </div>
       </SettingsCard>
 
@@ -607,24 +742,24 @@ export function WebsiteInsightEditorPage() {
         desc="The excerpt is the line under the headline on the Insights index. The body is the article itself."
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr("Excerpt (French)")}>
-            <Textarea rows={3} value={draft.excerpt_fr}
-              onChange={(e) => set("excerpt_fr", e.target.value)} />
-          </Field>
           <Field label={tr("Excerpt (English)")}>
             <Textarea rows={3} value={draft.excerpt_en}
               onChange={(e) => set("excerpt_en", e.target.value)} />
           </Field>
+          <Field label={tr("Excerpt (French)")}>
+            <Textarea rows={3} value={draft.excerpt_fr}
+              onChange={(e) => set("excerpt_fr", e.target.value)} />
+          </Field>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label={tr("Body (French)")}
+          <Field label={tr("Body (English)")}
             hint="Plain text and simple markdown. Blank lines separate paragraphs.">
-            <Textarea rows={16} value={draft.body_fr}
-              onChange={(e) => set("body_fr", e.target.value)} />
-          </Field>
-          <Field label={tr("Body (English)")}>
             <Textarea rows={16} value={draft.body_en}
               onChange={(e) => set("body_en", e.target.value)} />
+          </Field>
+          <Field label={tr("Body (French)")}>
+            <Textarea rows={16} value={draft.body_fr}
+              onChange={(e) => set("body_fr", e.target.value)} />
           </Field>
         </div>
       </SettingsCard>
@@ -638,21 +773,21 @@ export function WebsiteInsightEditorPage() {
             placeholder="douane, transit, conteneur" />
         </Field>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label={tr("Search Title (French)")}>
-            <Input value={draft.meta_title_fr}
-              onChange={(e) => set("meta_title_fr", e.target.value)} />
-          </Field>
           <Field label={tr("Search Title (English)")}>
             <Input value={draft.meta_title_en}
               onChange={(e) => set("meta_title_en", e.target.value)} />
           </Field>
-          <Field label={tr("Search Description (French)")}>
-            <Textarea rows={2} value={draft.meta_description_fr}
-              onChange={(e) => set("meta_description_fr", e.target.value)} />
+          <Field label={tr("Search Title (French)")}>
+            <Input value={draft.meta_title_fr}
+              onChange={(e) => set("meta_title_fr", e.target.value)} />
           </Field>
           <Field label={tr("Search Description (English)")}>
             <Textarea rows={2} value={draft.meta_description_en}
               onChange={(e) => set("meta_description_en", e.target.value)} />
+          </Field>
+          <Field label={tr("Search Description (French)")}>
+            <Textarea rows={2} value={draft.meta_description_fr}
+              onChange={(e) => set("meta_description_fr", e.target.value)} />
           </Field>
         </div>
       </SettingsCard>

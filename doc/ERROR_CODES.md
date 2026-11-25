@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (732)
+## All codes (733)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -98,7 +98,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `BAD_DOC_TYPE` | 422 | 3× | — |
 | `BAD_FEE_ACCOUNT` | 422 | 1× | — |
 | `BAD_FILE` | 400, 422 | 17× | — |
-| `BAD_FILE_TYPE` | 422 | 12× | — |
+| `BAD_FILE_TYPE` | 422 | 13× | — |
 | `BAD_FONT` | 422 | 3× | — |
 | `BAD_HEADERS` | 422 | 1× | — |
 | `BAD_HOST` | 400 | 3× | — |
@@ -280,6 +280,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `IDEMPOTENCY_KEY_REUSED` | 422 | 1× | — |
 | `IMAGE_PROCESSING_FAILED` | 422 | 1× | — |
 | `IMAGE_TOO_LARGE` | 413 | 6× | — |
+| `IMPORT_UNREADABLE` | 422 | 2× | — |
 | `INACTIVE_SERVICE_TYPE` | 422 | 1× | — |
 | `INCOMPLETE` | — | 2× | — |
 | `INCOMPLETE_APPLICATION` | 422 | 1× | — |
@@ -398,7 +399,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 763× | — |
+| `NOT_FOUND` | 404, 422 | 765× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -742,7 +743,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `USER_INACTIVE` | 401 | 5× | — |
 | `USER_NOT_ACTIVE` | 422 | 1× | — |
 | `VACANCY_CLOSED` | — | 1× | — |
-| `VALIDATION_ERROR` | 400, 422 | 305× | — |
+| `VALIDATION_ERROR` | 400, 422 | 307× | — |
 | `VALIDATOR_NOT_LINE_MANAGER` | — | 1× | — |
 | `VARIANCE_UNEXPLAINED` | 422 | 1× | — |
 | `VAULT_DOC_FOREIGN` | 422 | 1× | — |

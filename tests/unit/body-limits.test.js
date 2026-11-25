@@ -88,6 +88,7 @@ describe("the routes that carry a picture", () => {
     "/api/v1/tenant/service-types/abc/web/media",
     "/api/tenant/insights/abc/cover",
     "/api/tenant/insights/abc/gallery",
+    "/api/tenant/insights/abc/byline-photo",
     "/api/tenant/site-settings/media",
     "/api/tenant/success-stories/abc/media",
   ];

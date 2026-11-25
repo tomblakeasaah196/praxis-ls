@@ -473,6 +473,9 @@ const CASES = {
       "kindAll", "kindArticle", "kindAnnouncement", "all", "pagination", "previous",
       "next", "pageOf", "none", "noneForTag", "showAll", "by", "backToIndex", "gone",
       "gallery",
+      // 14680, the library.
+      "lead", "yearLabel", "allYears", "noneForYear", "minutes", "share",
+      "shareLinkedIn", "shareWhatsApp", "shareEmail", "related", "readArticle",
     ],
     PROSE: [
       "sub", "loading", "loadingArticle", "noneHint", "noneForTagHint", "goneHint",

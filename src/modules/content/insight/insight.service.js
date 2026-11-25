@@ -32,12 +32,43 @@ const ref = (id) => `insight_article:${id}`;
  * precisely so the piece outlives the colleague.
  */
 function publicAuthor(row) {
+  /* 14680. The byline WRITTEN on the article wins. It is what was signed, on
+     the article's date, and several of a library's authors have left or never
+     had a login. The role travels with it: a finance head who signed in 2023
+     signed as what they were in 2023, not as whatever HR says today. */
+  const bylineName = String(row.byline_name || "").trim();
+  if (bylineName) {
+    return {
+      name: bylineName,
+      title: String(row.byline_role || "").trim() || null,
+      avatar_ref: null,
+      photo_id: row.byline_photo_vault_id || null,
+    };
+  }
   if (!row.author_user_id || !row.author_name) return null;
   return {
     name: row.author_name,
     title: row.author_title || null,
     avatar_ref: row.author_avatar_ref || null,
+    photo_id: row.byline_photo_vault_id || null,
   };
+}
+
+/**
+ * Minutes to read (14680), from the longer of the two bodies at 220 words a
+ * minute, which is a careful reader of a technical piece rather than a skimmer.
+ * Markdown punctuation is not a word. Null when there is no body, so a card
+ * never says "1 min read" over nothing.
+ */
+const WORDS_PER_MINUTE = 220;
+function readingMinutes(row) {
+  const count = (s) =>
+    String(s || "")
+      .replace(/[#*_>`[\]()-]+/g, " ")
+      .split(/\s+/)
+      .filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+  const words = Math.max(count(row.body_en), count(row.body_fr));
+  return words ? Math.max(1, Math.round(words / WORDS_PER_MINUTE)) : null;
 }
 
 /**
@@ -57,6 +88,7 @@ function publicCard(row) {
     has_cover: !!row.cover_vault_id,
     cover_id: row.cover_vault_id || null,
     author: publicAuthor(row),
+    reading_minutes: readingMinutes(row),
     // 13784. `kind` travels on the card because the renderer differs — an
     // announcement band and an article grid draw the same row two ways — and
     // `pinned_until` travels with it because the band SHOWS the expiry. A pin
@@ -101,16 +133,19 @@ const DEFAULT_PER_PAGE = 9;
  * a visitor who has narrowed to "strategy" still needs the other tags in front
  * of them, or the only way back is the browser's Back button.
  */
-async function listPublic(client, { tag = null, kind = null, page = 1, perPage = DEFAULT_PER_PAGE } = {}) {
+async function listPublic(client, { tag = null, kind = null, year = null, page = 1, perPage = DEFAULT_PER_PAGE } = {}) {
   const offset = (page - 1) * perPage;
-  const [rows, total, tags] = await Promise.all([
-    repo.list(client, { publishedOnly: true, tag, kind, limit: perPage, offset }),
-    repo.count(client, { publishedOnly: true, tag, kind }),
+  const [rows, total, tags, years] = await Promise.all([
+    repo.list(client, { publishedOnly: true, tag, kind, year, limit: perPage, offset }),
+    repo.count(client, { publishedOnly: true, tag, kind, year }),
     repo.tagsInUse(client, { publishedOnly: true }),
+    // 14680. The year archive ships with the page, derived, like the tags.
+    repo.yearsInUse(client, { kind }),
   ]);
   return {
     articles: rows.map(publicCard),
     tags,
+    years,
     page,
     per_page: perPage,
     total,
@@ -172,8 +207,16 @@ async function listPublicAnnouncements(client, { page = 1, perPage = DEFAULT_PER
 async function getPublic(client, slug) {
   const row = await repo.getBySlug(client, slug, { publishedOnly: true });
   if (!row) throw new AppError("NOT_FOUND", "Article not found", 404);
-  return publicArticle(row);
+  // 14680. Three to read next, as cards (no bodies), with the article itself.
+  const related = await repo.related(client, {
+    id: row.insight_article_id, tags: row.tags || [], limit: RELATED_MAX,
+  });
+  return { ...publicArticle(row), related: (related || []).map(publicCard) };
 }
+
+/** How many related articles close a piece. Three fit one row on a desktop and
+ *  are a short scroll on a phone. */
+const RELATED_MAX = 3;
 
 /* ── admin ───────────────────────────────────────────────────────────────── */
 
@@ -241,6 +284,15 @@ async function update(client, { id, patch, actor = {} }) {
   const before = await repo.get(client, id);
   if (!before) throw new AppError("NOT_FOUND", "Article not found", 404);
   await assertSlugsFree(client, patch, id);
+  // 14680. Either headline may be cleared, not both: the row that RESULTS must
+  // still have one. This is the ONLY place that rule holds for an update: the
+  // table predates 13791, so 14680 could not add it as a CHECK (see its header).
+  const titleAfter = (key) => (Object.prototype.hasOwnProperty.call(patch, key) ? patch[key] : before[key]);
+  if (!String(titleAfter("title_en") || "").trim() && !String(titleAfter("title_fr") || "").trim()) {
+    throw new AppError("VALIDATION_ERROR", "Give the article a headline in English or French", 422, {
+      title_en: ["a headline in English or French is required"],
+    });
+  }
   return atomically(client, async () => {
     const row = await repo.update(client, id, patch);
     await audit(client, {
@@ -270,7 +322,7 @@ async function setPublished(client, { id, published, actor = {} }) {
   if (published) {
     if (!String(before.body_fr || "").trim() && !String(before.body_en || "").trim()) {
       throw new AppError("EMPTY_ARTICLE", "Write the article before publishing it", 422, {
-        body_fr: ["an article needs a body"],
+        body_en: ["an article needs a body in English or French"],
       });
     }
     if (!before.slug_fr && !before.slug_en) {
@@ -614,8 +666,137 @@ async function setGallery(client, { id, ids, actor = {} }) {
   });
 }
 
+/* ── BYLINE PHOTO (14680) ─────────────────────────────────────────────────── */
+
+/**
+ * The byline's photograph. The cover's twin with one difference that matters:
+ * the role is LEADER, the vault's existing role for a person's portrait, so
+ * `ck_vault_public_media_role` is not widened again (a CHECK that two branches
+ * both drop and re-add with their own lists is a CHECK one of them loses).
+ *
+ * Optional, and separate from the linked staff record on purpose: several
+ * authors of a library that runs from 2021 have no login today, and the photo
+ * printed beside a dated byline should not change when somebody updates their
+ * HR avatar.
+ */
+async function setBylinePhoto(client, { id, dataUrl, originalName, actor = {}, slug: tenantSlug }) {
+  const parsed = parseDataUrl(dataUrl);
+  if (!parsed || !repo.IMAGE_TYPES.includes(parsed.mimeType)) {
+    throw new AppError("BAD_FILE_TYPE", "A photo must be PNG, JPEG or WebP", 422);
+  }
+  const before = await repo.get(client, id);
+  if (!before) throw new AppError("NOT_FOUND", "Article not found", 404);
+
+  return atomically(client, async () => {
+    const created = await vault.createDocument(client, {
+      entityRef: ref(id),
+      docType: "INSIGHT_MEDIA",
+      dataUrl,
+      originalName,
+      maxBytes: 10 * 1024 * 1024,
+      allowedTypes: repo.IMAGE_TYPES,
+      sniff: true,
+      slug: tenantSlug,
+      actor,
+    });
+    await client.query(
+      `UPDATE document_vault
+          SET public_media_scope = 'INSIGHT', public_media_entity_ref = $2,
+              public_media_role = 'LEADER', public_media_content_type = $3
+        WHERE doc_id = $1`,
+      [created.doc_id, ref(id), parsed.mimeType],
+    );
+    const row = await repo.update(client, id, { byline_photo_vault_id: created.doc_id });
+    if (before.byline_photo_vault_id && before.byline_photo_vault_id !== created.doc_id) {
+      await archiveArticleMedia(client, before.byline_photo_vault_id, ref(id));
+    }
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.UPDATED,
+      moduleKey: events.MODULE,
+      entityRef: ref(id),
+      before: { byline_photo_vault_id: before.byline_photo_vault_id || null },
+      after: { byline_photo_vault_id: created.doc_id },
+    });
+    return row;
+  });
+}
+
+async function removeBylinePhoto(client, { id, actor = {} }) {
+  const before = await repo.get(client, id);
+  if (!before) throw new AppError("NOT_FOUND", "Article not found", 404);
+  if (!before.byline_photo_vault_id) return before;
+  return atomically(client, async () => {
+    const row = await repo.update(client, id, { byline_photo_vault_id: null });
+    await archiveArticleMedia(client, before.byline_photo_vault_id, ref(id));
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.UPDATED,
+      moduleKey: events.MODULE,
+      entityRef: ref(id),
+      before: { byline_photo_vault_id: before.byline_photo_vault_id },
+      after: { byline_photo_vault_id: null },
+    });
+    return row;
+  });
+}
+
+/* ── IMPORT (14680) ───────────────────────────────────────────────────────── */
+
+/**
+ * One Markdown file with front matter → one DRAFT.
+ *
+ * ── ALWAYS A DRAFT ─────────────────────────────────────────────────────────
+ * An import is a batch of somebody else's writing arriving at once, and the
+ * guide's rule is that it is read before it goes out. So the import never
+ * publishes, whatever the file says; the date it carries is the date the
+ * article WILL show once a person presses Publish.
+ *
+ * ── THE SAME RULES AS THE EDITOR ───────────────────────────────────────────
+ * The patch goes through the editor's own create schema and `create`, so the
+ * slug rules, the lengths, the headline rule and the audit trail are the ones
+ * an article typed by hand meets. A slug already in use is refused per file,
+ * which is also what makes importing the same folder twice harmless.
+ *
+ * Returns the draft plus what was ignored, so the screen can say "imported;
+ * `sources` and `note` were not imported" rather than dropping them silently.
+ */
+async function importMarkdown(client, { name, text, actor = {} }) {
+  let parsed;
+  try {
+    parsed = importer.parseFrontMatter(text);
+  } catch (err) {
+    throw new AppError("IMPORT_UNREADABLE", `${name}: ${err.message}`, 422);
+  }
+  const { patch, ignored } = importer.toPatch(parsed);
+  if (!patch.slug_en && !patch.slug_fr) {
+    throw new AppError("IMPORT_UNREADABLE", `${name}: the front matter has no slug`, 422, {
+      slug_en: ["the file needs a slug"],
+    });
+  }
+  const checked = createSchema().safeParse(patch);
+  if (!checked.success) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      `${name}: ${Object.entries(checked.error.flatten().fieldErrors)
+        .map(([k, v]) => `${k} ${(v || []).join(", ")}`)
+        .join("; ") || "the front matter is not valid"}`,
+      422,
+      checked.error.flatten().fieldErrors,
+    );
+  }
+  const row = await create(client, { patch: checked.data, actor });
+  return { article: row, ignored };
+}
+
+/** Required lazily: the validator requires `insight.kinds`, never this file,
+ *  and keeping it that way is what lets the validator be tested without Redis. */
+const createSchema = () => require("./insight.validator").schemas.create;
+const importer = require("./insight.import");
+
 module.exports = {
-  DEFAULT_PER_PAGE, GALLERY_MAX,
+  DEFAULT_PER_PAGE, GALLERY_MAX, RELATED_MAX, WORDS_PER_MINUTE,
+  readingMinutes, importMarkdown, setBylinePhoto, removeBylinePhoto,
   KINDS, ANNOUNCEMENT, PINNED_MAX,
   listPublicAnnouncements, setPinned,
   publicAuthor, publicCard, publicArticle,

@@ -30,6 +30,7 @@ import { IconTile } from "@/components/ui/icon-tile";
 import { BgMap } from "@/components/ui/bg-map";
 import { Reveal } from "@/components/ui/reveal";
 import { DocumentIcon } from "@/components/ui/icons";
+import { Byline, ReadingTime } from "./insight-parts";
 
 /**
  * `/public/insights` — the tenant's own writing.
@@ -73,6 +74,10 @@ export function InsightsPage() {
   const kindParam = params.get("kind") || "";
   const kind: InsightKind | "" =
     kindParam === "article" || kindParam === "announcement" ? kindParam : "";
+  /* 14680, the year archive. In the URL for the reason `tag` is. A value that
+     is not a plausible year is read as "every year" rather than sent on. */
+  const yearParam = Number(params.get("year") || "");
+  const year = Number.isInteger(yearParam) && yearParam >= 1990 && yearParam <= 2100 ? yearParam : 0;
   const page = Math.max(1, Number(params.get("page") || 1) || 1);
   const [nonce, setNonce] = React.useState(0);
   const [state, setState] = React.useState<
@@ -89,7 +94,7 @@ export function InsightsPage() {
   React.useEffect(() => {
     const ctl = new AbortController();
     setState({ kind: "loading" });
-    listInsights({ tag: tag || undefined, kind, page, signal: ctl.signal })
+    listInsights({ tag: tag || undefined, kind, year: year || undefined, page, signal: ctl.signal })
       .then((view) => setState({ kind: "ready", view }))
       .catch((e: unknown) => {
         if (ctl.signal.aborted) return;
@@ -100,7 +105,7 @@ export function InsightsPage() {
         });
       });
     return () => ctl.abort();
-  }, [tag, kind, page, nonce]);
+  }, [tag, kind, year, page, nonce]);
 
   /** Changing a filter always returns to page one — page 4 of "strategy" is
    *  usually not a page at all, and an empty result there reads as "no
@@ -112,6 +117,7 @@ export function InsightsPage() {
     // "what sort of post" and "about what" — and a filter bar that silently
     // clears the other one every time is a filter bar people stop trusting.
     if (kind) q.set("kind", kind);
+    if (year) q.set("year", String(year));
     setParams(q);
   };
 
@@ -119,6 +125,17 @@ export function InsightsPage() {
     const q = new URLSearchParams();
     if (tag) q.set("tag", tag);
     if (next) q.set("kind", next);
+    if (year) q.set("year", String(year));
+    setParams(q);
+  };
+
+  /* The year survives the other two filters and they survive it, for the
+     reason given above: three questions, none of which should clear another. */
+  const chooseYear = (next: number) => {
+    const q = new URLSearchParams();
+    if (tag) q.set("tag", tag);
+    if (kind) q.set("kind", kind);
+    if (next) q.set("year", String(next));
     setParams(q);
   };
 
@@ -126,10 +143,14 @@ export function InsightsPage() {
     const q = new URLSearchParams();
     if (tag) q.set("tag", tag);
     if (kind) q.set("kind", kind);
+    if (year) q.set("year", String(year));
     if (next > 1) q.set("page", String(next));
     setParams(q);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const showLead =
+    state.kind === "ready" && page === 1 && !tag && !year && state.view.articles.length > 0;
 
   return (
     <PageShell label={t("site.insights.title")} footer>
@@ -207,6 +228,32 @@ export function InsightsPage() {
               </ul>
             </nav>
           )}
+
+          {/* The year archive (14680). Derived from the live articles like the
+              tags, so a year with nothing in it cannot appear. Drawn only when
+              there is more than one year to choose between. */}
+          {state.kind === "ready" && (state.view.years?.length ?? 0) > 1 && (
+            <nav aria-label={t("site.insights.yearLabel")} className="mt-4">
+              <ul className="flex flex-wrap gap-2">
+                <li>
+                  <FilterButton active={!year} onClick={() => chooseYear(0)}>
+                    {t("site.insights.allYears")}
+                  </FilterButton>
+                </li>
+                {(state.view.years || []).map((entry) => (
+                  <li key={entry.year}>
+                    <FilterButton
+                      active={year === entry.year}
+                      onClick={() => chooseYear(entry.year)}
+                    >
+                      <span className="num">{entry.year}</span>
+                      <span className="num ml-1.5 text-xs opacity-70">{entry.count}</span>
+                    </FilterButton>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
         </PageContainer>
       </section>
 
@@ -235,11 +282,17 @@ export function InsightsPage() {
           />
         ) : state.view.articles.length === 0 ? (
           <EmptyState
-            title={tag ? t("site.insights.noneForTag") : t("site.insights.none")}
-            hint={tag ? t("site.insights.noneForTagHint") : t("site.insights.noneHint")}
+            title={
+              tag
+                ? t("site.insights.noneForTag")
+                : year
+                  ? t("site.insights.noneForYear")
+                  : t("site.insights.none")
+            }
+            hint={tag || year ? t("site.insights.noneForTagHint") : t("site.insights.noneHint")}
             action={
-              tag ? (
-                <Button variant="outline" onClick={() => choose("")}>
+              tag || year ? (
+                <Button variant="outline" onClick={() => setParams(new URLSearchParams())}>
                   {t("site.insights.showAll")}
                 </Button>
               ) : undefined
@@ -247,8 +300,14 @@ export function InsightsPage() {
           />
         ) : (
           <>
-            <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {state.view.articles.map((a, i) => (
+            {/* THE LEAD (14680). On the unfiltered first page the newest piece
+                is drawn large above the grid: a library reads as current when
+                its latest piece is the first thing a visitor sees, and as an
+                archive when every card is the same size. Filtered views stay a
+                plain grid, because there the reader is choosing, not browsing. */}
+            {showLead && <LeadCard article={state.view.articles[0]} lang={lang} />}
+            <ul className={cn("grid gap-6 sm:grid-cols-2 lg:grid-cols-3", showLead && "mt-10")}>
+              {(showLead ? state.view.articles.slice(1) : state.view.articles).map((a, i) => (
                 <Reveal
                   as="li"
                   key={a.slug_fr || a.slug_en || insightTitle(a, lang)}
@@ -365,6 +424,7 @@ function ArticleCard({ article, lang }: { article: InsightCard; lang: string }) 
               {dateFmt(article.published_at)}
             </time>
           )}
+          <ReadingTime minutes={article.reading_minutes} />
           {article.tags.slice(0, 2).map((tg) => (
             <Chip key={tg}>{tg}</Chip>
           ))}
@@ -375,12 +435,7 @@ function ArticleCard({ article, lang }: { article: InsightCard; lang: string }) 
         {excerpt && (
           <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{excerpt}</p>
         )}
-        {article.author && (
-          <p className="mt-4 text-xs text-muted-foreground">
-            {article.author.name}
-            {article.author.title ? " · " + article.author.title : ""}
-          </p>
-        )}
+        <Byline article={article} className="mt-4 text-xs" />
       </div>
     </>
   );
@@ -396,5 +451,68 @@ function ArticleCard({ article, lang }: { article: InsightCard; lang: string }) 
     </Link>
   ) : (
     <div className="lux-card h-full overflow-hidden">{body}</div>
+  );
+}
+
+/**
+ * The lead article (14680): the newest piece, drawn large. Cover on the left at
+ * desktop widths and on top on a phone; headline, standfirst, byline and a
+ * plain "Read the article" so the whole block is one obvious target.
+ */
+function LeadCard({ article, lang }: { article: InsightCard; lang: string }) {
+  const { t } = useTranslation();
+  const [coverOk, setCoverOk] = React.useState(true);
+  const slug = insightSlug(article, lang);
+  const title = insightTitle(article, lang);
+  const excerpt = insightExcerpt(article, lang);
+  const src = coverUrl(article.cover_id);
+  const body = (
+    <div className="grid gap-0 md:grid-cols-2">
+      {src && coverOk ? (
+        <img
+          src={src}
+          alt=""
+          onError={() => setCoverOk(false)}
+          className="h-56 w-full object-cover md:h-full"
+        />
+      ) : (
+        <div className="flex h-56 w-full items-center justify-center bg-[rgb(var(--ink)/0.04)] md:h-full">
+          <IconTile icon={DocumentIcon} size="lg" />
+        </div>
+      )}
+      <div className="p-6 md:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary-ink">
+          {t("site.insights.lead")}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {article.published_at && (
+            <time dateTime={article.published_at} className="num">
+              {dateFmt(article.published_at)}
+            </time>
+          )}
+          <ReadingTime minutes={article.reading_minutes} />
+        </div>
+        <h2 className="mt-3 font-display text-h2 font-semibold leading-tight tracking-tight">
+          {title}
+        </h2>
+        {excerpt && <p className="mt-3 text-muted-foreground">{excerpt}</p>}
+        <Byline article={article} className="mt-5 text-sm" />
+        {slug && (
+          <p className="mt-6 text-sm font-semibold text-primary-ink">
+            {t("site.insights.readArticle")}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+  return slug ? (
+    <Link
+      to={p("/insights/" + encodeURIComponent(slug))}
+      className="lux-card block overflow-hidden transition-shadow hover:shadow-md"
+    >
+      {body}
+    </Link>
+  ) : (
+    <div className="lux-card overflow-hidden">{body}</div>
   );
 }

@@ -66,6 +66,8 @@ import { WebsiteNav } from "./website-nav";
 import { PinDialog } from "./website-insight-pin";
 import { fmtDay } from "./website-insight-dates";
 import { useCan } from "@/lib/route-access";
+import { FilePicker, UploadList } from "@/components/ui/image-upload";
+import { useUpload } from "@/lib/use-upload";
 
 /** Publishing needs a slug and a body, and the server refuses without them.
  *  Saying so in the list is cheaper than a 422 the writer reads after pressing
@@ -83,6 +85,7 @@ export function WebsiteInsightsPage() {
   const refresh = useRefresh();
   const nav = useNavigate();
   const [creating, setCreating] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
   const [publishing, setPublishing] = React.useState<api.InsightArticle | null>(null);
   const [pinning, setPinning] = React.useState<api.InsightArticle | null>(null);
   const [deleting, setDeleting] = React.useState<api.InsightArticle | null>(null);
@@ -139,11 +142,38 @@ export function WebsiteInsightsPage() {
 
   const columns: Column<api.InsightArticle>[] = [
     {
-      key: "title_fr",
+      key: "title_en",
       label: tr("Title"),
+      // English first, French when that is all there is (14680).
       render: (r) => (
-        <span className="font-medium text-foreground">{r.title_fr}</span>
+        <span className="font-medium text-foreground">{api.headline(r)}</span>
       ),
+    },
+    {
+      key: "published_at",
+      label: tr("Date"),
+      /* The article's date: the one it prints with. A library dated to the
+         events it discusses is sorted and read by this column, so it is on
+         the row rather than one click away. */
+      render: (r) =>
+        r.published_at ? (
+          <span className="num whitespace-nowrap text-xs">{fmtDay(r.published_at)}</span>
+        ) : (
+          <span className="text-muted-foreground">{tr("Not set")}</span>
+        ),
+    },
+    {
+      key: "byline_name",
+      label: tr("Byline"),
+      render: (r) =>
+        r.byline_name ? (
+          <span className="text-xs">
+            {r.byline_name}
+            {r.byline_role ? <span className="text-muted-foreground">{", " + r.byline_role}</span> : null}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     },
     {
       key: "slug_fr",
@@ -182,11 +212,17 @@ export function WebsiteInsightsPage() {
     {
       key: "is_published",
       label: tr("State"),
-      render: (r) => (
-        <Pill tone={r.is_published ? "ok" : "mute"}>
-          {r.is_published ? tr("Published") : tr("Draft")}
-        </Pill>
-      ),
+      /* Three states since 14680: a published piece whose date is still ahead
+         is SCHEDULED, and the public site does not show it yet. Calling it
+         Published would send somebody to their site to look for it. */
+      render: (r) =>
+        api.isScheduled(r) ? (
+          <Pill tone="blue">{tr("Scheduled")}</Pill>
+        ) : (
+          <Pill tone={r.is_published ? "ok" : "mute"}>
+            {r.is_published ? tr("Published") : tr("Draft")}
+          </Pill>
+        ),
     },
     {
       key: "pinned_until",
@@ -282,7 +318,16 @@ export function WebsiteInsightsPage() {
       description="Articles on your public site: what they are called, whether they are live, and what is in them."
       width="wide"
       tabs={<WebsiteNav />}
-      action={can("edit") && <Button onClick={() => setCreating(true)}>{tr("New article")}</Button>}
+      action={
+        can("edit") && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              {tr("Import")}
+            </Button>
+            <Button onClick={() => setCreating(true)}>{tr("New article")}</Button>
+          </div>
+        )
+      }
       toolbar={
         <div className="flex w-full flex-col gap-3">
           <Segmented<KindFilter>
@@ -344,6 +389,10 @@ export function WebsiteInsightsPage() {
         <ArticleForm onClose={() => setCreating(false)} onSaved={refresh} />
       )}
 
+      {importing && (
+        <ImportArticlesDialog onClose={() => setImporting(false)} onImported={refresh} />
+      )}
+
       <ConfirmDialog
         open={!!publishing}
         onClose={() => setPublishing(null)}
@@ -371,7 +420,9 @@ export function WebsiteInsightsPage() {
           <>
             {publishing?.is_published
               ? "It stays here as a draft and its address stops answering. Anyone holding the link gets a not-found."
-              : "It goes live at its address and appears on the Insights page of your site."}
+              : publishing && publishing.published_at && new Date(publishing.published_at).getTime() > Date.now()
+                ? tr("Its date is still ahead, so it is scheduled: it appears on your site on") + " " + fmtDay(publishing.published_at) + "."
+                : "It goes live at its address and appears on the Insights page of your site, under its date."}
             {actionError && <ErrorState message={actionError} />}
           </>
         }
@@ -438,7 +489,10 @@ function ArticleForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [titleFr, setTitleFr] = React.useState("");
+  const [title, setTitle] = React.useState("");
+  /* 14680: English or French, the writer's choice. French was required until
+     an English-only tenant had to invent a French headline to begin. */
+  const [lang, setLang] = React.useState<"en" | "fr">("en");
   /* ASKED FIRST, AND ASKED HERE.
      It decides what the piece is for, so it belongs before the headline rather
      than in a settings card the writer meets afterwards — and a dialog whose
@@ -456,7 +510,9 @@ function ArticleForm({
     setBusy(true);
     setError(null);
     try {
-      const row = await api.createInsight({ title_fr: titleFr.trim(), kind });
+      const row = await api.createInsight(
+        lang === "fr" ? { title_fr: title.trim(), kind } : { title_en: title.trim(), kind },
+      );
       onSaved();
       onClose();
       // Straight into the editor. A writer who has just typed a headline wants
@@ -498,28 +554,120 @@ function ArticleForm({
                 "An article lives on your Insights page. Announcements are the ones that can reach your home page.",
               )}
         </p>
-        <Field
-          label={tr("Headline (French)")}
-          required
-          /* @prose:keep French is the fallback, so this one cannot be skipped. */
-          hint="French is what the public page falls back to."
-        >
+        <Segmented<"en" | "fr">
+          label={tr("Written In")}
+          value={lang}
+          onChange={setLang}
+          options={[
+            { value: "en", label: tr("English") },
+            { value: "fr", label: tr("French") },
+          ]}
+        />
+        <Field label={tr("Headline")} required>
           <Input
-            value={titleFr}
-            onChange={(e) => setTitleFr(e.target.value)}
-            placeholder={
-              isAnnouncement
-                ? "Une adresse européenne pour le corridor camerounais"
-                : "Ce que décide vraiment un Incoterm"
-            }
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
           />
         </Field>
         {error && <ErrorState message={error} />}
         <FormButtons
           busy={busy}
-          disabled={busy || !titleFr.trim()}
+          disabled={busy || !title.trim()}
           onCancel={onClose}
           saveLabel={isAnnouncement ? tr("Create announcement") : tr("Create article")}
+        />
+      </form>
+    </Modal>
+  );
+}
+
+/**
+ * Settings › Website › Insights › Import (14680).
+ *
+ * Markdown files with front matter become DRAFTS, one request per file through
+ * the upload engine, so each file shows its own percentage and its own answer
+ * and one bad file in a folder of eighteen costs that file only. The text is
+ * read in the browser (`file.text()`); no bytes reach the vault.
+ *
+ * Deferred (`autoStart: false`): the writer sees the list of what they picked
+ * and presses Import, because importing a folder is a batch and a batch should
+ * be looked at once before it lands. Nothing here publishes; the server refuses
+ * to, whatever a file says.
+ */
+const MARKDOWN_ACCEPT = ".md,.markdown,text/markdown,text/plain";
+const MARKDOWN_MAX_BYTES = 200 * 1024;
+
+function ImportArticlesDialog({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [done, setDone] = React.useState<api.InsightImportResult[]>([]);
+  const upload = useUpload<api.InsightImportResult>({
+    profile: "document",
+    multiple: true,
+    autoStart: false,
+    maxBytes: MARKDOWN_MAX_BYTES,
+    send: async (file, ctx) => {
+      const result = await api.importInsight(
+        { name: file.name, text: await file.text() },
+        ctx.onProgress,
+      );
+      setDone((d) => [...d, result]);
+      return result;
+    },
+    onAllComplete: () => onImported(),
+  });
+  const pending = upload.items.filter((i) => i.state === "idle" || i.state === "error").length;
+  const running = upload.items.some((i) => i.state === "uploading" || i.state === "compressing");
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={tr("Import Articles")}
+      description="Markdown files with front matter: title, slug, date, kind, tags, byline, role, excerpt and meta. Each one becomes a draft for you to read before it is published."
+    >
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void upload.start();
+        }}
+      >
+        <FilePicker
+          multiple
+          accept={MARKDOWN_ACCEPT}
+          label={tr("Choose Markdown Files")}
+          hint={tr(".md files, up to 200 KB each.")}
+          disabled={running}
+          onPaste={false}
+          onPick={(files) => void upload.pick(files)}
+        />
+        <UploadList items={upload.items} onRemove={upload.remove} onRetry={upload.retry} />
+        {done.length > 0 && (
+          <Callout tone="ok" title={tr("Imported as drafts")}>
+            <ul className="mt-1 space-y-1 text-sm">
+              {done.map((r) => (
+                <li key={r.article.insight_article_id}>
+                  <span className="font-medium">{api.headline(r.article)}</span>
+                  {r.article.published_at ? " · " + fmtDay(r.article.published_at) : ""}
+                  {r.ignored.length
+                    ? " · " + tr("not imported:") + " " + r.ignored.join(", ")
+                    : ""}
+                </li>
+              ))}
+            </ul>
+          </Callout>
+        )}
+        <FormButtons
+          busy={running}
+          disabled={running || pending === 0}
+          onCancel={onClose}
+          cancelLabel={done.length ? tr("Close") : tr("Cancel")}
+          saveLabel={pending > 1 ? tr("Import Files") : tr("Import File")}
         />
       </form>
     </Modal>

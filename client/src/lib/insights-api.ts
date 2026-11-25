@@ -30,7 +30,8 @@ export type InsightArticle = {
   insight_article_id: string;
   slug_fr: string | null;
   slug_en: string | null;
-  title_fr: string;
+  /** At least one of the two headlines is present (14680). */
+  title_fr: string | null;
   title_en: string | null;
   excerpt_fr: string | null;
   excerpt_en: string | null;
@@ -46,6 +47,12 @@ export type InsightArticle = {
   gallery_vault_ids: string[];
   tags: string[];
   author_user_id: string | null;
+  /** 14680. The byline as printed: a name and the role held on the article's
+   *  date. Wins over the linked staff record on the public site. */
+  byline_name: string | null;
+  byline_role: string | null;
+  /** Vault id of the byline photograph, set through `setInsightBylinePhoto`. */
+  byline_photo_vault_id: string | null;
   is_published: boolean;
   published_at: string | null;
   /** `article` or `announcement` (13784). An announcement is an article with a
@@ -70,7 +77,7 @@ export type InsightKind = "article" | "announcement";
 export type InsightPatch = Partial<{
   slug_fr: string | null;
   slug_en: string | null;
-  title_fr: string;
+  title_fr: string | null;
   title_en: string | null;
   excerpt_fr: string | null;
   excerpt_en: string | null;
@@ -84,6 +91,11 @@ export type InsightPatch = Partial<{
   tags: string[];
   kind: InsightKind;
   sort_order: number;
+  byline_name: string | null;
+  byline_role: string | null;
+  /** A day as `YYYY-MM-DD` (stored at noon UTC) or an ISO instant. A past date
+   *  backdates; a future one schedules. */
+  published_at: string | null;
 }>;
 
 export const listInsights = (tag?: string | null, kind?: InsightKind | null) => {
@@ -97,7 +109,7 @@ export const listInsights = (tag?: string | null, kind?: InsightKind | null) => 
 export const fetchInsight = (id: string) =>
   tenant<InsightArticle>(`/insights/${id}`);
 
-export const createInsight = (body: InsightPatch & { title_fr: string }) =>
+export const createInsight = (body: InsightPatch) =>
   tenant<InsightArticle>("/insights", { method: "POST", body });
 
 export const updateInsight = (id: string, body: InsightPatch) =>
@@ -181,6 +193,45 @@ export const addInsightGalleryImage = (
  *  the article's, so a stale list cannot bind a foreign document. */
 export const setInsightGallery = (id: string, ids: string[]) =>
   tenant<InsightArticle>(`/insights/${id}/gallery`, { method: "PUT", body: { ids } });
+
+/**
+ * 14680. Published with a date still ahead: the public site will not show it
+ * until then. Every public read applies the same test.
+ */
+export const isScheduled = (r: Pick<InsightArticle, "is_published" | "published_at">): boolean =>
+  Boolean(r.is_published && r.published_at && new Date(r.published_at).getTime() > Date.now());
+
+/** The headline to show in an English-first admin: English, else French. */
+export const headline = (r: Pick<InsightArticle, "title_en" | "title_fr">): string =>
+  (r.title_en || r.title_fr || "").trim();
+
+/** The byline photograph: bytes, so its own endpoint, like the cover. */
+export const setInsightBylinePhoto = (
+  id: string,
+  body: { data_url: string; original_name?: string },
+  onProgress?: (percent: number) => void,
+) =>
+  onProgress
+    ? tenantWithProgress<InsightArticle>(`/insights/${id}/byline-photo`, body, onProgress)
+    : tenant<InsightArticle>(`/insights/${id}/byline-photo`, { method: "POST", body });
+
+export const removeInsightBylinePhoto = (id: string) =>
+  tenant<InsightArticle>(`/insights/${id}/byline-photo`, { method: "DELETE" });
+
+/**
+ * Import one Markdown file with front matter as a DRAFT (14680). The file is
+ * read in the browser and its TEXT is sent, one file per request, so each gets
+ * its own progress and its own answer. The server never publishes an import.
+ */
+export type InsightImportResult = { article: InsightArticle; ignored: string[] };
+
+export const importInsight = (
+  body: { name: string; text: string },
+  onProgress?: (percent: number) => void,
+) =>
+  onProgress
+    ? tenantWithProgress<InsightImportResult>("/insights/import", body, onProgress)
+    : tenant<InsightImportResult>("/insights/import", { method: "POST", body });
 
 export const deleteInsight = (id: string) =>
   tenant<{ deleted: boolean }>(`/insights/${id}`, { method: "DELETE" });

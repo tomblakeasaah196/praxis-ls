@@ -22,6 +22,16 @@ const WRITABLE = [
   "gallery_vault_ids",
   "tags",
   "author_user_id",
+  // 14680. The byline as printed, and the article's date. `published_at` was
+  // absent from this list on purpose until a library had to carry pieces dated
+  // to the events they discuss; it is still never MOVED by publishing (see
+  // `setPublished`), only by an editor who sets it.
+  "byline_name",
+  "byline_role",
+  // Written only by `setBylinePhoto` (the validator does not accept it on a
+  // PATCH, so a request body cannot bind a vault document to a public page).
+  "byline_photo_vault_id",
+  "published_at",
   "sort_order",
   // 13784. `kind` is writable because it is a property of the piece — a writer
   // decides they are writing an announcement — whereas `pinned_until` is NOT:
@@ -49,6 +59,20 @@ const WRITABLE = [
  * under a platform account) still gets their name, and an article whose author
  * has left gets neither rather than an error.
  */
+/**
+ * What "a visitor may see this" means, in one place (14680).
+ *
+ * Published AND dated no later than now. The second half is what makes a
+ * future date a schedule: the row is published, every public read skips it
+ * until its moment, and nothing has to wake up at midnight to flip a flag.
+ * `published_at IS NULL` is admitted only so a row published before this rule
+ * existed, and somehow never stamped, is not silently hidden.
+ */
+const LIVE = "(a.is_published = true AND (a.published_at IS NULL OR a.published_at <= now()))";
+
+/** The calendar year a piece files under: the year its date prints in. */
+const YEAR_OF = "EXTRACT(YEAR FROM a.published_at AT TIME ZONE 'UTC')::int";
+
 const SELECT_LIST = `
   SELECT a.*,
          u.full_name  AS author_name,
@@ -59,12 +83,13 @@ const SELECT_LIST = `
     LEFT JOIN employee e ON e.employee_id = u.employee_id
 `;
 
-async function list(client, { publishedOnly = false, tag = null, kind = null, limit = null, offset = 0 } = {}) {
-  const params = [publishedOnly, tag, kind];
+async function list(client, { publishedOnly = false, tag = null, kind = null, year = null, limit = null, offset = 0 } = {}) {
+  const params = [publishedOnly, tag, kind, year];
   let sql = `${SELECT_LIST}
-     WHERE ($1::boolean = false OR a.is_published = true)
+     WHERE ($1::boolean = false OR ${LIVE})
        AND ($2::text IS NULL OR a.tags @> ARRAY[$2]::text[])
        AND ($3::text IS NULL OR a.kind = $3)
+       AND ($4::int IS NULL OR ${YEAR_OF} = $4)
      ORDER BY a.published_at DESC NULLS LAST, a.sort_order ASC, a.created_at DESC`;
   if (limit !== null) {
     params.push(limit, offset);
@@ -75,14 +100,15 @@ async function list(client, { publishedOnly = false, tag = null, kind = null, li
 }
 
 /** The count the paginated list reports, under the same filter. */
-async function count(client, { publishedOnly = false, tag = null, kind = null } = {}) {
+async function count(client, { publishedOnly = false, tag = null, kind = null, year = null } = {}) {
   const { rows } = await client.query(
     `SELECT COUNT(*)::int AS n
        FROM insight_article a
-      WHERE ($1::boolean = false OR a.is_published = true)
+      WHERE ($1::boolean = false OR ${LIVE})
         AND ($2::text IS NULL OR a.tags @> ARRAY[$2]::text[])
-        AND ($3::text IS NULL OR a.kind = $3)`,
-    [publishedOnly, tag, kind],
+        AND ($3::text IS NULL OR a.kind = $3)
+        AND ($4::int IS NULL OR ${YEAR_OF} = $4)`,
+    [publishedOnly, tag, kind, year],
   );
   return rows[0].n;
 }
@@ -107,7 +133,7 @@ async function count(client, { publishedOnly = false, tag = null, kind = null } 
 async function listPinned(client, { limit = 5, kind = null } = {}) {
   const { rows } = await client.query(
     `${SELECT_LIST}
-      WHERE a.is_published = true
+      WHERE ${LIVE}
         AND a.pinned_until IS NOT NULL
         AND a.pinned_until > now()
         AND ($1::text IS NULL OR a.kind = $1)
@@ -147,10 +173,49 @@ async function tagsInUse(client, { publishedOnly = true } = {}) {
   const { rows } = await client.query(
     `SELECT tag, COUNT(*)::int AS count
        FROM insight_article a, unnest(a.tags) AS tag
-      WHERE ($1::boolean = false OR a.is_published = true)
+      WHERE ($1::boolean = false OR ${LIVE})
       GROUP BY tag
       ORDER BY COUNT(*) DESC, tag ASC`,
     [publishedOnly],
+  );
+  return rows;
+}
+
+/**
+ * The year archive (14680): every calendar year that has a live article, newest
+ * first, with its count. Derived for the reason the tag bar is: a year with no
+ * articles cannot appear, and a year that has them cannot be missing.
+ */
+async function yearsInUse(client, { kind = null } = {}) {
+  const { rows } = await client.query(
+    `SELECT ${YEAR_OF} AS year, COUNT(*)::int AS count
+       FROM insight_article a
+      WHERE ${LIVE} AND a.published_at IS NOT NULL
+        AND ($1::text IS NULL OR a.kind = $1)
+      GROUP BY 1
+      ORDER BY 1 DESC`,
+    [kind],
+  );
+  return rows;
+}
+
+/**
+ * Related reading (14680): live ARTICLES other than this one, ranked by how
+ * many tags they share with it, then newest. Announcements are left out: a
+ * reader at the end of a piece on Kribi wants the next piece, not a notice.
+ * An article sharing no tag still qualifies, ranked last, so a piece with a
+ * unique tag still ends on something to read rather than on nothing.
+ */
+async function related(client, { id, tags = [], limit = 3 }) {
+  const { rows } = await client.query(
+    `${SELECT_LIST}
+      WHERE ${LIVE}
+        AND a.insight_article_id <> $1
+        AND a.kind = 'article'
+      ORDER BY cardinality(ARRAY(SELECT unnest(a.tags) INTERSECT SELECT unnest($2::text[]))) DESC,
+               a.published_at DESC NULLS LAST
+      LIMIT $3`,
+    [id, Array.isArray(tags) ? tags : [], limit],
   );
   return rows;
 }
@@ -174,7 +239,7 @@ async function getBySlug(client, slug, { publishedOnly = false } = {}) {
   const { rows } = await client.query(
     `${SELECT_LIST}
       WHERE (a.slug_fr = $1 OR a.slug_en = $1)
-        AND ($2::boolean = false OR a.is_published = true)
+        AND ($2::boolean = false OR ${LIVE})
       LIMIT 1`,
     [slug, publishedOnly],
   );
@@ -274,7 +339,7 @@ async function publicCoverForServe(client, docId) {
         AND v.public_media_scope = 'INSIGHT'
         AND v.public_media_role = 'COVER'
         AND v.public_media_content_type = ANY($2::text[])
-        AND a.is_published = true`,
+        AND ${LIVE}`,
     [docId, IMAGE_TYPES],
   );
   return rows[0] || null;
@@ -300,26 +365,49 @@ async function publicGalleryForServe(client, docId) {
         AND v.public_media_scope = 'INSIGHT'
         AND v.public_media_role = 'GALLERY'
         AND v.public_media_content_type = ANY($2::text[])
-        AND a.is_published = true`,
+        AND ${LIVE}`,
     [docId, IMAGE_TYPES],
   );
   return rows[0] || null;
 }
 
-/** The cover or a gallery image — the public media route serves one URL space
- *  and does not know which of the two an id is until it asks. Cover first: it
- *  is the one every article has. */
+/**
+ * The byline photograph (14680), same fail-closed shape: VERIFIED, scoped
+ * INSIGHT with the vault's portrait role (LEADER), still bound to the article's
+ * `byline_photo_vault_id`, and the article live.
+ */
+async function publicBylineForServe(client, docId) {
+  if (!UUID_RE.test(String(docId || ""))) return null;
+  const { rows } = await client.query(
+    `SELECT v.doc_id, v.public_media_content_type, v.storage_path
+       FROM document_vault v
+       JOIN insight_article a ON a.byline_photo_vault_id = v.doc_id
+      WHERE v.doc_id = $1
+        AND v.status = 'VERIFIED'
+        AND v.public_media_scope = 'INSIGHT'
+        AND v.public_media_role = 'LEADER'
+        AND v.public_media_content_type = ANY($2::text[])
+        AND ${LIVE}`,
+    [docId, IMAGE_TYPES],
+  );
+  return rows[0] || null;
+}
+
+/** The cover, a gallery image or a byline photo — the public media route
+ *  serves one URL space and does not know which an id is until it asks. Cover
+ *  first: it is the one most articles have. */
 async function publicMediaForServe(client, docId) {
   return (
     (await publicCoverForServe(client, docId)) ||
-    (await publicGalleryForServe(client, docId))
+    (await publicGalleryForServe(client, docId)) ||
+    (await publicBylineForServe(client, docId))
   );
 }
 
 module.exports = {
-  TABLE, WRITABLE, IMAGE_TYPES, UUID_RE,
-  publicCoverForServe, publicGalleryForServe, publicMediaForServe,
-  list, count, tagsInUse, get, getBySlug, slugTaken,
+  TABLE, WRITABLE, IMAGE_TYPES, UUID_RE, LIVE,
+  publicCoverForServe, publicGalleryForServe, publicBylineForServe, publicMediaForServe,
+  list, count, tagsInUse, yearsInUse, related, get, getBySlug, slugTaken,
   listPinned, setPinned,
   insert, update, setPublished, remove,
 };
