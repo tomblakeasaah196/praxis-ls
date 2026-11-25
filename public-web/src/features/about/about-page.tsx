@@ -99,6 +99,8 @@ type AboutData = {
   legal: LegalEntity[];
   proof: PublicProof;
   documents: PublicDocumentCard[];
+  /** The story read has answered (with data or with the empty answer). */
+  aboutLoaded: boolean;
 };
 
 /** The five reads, in parallel, after paint. None is a precondition of
@@ -111,6 +113,7 @@ function useAboutData(): AboutData {
     legal: [],
     proof: EMPTY_PROOF,
     documents: [],
+    aboutLoaded: false,
   });
 
   React.useEffect(() => {
@@ -119,7 +122,7 @@ function useAboutData(): AboutData {
     const put = (patch: Partial<AboutData>) => alive && setData((d) => ({ ...d, ...patch }));
     const cancel = afterPaint(() => {
       const signal = controller.signal;
-      getPublicAbout({ lang, signal }).then((about) => put({ about }));
+      getPublicAbout({ lang, signal }).then((about) => put({ about, aboutLoaded: true }));
       listPublicEntities({ signal })
         .then((rows) => put({ entities: Array.isArray(rows) ? rows : [] }))
         .catch(() => {
@@ -145,7 +148,7 @@ export function AboutPage() {
   const { t } = useTranslation();
   const lang = getLang();
   const { corridors: networkOn } = useSiteSwitches();
-  const { about, entities, legal, proof, documents } = useAboutData();
+  const { about, entities, legal, proof, documents, aboutLoaded } = useAboutData();
   const images = useSiteImages();
   const s = aboutSections(about.sections, lang);
 
@@ -170,7 +173,7 @@ export function AboutPage() {
 
   return (
     <PageShell label={t("site.about.title")} footer>
-      <AboutHero about={about} s={s} images={images} />
+      <AboutHero about={about} s={s} images={images} loaded={aboutLoaded} />
 
       {s.credentials.length ? <CredentialsRow items={s.credentials} /> : null}
 
@@ -375,8 +378,23 @@ export function AboutPage() {
 
 /** The hero: the statement, the lead and two ways forward, over the page's
  *  first photograph. A tenant with no headline keeps the older two-line title. */
-function AboutHero({ about, s, images }: { about: PublicAbout; s: AboutSectionsView; images: SiteImages }) {
+function AboutHero({
+  about,
+  s,
+  images,
+  loaded,
+}: {
+  about: PublicAbout;
+  s: AboutSectionsView;
+  images: SiteImages;
+  loaded: boolean;
+}) {
   const { t } = useTranslation();
+  /* Until the story read answers, the headline and lead are held back (their
+     space kept), rather than painting the dictionary's fallback title and
+     swapping it for the tenant's a moment later: a visitor saw "The Men and
+     Women Behind the Freight" flash before "We Hold Both Ends of the Line". */
+  const fallback = loaded && !about.headline;
   return (
     <PhotoBand image={images["about-hero"]} size="hero" priority labelledBy="about-title">
       <BadgePill onDark>{s.heroEyebrow || t("site.aboutPage.eyebrow")}</BadgePill>
@@ -391,13 +409,17 @@ function AboutHero({ about, s, images }: { about: PublicAbout; s: AboutSectionsV
           <span id="about-title">
             {about.headline ? (
               <StagedLines paintImmediately text={about.headline} />
-            ) : (
+            ) : fallback ? (
               <StagedLines paintImmediately text={t("site.about.titleMain")} />
+            ) : (
+              <span className="invisible" aria-hidden>
+                {"\u00a0"}
+              </span>
             )}
           </span>
         }
-        accent={about.headline ? undefined : t("site.about.titleAccent")}
-        lead={about.summary || t("site.about.sub")}
+        accent={fallback ? t("site.about.titleAccent") : undefined}
+        lead={about.summary || (loaded ? t("site.about.sub") : undefined)}
         leadClass="about-hero-lead"
       />
       <div className="about-actions">
