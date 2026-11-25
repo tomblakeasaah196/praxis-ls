@@ -53,12 +53,28 @@ export const tokenStore = {
   // honoured, so nobody is signed out by the upgrade itself.
   getRefresh: () =>
     safe(() => localStorage.getItem(REFRESH_KEY) || sessionStorage.getItem(REFRESH_KEY), null),
+  /**
+   * WRITE OVER, NEVER DELETE-THEN-WRITE.
+   *
+   * Every other tab listens to this key (auth-context): a `storage` event with
+   * no value means "the session ended here", and an authed tab LOCKS on it.
+   * This used to remove the key before setting the rotated token, so every
+   * refresh in one tab fired a null event at every other tab. They locked,
+   * which cleared the key (another null event), then heard the new token and
+   * refreshed to unlock, which removed and set it again. Two open tabs knocked
+   * each other between the lock screen and the app without end: the "it signs
+   * me out every time I open a second tab" and the lock screen that flickered
+   * five times before the PIN could be typed (owner, 25 Nov 2026).
+   *
+   * `setItem` replaces the value in one write, so other tabs hear exactly one
+   * event carrying the new token. Only `null` (a real sign-out) removes it.
+   */
   setRefresh: (t: string | null) => {
     safe(() => {
-      localStorage.removeItem(REFRESH_KEY);
+      if (t) localStorage.setItem(REFRESH_KEY, t);
+      else localStorage.removeItem(REFRESH_KEY);
       sessionStorage.removeItem(REFRESH_KEY);
       localStorage.removeItem(LEGACY_PERSIST_KEY);
-      if (t) localStorage.setItem(REFRESH_KEY, t);
     }, undefined);
   },
 
