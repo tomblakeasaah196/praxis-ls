@@ -45,6 +45,10 @@ export type SiteThemePayload = {
   /** Label capitalisation (owner decision D5): Title Case unless the tenant
    *  chose "As written". Absent from an older server or cache — the standard. */
   labelCase?: "TITLE" | "AS_WRITTEN";
+  /** The website's switches (14600, website v2): languages offered and the
+   *  optional sections. Absent from an older server or cache, which reads as
+   *  the product's defaults (`lib/site-switches.ts`). */
+  switches?: unknown;
   light: Record<string, string>;
   dark: Record<string, string>;
 };

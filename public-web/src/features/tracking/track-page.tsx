@@ -1,4 +1,7 @@
 import * as React from "react";
+/* Side-effect import: registers `site.trackPage.*` as this chunk is evaluated.
+   The copy rides this chunk rather than the entry dictionary (track-copy.ts). */
+import "./track-i18n";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PublicApiError, messageFor, requestIdFor } from "@/lib/api";
@@ -91,7 +94,8 @@ export function TrackPage() {
   const [state, setState] = React.useState<State>({ kind: "idle" });
 
   useDocumentMeta({
-    title: `${t("site.trackPage.title")} · ${t("site.hero.eyebrow")}`,
+    // A hidden eyebrow (website v2) leaves the title alone, not "Track · ".
+    title: [t("site.trackPage.title"), t("site.hero.eyebrow")].filter(Boolean).join(" · "),
     description: t("site.trackPage.sub"),
   });
 
@@ -271,7 +275,7 @@ function TrackIdle() {
         </ButtonLink>
       }
     >
-      <p>{t("site.track.hint")}</p>
+      {t("site.track.hint") ? <p>{t("site.track.hint")}</p> : null}
       <p className="text-sm">{t("site.trackPage.whereRef")}</p>
     </Outcome>
   );

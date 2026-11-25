@@ -246,6 +246,17 @@ router.put("/careers", edit, v.careers, asyncHandler(async (req, res) => {
   res.json({ data });
 }));
 
+/* ── the website's switches (14600) ─────────────────────────────────────────*/
+
+router.get("/switches", view, asyncHandler(async (req, res) => {
+  res.json({ data: await req.tenantDb((c) => service.getSwitches(c)) });
+}));
+
+router.put("/switches", edit, v.switches, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => service.updateSwitches(c, { patch: req.body, actor: req.user || {} }));
+  res.json({ data });
+}));
+
 /* ── an entity's public story ───────────────────────────────────────────────*/
 
 /**

@@ -42,11 +42,19 @@ const TEXT_MAX = 1200;
 const RICH_MAX = 6000;
 const ITEMS_MAX = 24;
 
-/** Bilingual text. FR is the fallback every renderer reads, so it is required. */
+/**
+ * Bilingual text. At least one language here; WHICH one is required depends on
+ * the tenant, so it is checked by the service against the tenant's switches
+ * (`siteLanguages.bilingualGaps`, website v2): English on an English-only
+ * site, French on a site that offers French, as it always was. A static
+ * schema cannot know the tenant, which is why the rule is not written here.
+ */
 const bi = (max) => z.object({
-  fr: z.string().trim().min(1).max(max),
+  fr: z.string().trim().max(max).nullable().optional(),
   en: z.string().trim().max(max).nullable().optional(),
-}).strict();
+}).strict().refine((v) => !!(v.fr || "").trim() || !!(v.en || "").trim(), {
+  message: "Write this in English or French.",
+});
 
 /** Bilingual and optional in full — a block may simply not have a subtitle. */
 const biOpt = (max) => bi(max).nullable().optional();
@@ -261,8 +269,27 @@ const BLOCKS = {
       key: z.string().trim().min(1).max(120).refine(isSiteCopyKey, {
         message: "unknown copy key — not in the site copy catalogue",
       }),
-      value: bi(RICH_MAX),
-    }).strict())
+      value: bi(RICH_MAX).optional(),
+      // "Hide this line" (website v2): the line is not printed at all and the
+      // renderer collapses around it. Only for the optional lines a page can
+      // stand without (`isHideableCopyKey`); a hidden button label would be a
+      // button with nothing on it.
+      hidden: z.literal(true).optional(),
+    }).strict().superRefine((item, ctx) => {
+      if (item.hidden) {
+        if (!isHideableCopyKey(item.key)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["hidden"],
+            message: "This line cannot be hidden. Write your own wording instead.",
+          });
+        }
+        return;
+      }
+      if (!item.value) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "Write the line, or hide it." });
+      }
+    }))
       // NOT capped at ITEMS_MAX. Twenty-four is the right ceiling for cards in
       // a grid, where the limit is what a page can show without becoming a
       // list; this block shows nothing and a tenant rewriting their site in
@@ -282,6 +309,22 @@ const BLOCKS = {
   }).strict(),
 };
 
+/**
+ * The copy lines a tenant may HIDE rather than rewrite: the optional supporting
+ * lines around a heading (subtitle, lead, eyebrow, kicker, hint, the accent half
+ * of a split title, the scroll cue). Every renderer of these collapses cleanly
+ * when the line is empty. Headings, buttons, labels and messages are not in the
+ * set: hiding one would leave a heading-shaped gap or a blank button.
+ */
+const HIDEABLE_COPY_SEGMENTS = new Set([
+  "sub", "lead", "eyebrow", "kicker", "hint", "titleAccent", "scrollCue",
+]);
+
+function isHideableCopyKey(key) {
+  if (typeof key !== "string" || !isSiteCopyKey(key)) return false;
+  return HIDEABLE_COPY_SEGMENTS.has(key.split(".").pop());
+}
+
 /** Every type the library defines. Must equal the CHECK in migration 12753. */
 const BLOCK_TYPES = Object.keys(BLOCKS);
 
@@ -297,4 +340,4 @@ function validateBlock(type, content) {
   return { ok: true, data: parsed.data };
 }
 
-module.exports = { BLOCKS, BLOCK_TYPES, validateBlock, LIMITS: { TITLE_MAX, TEXT_MAX, RICH_MAX, ITEMS_MAX } };
+module.exports = { BLOCKS, BLOCK_TYPES, validateBlock, isHideableCopyKey, LIMITS: { TITLE_MAX, TEXT_MAX, RICH_MAX, ITEMS_MAX } };

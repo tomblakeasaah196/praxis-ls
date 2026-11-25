@@ -26,6 +26,15 @@ const createServiceTypeWebGroup = vi.fn();
 const updateServiceTypeWebGroup = vi.fn();
 const deleteServiceTypeWebGroup = vi.fn();
 
+// A tenant that offers French (website v2): the tab opens on the required
+// language, and these cases were written against the French side. The
+// English-only default is pinned where it is decided (site-languages).
+vi.mock("@/lib/site-languages", () => ({
+  useRequiredSiteLanguage: () => "fr",
+  languageName: (l: string) => (l === "fr" ? "French" : "English"),
+  requiredMessage: (l: string) => (l === "fr" ? "French is required." : "English is required."),
+}));
+
 vi.mock("@/lib/operations-api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/operations-api")>(
     "@/lib/operations-api",

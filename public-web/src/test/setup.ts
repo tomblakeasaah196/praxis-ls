@@ -29,6 +29,36 @@ vi.mock("@/lib/label-case", async (importOriginal) => {
 });
 
 /**
+ * The website's switches (website v2), set to the site these suites were
+ * written against: English and French, the top rail, the portfolio, the case
+ * notes, the corridor scenes and Careers in the header all ON.
+ *
+ * The PRODUCT ships every one of them off, and that default is pinned where it
+ * is decided (`lib/site-switches.test.ts`, the header and router tests that
+ * call `__resetSiteSwitches()`). Everywhere else a suite is testing a section,
+ * and a section switched off is a section it cannot see. A factory, for the
+ * reason the label-case mock above gives: suites that reset modules get a
+ * fresh instance, and every instance starts here.
+ */
+const SUITE_SWITCHES = {
+  languages: ["en", "fr"],
+  top_rail: true,
+  portfolio: true,
+  corridors: true,
+  case_notes: true,
+  careers_in_header: true,
+  visitor_theme_switch: false,
+};
+vi.mock("@/lib/site-switches", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/site-switches")>();
+  actual.setSiteSwitches(SUITE_SWITCHES);
+  return actual;
+});
+afterEach(async () => {
+  (await import("@/lib/site-switches")).setSiteSwitches(SUITE_SWITCHES);
+});
+
+/**
  * Every test here renders a page that a stranger reaches with no session, so
  * the harness must not accidentally provide one: `lib/api.ts` reads no token
  * store and no `X-Praxis-Env` header, and nothing in these tests seeds either.

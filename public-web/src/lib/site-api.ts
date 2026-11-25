@@ -408,6 +408,11 @@ export type PublicEntity = {
   legal_name: string;
   trading_name: string | null;
   country_code: string | null;
+  /** The company's own published phone and email, the pair its letterhead
+   *  prints (website v2: the contact page shows each office with them).
+   *  Absent from an older server. */
+  phone?: string | null;
+  email?: string | null;
   /** `[{country_code, label_fr, label_en}]` — migration 13787.
    *
    *  The LABELS are read now as well as the codes (§8.5's coverage figure).

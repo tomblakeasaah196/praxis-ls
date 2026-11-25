@@ -2482,6 +2482,16 @@
       "actions": []
     },
     {
+      "id": "settings_website_options",
+      "title": "Website Options",
+      "title_fr": "Options du site web",
+      "route": "/settings/website/options",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "The languages the public website offers (English only, or English and French) and its optional sections: top rail, portfolio, case notes, corridors and network, Careers in the header, and the visitor dark mode switch. Every option starts off.",
+      "actions": []
+    },
+    {
       "id": "settings_business_policies",
       "title": "Business Policies",
       "title_fr": "Politiques de l'entreprise",

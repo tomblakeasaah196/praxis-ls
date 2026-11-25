@@ -1030,7 +1030,46 @@ export declare const siteSettings: {
   SITE_MEDIA_SLOT_IDS: string[];
   SITE_MEDIA_PROVENANCE: string[];
   siteMediaUpload: z.ZodTypeAny;
+
+  /** The website's switches (14600): languages offered and the optional
+   *  sections, every one of them off until a tenant turns it on. */
+  siteSwitches: z.ZodTypeAny;
+  SITE_SWITCHES: SiteSwitchKey[];
 };
+
+export type SiteSwitchKey =
+  | "top_rail"
+  | "portfolio"
+  | "corridors"
+  | "case_notes"
+  | "careers_in_header"
+  | "visitor_theme_switch";
+
+/**
+ * Which language a tenant's website requires, and what its public reads may
+ * fall back to (rules/site-languages.js). English always offered, French
+ * opt-in; English only means English is required and French never shown.
+ */
+export declare namespace siteLanguages {
+  type Lang = "en" | "fr";
+  type Input = Lang[] | { languages?: Lang[] | null } | null | undefined;
+  const SITE_LANGUAGES: readonly Lang[];
+  const DEFAULT_LANGUAGES: readonly Lang[];
+  function normaliseLanguages(value: unknown): Lang[];
+  function offersFrench(input: Input): boolean;
+  function requiredLanguage(input: Input): Lang;
+  function optionalLanguage(input: Input): Lang;
+  function isBilingual(node: unknown): boolean;
+  function bilingualGaps(tree: unknown, input: Input, path?: string[]): string[];
+  function pairGaps(
+    row: Record<string, unknown> | null | undefined,
+    bases: string[],
+    input: Input,
+    opts?: { mustHave?: string[] },
+  ): string[];
+  function gapMessage(input: Input): string;
+  function withoutUnofferedLanguage<T>(payload: T, input: Input): T;
+}
 
 /**
  * The call summary contract (SMART_COMMS_CALLS_ENGINEERING_GUIDE §4.10).

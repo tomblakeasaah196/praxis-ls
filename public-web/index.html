@@ -7,34 +7,35 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <!--
-      PRE-PAINT THEME — DARK, LOCKED.
+      PRE-PAINT THEME: LIGHT BY DEFAULT (website v2).
 
       `lib/theme-mode.ts` owns the decision and this is its twin: the module is
       `type="module"` and therefore DEFERRED, so the browser paints the first
       frame before any module has executed. Anything this script does not write
       is a frame the visitor sees in the wrong theme.
 
-      LOCKED TO DARK. `FORCE_DARK` in lib/theme-mode.ts is the switch; this is
-      the copy of it that has to run without an import. Storage is not read at
-      all while the lock is on, which is deliberate — a visitor who picked light
-      before the lock landed still gets dark, and there is no toggle rendered to
-      pick it again with. To restore the toggle: set `FORCE_DARK = false` there
-      and put the `localStorage` read below back. `theme-mode.test.ts` reads
-      this file and fails if the two sides disagree.
+      The order is the module's: the visitor's own choice, ONLY when the tenant
+      offers the visitor switch; then the tenant's default mode; then light.
+      Both come from the cached website theme (`praxis.site-theme.v1`, written
+      by lib/site-theme.ts), so a returning visitor's first frame is right. A
+      first visit paints light, which is what every tenant ships with.
 
-      Dark is also the DEFAULT under that restored read, not light. Both signals
-      are written, not just the class: `.dark` drives THIS app's token block,
-      but `@praxis/brand/tokens.css` follows `prefers-color-scheme` unless
-      `data-theme` opts out of it. Writing only the class left a dark-OS visitor
-      with dark BRAND tokens — orange stepped for carbon — under light APP
-      tokens, on white, for every frame before main.tsx ran.
+      Both signals are written, not just the class: `.dark` drives THIS app's
+      token block, but `@praxis/brand/tokens.css` follows `prefers-color-scheme`
+      unless `data-theme` opts out of it. `theme-mode.test.ts` reads this file
+      and fails if the two sides disagree.
     -->
     <script>
       (function () {
-        // Locked. Unlock by restoring:
-        //   var mode = "dark";
-        //   try { if (localStorage.getItem("praxis.public.theme") === "light") mode = "light"; } catch (e) {}
-        var mode = "dark";
+        var mode = "light";
+        try {
+          var cached = JSON.parse(localStorage.getItem("praxis.site-theme.v1") || "null");
+          if (cached && (cached.defaultMode === "dark" || cached.defaultMode === "light")) mode = cached.defaultMode;
+          if (cached && cached.switches && cached.switches.visitor_theme_switch === true) {
+            var chosen = localStorage.getItem("praxis.public.theme");
+            if (chosen === "dark" || chosen === "light") mode = chosen;
+          }
+        } catch (e) {}
         var el = document.documentElement;
         // THE PORTAL IS NOT THE MARKETING SITE. A signed-in client's portal is
         // light unless they chose otherwise (features/portal/lib/theme.ts is its
@@ -68,10 +69,10 @@
       `/portal` is not affected and never moves.
     -->
     <meta name="praxis:public-base" content="/public" />
-    <!-- One value, no `media`: the app is locked to dark (see the script above),
-         so a light `theme-color` would tint the phone's browser chrome white
-         above a carbon page. Matches `--background` in the dark token block. -->
-    <meta name="theme-color" content="#0b0d11" />
+    <!-- One value, no `media`: the page's ground follows the TENANT's mode, not
+         the OS, so `lib/theme-mode.ts` rewrites this from `--background` once
+         the mode is known. White is the light ground every tenant ships with. -->
+    <meta name="theme-color" content="#ffffff" />
     <!--
       Title, description and the favicon are tenant-owned and are set at runtime
       from GET /branding (app/branding.tsx). What is here is the fallback for the

@@ -10,6 +10,15 @@ import { LangToggle } from "./site-header";
 import { ThemeToggle } from "./theme-toggle";
 import { afterPaint } from "@/lib/after-paint";
 import { p } from "@/lib/base-path";
+import { useSiteSwitches } from "@/lib/site-switches";
+
+/**
+ * The legal links slot (website v2): the Impressum and the privacy policy
+ * land here in PR 4 of the SmartLS website work, generated from the corporate
+ * entities. Empty until then, and an empty slot draws nothing, so no footer
+ * carries a link to a page that does not exist yet.
+ */
+export const FOOTER_LEGAL_LINKS: { to: string; labelKey: string }[] = [];
 
 /**
  * The footer. Four columns and a small print line, which is what a logistics
@@ -52,6 +61,8 @@ export function SiteFooter() {
   const { branding } = useBranding();
   const name = branding.name || "Praxis";
   const year = new Date().getFullYear();
+  const switches = useSiteSwitches();
+  const tagline = t("site.hero.eyebrow");
 
   const links = {
     services: [
@@ -92,7 +103,12 @@ export function SiteFooter() {
       // "Espace client" would read as a door they are not allowed through.
       { to: p("/verify"), label: t("site.footer.verify") },
       { to: p("#how"), label: t("site.how.title") },
-      { to: p("/portfolio"), label: t("site.footer.portfolio") },
+      // Behind the portfolio switch, like the pages it points at (website v2).
+      ...(switches.portfolio
+        ? [{ to: p("/portfolio"), label: t("site.footer.portfolio") }]
+        : []),
+      // Careers stays in the footer whatever the header does: the header
+      // switch moves it out of the main nav, not off the site.
       { to: p("/careers"), label: t("site.footer.careers") },
       { to: p("/contact"), label: t("site.footer.contact") },
     ],
@@ -119,9 +135,11 @@ export function SiteFooter() {
                 </>
               )}
             </Link>
-            <p className="mt-3 max-w-60 text-sm text-[var(--hero-muted)]">
-              {t("site.hero.eyebrow")}
-            </p>
+            {tagline ? (
+              <p className="mt-3 max-w-60 text-sm text-[var(--hero-muted)]">
+                {tagline}
+              </p>
+            ) : null}
           </div>
 
           {(
@@ -160,6 +178,15 @@ export function SiteFooter() {
           <p>
             © {year} {name}. {t("site.footer.rights")}
           </p>
+          {FOOTER_LEGAL_LINKS.length ? (
+            <nav aria-label={t("site.footer.legal")} className="flex flex-wrap gap-3">
+              {FOOTER_LEGAL_LINKS.map((l) => (
+                <Link key={l.to} to={l.to} className="underline-offset-4 hover:underline">
+                  {t(l.labelKey)}
+                </Link>
+              ))}
+            </nav>
+          ) : null}
           <div className="flex items-center gap-3">
             <LangToggle onDark />
             <ThemeToggle onDark />

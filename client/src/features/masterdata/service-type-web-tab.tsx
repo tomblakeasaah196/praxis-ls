@@ -26,6 +26,7 @@ import { errMsg, useResource } from "@/lib/use-resource";
 import { ApiError } from "@/lib/api-client";
 import { slug as suggestSlug, isValidSlug } from "@/lib/slug";
 import * as api from "@/lib/operations-api";
+import { useRequiredSiteLanguage } from "@/lib/site-languages";
 import { useToast } from "@/components/ui/toast";
 import { useFormDraft } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/ui/draft-banner";
@@ -503,7 +504,14 @@ export function ServiceTypeWebTab({
     [serviceTypeId, serviceTypeNameEn],
   );
   const toast = useToast();
-  const [lang, setLang] = React.useState<Lang>("fr");
+  // The editing language opens on the one the site REQUIRES (website v2):
+  // English on an English-only site, French where French is offered.
+  const requiredLang = useRequiredSiteLanguage();
+  const [lang, setLang] = React.useState<Lang>(requiredLang);
+  const langTouched = React.useRef(false);
+  React.useEffect(() => {
+    if (!langTouched.current) setLang(requiredLang);
+  }, [requiredLang]);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [mediaError, setMediaError] = React.useState<string | null>(null);
@@ -559,10 +567,10 @@ export function ServiceTypeWebTab({
       if (reseed.faq) {
         setFaqRows(
           (payload.faq || []).map((r) => ({
-            question_fr: r.question_fr,
-            question_en: r.question_en,
-            answer_fr: r.answer_fr,
-            answer_en: r.answer_en,
+            question_fr: r.question_fr ?? "",
+            question_en: r.question_en ?? "",
+            answer_fr: r.answer_fr ?? "",
+            answer_en: r.answer_en ?? "",
             sort_order: r.sort_order,
           })),
         );
@@ -861,11 +869,16 @@ export function ServiceTypeWebTab({
         (r) =>
           r.question_fr || r.question_en || r.answer_fr || r.answer_en,
       );
-    // Server requires both languages on every row.
+    // The server requires the question and the answer in the site's
+    // required language (website v2); the other language is optional.
     for (const r of cleaned) {
-      if (!r.question_fr || !r.question_en || !r.answer_fr || !r.answer_en) {
+      const q = requiredLang === "fr" ? r.question_fr : r.question_en;
+      const a = requiredLang === "fr" ? r.answer_fr : r.answer_en;
+      if (!q || !a) {
         setError(
-          tr("Every FAQ row needs a question and answer in both French and English."),
+          requiredLang === "fr"
+            ? tr("Every FAQ row needs a question and answer in French.")
+            : tr("Every FAQ row needs a question and answer in English."),
         );
         return;
       }
@@ -1137,7 +1150,10 @@ export function ServiceTypeWebTab({
         <Segmented
           label={tr("Content language")}
           value={lang}
-          onChange={setLang}
+          onChange={(v: Lang) => {
+            langTouched.current = true;
+            setLang(v);
+          }}
           options={[
             { value: "fr", label: "FR" },
             { value: "en", label: "EN" },

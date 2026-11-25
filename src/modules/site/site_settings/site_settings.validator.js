@@ -54,6 +54,9 @@ const schemas = {
   // Partial for the reason `partial()` states: the careers screen has three
   // controls and toggling one must not unset the other two.
   careers: partial(shared.careers),
+  // Partial for the same reason: the Options screen sends the whole form, but
+  // a script that flips one switch must not reset the other six.
+  switches: partial(shared.siteSwitches),
   entityStory: shared.entityPublicStory,
 
   // The image upload. Shared for the reason §6.3 gives: the control has to
@@ -87,6 +90,7 @@ module.exports = {
   updateLeader: mw("updateLeader"),
   about: mw("about"),
   careers: mw("careers"),
+  switches: mw("switches"),
   entityStory: mw("entityStory"),
   media: mw("media"),
 };

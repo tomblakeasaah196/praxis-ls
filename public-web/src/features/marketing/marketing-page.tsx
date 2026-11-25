@@ -36,6 +36,7 @@ import {
 import { Reveal } from "@/components/ui/reveal";
 import { usePointerLight, useProximity } from "@/lib/motion";
 import { afterPaint } from "@/lib/after-paint";
+import { useSiteSwitches } from "@/lib/site-switches";
 
 /**
  * THE SET PIECE IS ITS OWN CHUNK, AND THE REASON IS A MEASUREMENT.
@@ -105,6 +106,10 @@ export function MarketingPage() {
      than four. Null — no page, unpublished, package off — means every band
      keeps its dictionary copy, which is what most tenants see. */
   const { page } = useHomePage();
+  /* The bands behind the website switches (website v2): the case notes and
+     the corridor and network scenes are off until a tenant turns them on. One
+     build serves every tenant, so they are skipped here, not deleted. */
+  const switches = useSiteSwitches();
   const hero = heroBlock(page);
   const how = featureList(page);
   const cta = ctaBand(page);
@@ -114,8 +119,11 @@ export function MarketingPage() {
      already parsed, and a visitor who never scrolls that far has paid for it
      out of idle time rather than out of their first paint. */
   React.useEffect(
-    () => afterPaint(() => void import("@/components/site/corridor-scene")),
-    [],
+    () =>
+      switches.corridors
+        ? afterPaint(() => void import("@/components/site/corridor-scene"))
+        : undefined,
+    [switches.corridors],
   );
 
   /* The page paints from the dictionary and swaps when the override lands —
@@ -166,7 +174,7 @@ export function MarketingPage() {
       <ProofStrip />
       <ServicesBand />
       <HowBand block={how} />
-      <ProofBand />
+      {switches.case_notes ? <ProofBand lanesAllowed={switches.corridors} /> : null}
       {/* §7.5's set piece, between the proof and the portal.
  
           It sits here because the spine (§7) is one shipment moving from origin
@@ -179,11 +187,13 @@ export function MarketingPage() {
           by the height of a whole band when the chunk lands, which is a layout
           shift on the metric this split exists to protect. It is the band's own
           minimum, so nothing moves when the real scene replaces it. */}
-      <React.Suspense
-        fallback={<div aria-hidden className="corridor-band corridor-reserve" />}
-      >
-        <CorridorScene />
-      </React.Suspense>
+      {switches.corridors ? (
+        <React.Suspense
+          fallback={<div aria-hidden className="corridor-band corridor-reserve" />}
+        >
+          <CorridorScene />
+        </React.Suspense>
+      ) : null}
       <PortalBand />
       <QuoteBand block={cta} />
       <ContactBand />
@@ -401,8 +411,9 @@ function HowBand({ block }: { block: FeatureListBlock | null }) {
 }
 
 /** Published case notes, straight from `GET /public/portfolio`. */
-function ProofBand() {
+function ProofBand({ lanesAllowed }: { lanesAllowed: boolean }) {
   const { t } = useTranslation();
+  const switches = useSiteSwitches();
   const [stories, setStories] = React.useState<PortfolioCard[] | null>(null);
   /* Corridors are the SECOND-choice proof and are fetched unconditionally
      anyway: the request is one cheap aggregate, it starts in parallel with the
@@ -415,15 +426,22 @@ function ProofBand() {
     listStories()
       .then((rows) => alive && setStories(Array.isArray(rows) ? rows : []))
       .catch(() => alive && setStories([]));
-    listCorridors()
-      .then((rows) => alive && setLanes(Array.isArray(rows) ? rows : []))
-      // A tenant without the `website` feature answers FEATURE_DISABLED here,
-      // which is a configuration state and not an outage: no lanes, no noise.
-      .catch(() => alive && setLanes([]));
+    // The lanes are the corridor scene's data in another dress, so they
+    // follow the corridors switch (website v2): off, they are not even asked
+    // for, and the band falls back to its sentence.
+    if (lanesAllowed) {
+      listCorridors()
+        .then((rows) => alive && setLanes(Array.isArray(rows) ? rows : []))
+        // A tenant without the `website` feature answers FEATURE_DISABLED here,
+        // which is a configuration state and not an outage: no lanes, no noise.
+        .catch(() => alive && setLanes([]));
+    } else {
+      setLanes([]);
+    }
     return () => {
       alive = false;
     };
-  }, []);
+  }, [lanesAllowed]);
 
   return (
     <Section
@@ -432,7 +450,10 @@ function ProofBand() {
       title={t("site.proof.title")}
       lead={t("site.proof.sub")}
       aside={
-        <MoreLink to={p("/portfolio")}>{t("site.services.all")}</MoreLink>
+        /* The link leads to the portfolio pages, which have their own switch. */
+        switches.portfolio ? (
+          <MoreLink to={p("/portfolio")}>{t("site.services.all")}</MoreLink>
+        ) : undefined
       }
       divided
     >

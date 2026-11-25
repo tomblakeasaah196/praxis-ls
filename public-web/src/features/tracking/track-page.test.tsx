@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { MemoryRouter } from "react-router-dom";
 import { BrandingProvider } from "@/app/branding";
 import { TrackPage } from "@/features/tracking/track-page";
-import { en } from "@/lib/i18n-dict";
+import { en } from "@/lib/i18n-tree.test-helper";
 import type { TrackingResult } from "@/lib/tracking-api";
 
 /**

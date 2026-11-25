@@ -100,8 +100,13 @@ describe("content is closed, not open", () => {
     expect(schema.validateBlock("carousel_of_doom", {}).ok).toBe(false);
   });
 
-  it("requires the French string, which is the fallback every renderer reads", () => {
-    expect(schema.validateBlock("hero", { title: { en: "only english" } }).ok).toBe(false);
+  it("requires the title to say something, in either language", () => {
+    // WHICH language is the tenant's (website v2: English on an English-only
+    // site, French where French is offered) and is checked by the service
+    // against the switches. The schema refuses only a value that says nothing.
+    expect(schema.validateBlock("hero", { title: { fr: "", en: "" } }).ok).toBe(false);
+    expect(schema.validateBlock("hero", { title: {} }).ok).toBe(false);
+    expect(schema.validateBlock("hero", { title: { en: "only english" } }).ok).toBe(true);
     expect(schema.validateBlock("hero", { title: { fr: "Titre" } }).ok).toBe(true);
   });
 

@@ -29,10 +29,9 @@
  *
  * ── FRENCH AND ENGLISH SIDE BY SIDE ───────────────────────────────────────
  *
- * Not a language toggle. French is required and English is optional, and the
- * public page falls back FR↔EN rather than blanking — so a missing translation
- * is a real, silent outcome, and the form that hides it behind a switch is the
- * form you can save having never looked.
+ * Not a language toggle. One half is required and the other optional, and
+ * which is which is the tenant's (website v2): English on an English-only
+ * site, French where French is offered. The required half comes first.
  */
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -51,6 +50,12 @@ import { Callout } from "@/components/ui/callout";
 import { useResource, errMsg } from "@/lib/use-resource";
 import { tr } from "@/lib/i18n";
 import * as api from "@/lib/site-content-api";
+import {
+  languageName,
+  requiredMessage,
+  useRequiredSiteLanguage,
+  type SiteLang,
+} from "@/lib/site-languages";
 
 /* ── small shared shapes ──────────────────────────────────────────────────── */
 
@@ -94,7 +99,8 @@ const BLOCK_LABEL: Record<string, string> = {
 function blockSummary(block: api.SiteBlock): string {
   const c = (block.content ?? {}) as Record<string, unknown>;
   const items = Array.isArray(c.items) ? c.items.length : 0;
-  const headline = (c.title as { fr?: string } | undefined)?.fr;
+  const t = c.title as { fr?: string; en?: string | null } | undefined;
+  const headline = t?.fr || t?.en || "";
   switch (block.type) {
     case "hero":
       return headline || tr("No headline yet");
@@ -139,10 +145,9 @@ function moved<T>(list: T[], from: number, to: number): T[] {
 /**
  * Both languages of one field, in one row.
  *
- * The FR side carries `required` because the schema does. The EN side says
- * "optional" rather than being silently blank, so the person filling it in
- * knows that leaving it produces a French heading on an English page rather
- * than an empty one.
+ * The required half (`useRequiredSiteLanguage`, the rule the API refuses
+ * with) carries `required` and comes first; the other half says "optional"
+ * rather than being silently blank.
  */
 function BiRow({
   label,
@@ -159,28 +164,28 @@ function BiRow({
   placeholderFr?: string;
   placeholderEn?: string;
 }) {
+  const lang: SiteLang = useRequiredSiteLanguage();
+  const halves: SiteLang[] = lang === "fr" ? ["fr", "en"] : ["en", "fr"];
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field
-        label={`${label} ${tr("(French)")}`}
-        required={required}
-        error={
-          required && !value.fr.trim() ? tr("French is required.") : undefined
-        }
-      >
-        <Input
-          value={value.fr}
-          onChange={(e) => onChange({ ...value, fr: e.target.value })}
-          placeholder={placeholderFr}
-        />
-      </Field>
-      <Field label={`${label} ${tr("(English)")}`} hint={tr("Optional: falls back to French.")}>
-        <Input
-          value={value.en ?? ""}
-          onChange={(e) => onChange({ ...value, en: e.target.value })}
-          placeholder={placeholderEn}
-        />
-      </Field>
+      {halves.map((half) => {
+        const isRequired = half === lang;
+        const text = (half === "fr" ? value.fr : value.en) ?? "";
+        return (
+          <Field
+            key={half}
+            label={`${label} (${languageName(half)}${isRequired ? "" : `, ${tr("Optional")}`})`}
+            required={required && isRequired}
+            error={required && isRequired && !text.trim() ? requiredMessage(half) : undefined}
+          >
+            <Input
+              value={text}
+              onChange={(e) => onChange({ ...value, [half]: e.target.value })}
+              placeholder={half === "fr" ? placeholderFr : placeholderEn}
+            />
+          </Field>
+        );
+      })}
     </div>
   );
 }
@@ -296,7 +301,7 @@ function IdentityCard({
 }) {
   const [form, setForm] = React.useState({
     key: page.key,
-    title_fr: page.title_fr,
+    title_fr: page.title_fr ?? "",
     title_en: page.title_en ?? "",
     slug_fr: page.slug_fr ?? "",
     slug_en: page.slug_en ?? "",
@@ -314,7 +319,8 @@ function IdentityCard({
 
   const [seoOpen, setSeoOpen] = React.useState(false);
   const keyOk = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(form.key);
-  const canSave = keyOk && !!form.title_fr.trim() && !busy;
+  const lang = useRequiredSiteLanguage();
+  const canSave = keyOk && !!form[lang === "fr" ? "title_fr" : "title_en"].trim() && !busy;
 
   async function save() {
     setBusy(true);

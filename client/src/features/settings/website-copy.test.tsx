@@ -48,6 +48,7 @@ const CATALOGUE = {
       label: "Sub",
       default_en: "Operations we have run, in our own words.",
       default_fr: "Des opérations que nous avons menées, dans nos mots.",
+      hideable: true,
     },
     {
       key: "site.footer.legal",
@@ -63,6 +64,9 @@ const CATALOGUE = {
  *  copy row does not exist yet and the first save has to create it. */
 let pages: unknown[] = [];
 let pageTab: unknown = null;
+/** The languages the site offers. Most of this suite pins the bilingual rule
+ *  (French offered, French required); the English-only block switches it. */
+let languages: ("en" | "fr")[] = ["en", "fr"];
 const calls: { path: string; opts?: { method?: string; body?: unknown } }[] = [];
 
 vi.mock("@/lib/api-client", async () => {
@@ -73,6 +77,14 @@ vi.mock("@/lib/api-client", async () => {
     tenant: vi.fn(async (path: string, opts?: { method?: string; body?: unknown }) => {
       calls.push({ path, opts });
       if (path === "/site/copy/catalogue") return CATALOGUE;
+      if (path === "/site/meta") {
+        return {
+          website_enabled: true,
+          metrics: [],
+          languages,
+          required_language: languages.includes("fr") ? "fr" : "en",
+        };
+      }
       if (path === "/site/pages" && !opts?.method) return pages;
       if (path === "/site/pages" && opts?.method === "POST") {
         const body = opts.body as { key: string };
@@ -93,11 +105,14 @@ vi.mock("@/lib/api-client", async () => {
 });
 
 import { WebsiteCopyPage } from "./website-copy";
+import { __resetSiteMeta } from "@/lib/site-content-api";
 
 beforeEach(() => {
   pages = [];
   pageTab = null;
+  languages = ["en", "fr"];
   calls.length = 0;
+  __resetSiteMeta();
 });
 
 const mount = () =>
@@ -173,19 +188,57 @@ describe("the wording screen", () => {
     expect((created?.opts?.body as { key: string }).key).toBe("site-copy");
   });
 
-  it("refuses to save an English-only override", async () => {
+  it("refuses to save an English-only override when French is offered", async () => {
     mount();
     await userEvent.click(await screen.findByRole("button", { name: /Our work/i }));
+    // The required half is decided by the site's languages, read once.
+    await waitFor(() => expect(calls.some((c) => c.path === "/site/meta")).toBe(true));
 
     await userEvent.type(
       await screen.findByPlaceholderText("Operations we have run, in our own words."),
       "Work we have run.",
     );
 
-    expect(screen.getByRole("button", { name: /Save wording/i })).toBeDisabled();
-    expect(
-      screen.getByText(/Add the French too/i),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Save wording/i })).toBeDisabled(),
+    );
+    expect(screen.getByText(/French is required/i)).toBeInTheDocument();
+  });
+
+  it("on an English-only site, saves English with no French", async () => {
+    languages = ["en"];
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: /Our work/i }));
+    await waitFor(() => expect(calls.some((c) => c.path === "/site/meta")).toBe(true));
+
+    await userEvent.type(
+      await screen.findByPlaceholderText("Operations we have run, in our own words."),
+      "Work we have run.",
+    );
+    const save = screen.getByRole("button", { name: /Save wording/i });
+    await waitFor(() => expect(save).not.toBeDisabled());
+    await userEvent.click(save);
+
+    await waitFor(() => expect(savedItems()).toHaveLength(1));
+    expect(savedItems()[0]).toEqual({
+      key: "site.portfolioPage.sub",
+      value: { fr: null, en: "Work we have run." },
+    });
+  });
+
+  it("hides an optional line, and offers no hide on a line that cannot go", async () => {
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: /Our work/i }));
+
+    // One hideable line in the section (the subtitle), so exactly one control.
+    const hide = await screen.findAllByRole("checkbox", { name: /Hide this line/i });
+    expect(hide).toHaveLength(1);
+    await userEvent.click(hide[0]);
+    expect(screen.getByText(/Visitors see nothing here/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Save wording/i }));
+    await waitFor(() => expect(savedItems()).toHaveLength(1));
+    expect(savedItems()[0]).toEqual({ key: "site.portfolioPage.sub", hidden: true });
   });
 
   it("says the wording is not live while the page is a draft", async () => {

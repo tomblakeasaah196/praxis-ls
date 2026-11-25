@@ -203,9 +203,12 @@ describe("pillar validation", () => {
     expect(schemas.createGroup.safeParse({ key: "-leading", name_fr: "x" }).success).toBe(false);
   });
 
-  it("requires a French name — the fallback every renderer reads", () => {
-    expect(schemas.createGroup.safeParse({ key: "freight" }).success).toBe(false);
-    expect(schemas.createGroup.safeParse({ key: "freight", name_fr: "" }).success).toBe(false);
+  it("leaves which language a name needs to the service", () => {
+    // English on an English-only site, French where French is offered
+    // (website v2): the service checks it against the switches, so the schema
+    // takes either half. site-languages.test.js pins the refusal.
+    expect(schemas.createGroup.safeParse({ key: "freight", name_en: "Freight" }).success).toBe(true);
+    expect(schemas.createGroup.safeParse({ key: "freight", name_fr: "Fret" }).success).toBe(true);
   });
 
   it("refuses an empty update rather than answering 200 to a caller bug", () => {

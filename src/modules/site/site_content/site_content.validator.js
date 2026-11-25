@@ -22,7 +22,10 @@ const META_TITLE_MAX = 70;
 const META_DESCRIPTION_MAX = 200;
 
 const pageFields = {
-  title_fr: z.string().trim().min(1).max(TITLE_MAX),
+  // Both halves optional HERE; which one a page needs is the tenant's (English
+  // on an English-only site, French where French is offered) and is checked by
+  // the service against the site's switches (website v2).
+  title_fr: z.string().trim().max(TITLE_MAX).nullable().optional(),
   title_en: z.string().trim().max(TITLE_MAX).nullable().optional(),
   slug_fr: SLUG.nullable().optional(),
   slug_en: SLUG.nullable().optional(),
@@ -37,7 +40,6 @@ const createPage = z.object({ key: KEY, ...pageFields }).strict();
 const updatePage = z.object({
   key: KEY.optional(),
   ...pageFields,
-  title_fr: pageFields.title_fr.optional(),
 }).strict().refine((v) => Object.keys(v).length > 0, {
   message: "send at least one field to change",
 });

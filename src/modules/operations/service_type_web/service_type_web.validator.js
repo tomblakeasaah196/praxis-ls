@@ -102,10 +102,12 @@ const replaceFaq = z.object({
   rows: z
     .array(
       z.object({
-        question_fr: z.string().trim().min(1).max(QUESTION_MAX),
-        question_en: z.string().trim().min(1).max(QUESTION_MAX),
-        answer_fr: z.string().trim().min(1).max(ANSWER_MAX),
-        answer_en: z.string().trim().min(1).max(ANSWER_MAX),
+        // Which language a question needs is the tenant's (website v2): the
+        // service checks it against the site's switches.
+        question_fr: z.string().trim().max(QUESTION_MAX).nullable().optional(),
+        question_en: z.string().trim().max(QUESTION_MAX).nullable().optional(),
+        answer_fr: z.string().trim().max(ANSWER_MAX).nullable().optional(),
+        answer_en: z.string().trim().max(ANSWER_MAX).nullable().optional(),
         sort_order: z.number().int().min(0).max(10000).optional(),
       }).strict(),
     )
@@ -141,7 +143,8 @@ const GROUP_KEY = z.string().trim().toLowerCase().regex(
 const GROUP_NAME_MAX = 80;
 const groupFields = {
   key: GROUP_KEY,
-  name_fr: z.string().trim().min(1).max(GROUP_NAME_MAX),
+  // Required in the tenant's language, checked by the service (website v2).
+  name_fr: z.string().trim().max(GROUP_NAME_MAX).nullable().optional(),
   name_en: z.string().trim().max(GROUP_NAME_MAX).nullable().optional(),
   // Icon NAME, resolved by the renderer against its own set. Never markup: a
   // tenant-editable field reaching the DOM as HTML is stored XSS on a public
@@ -155,7 +158,7 @@ const createGroup = z.object(groupFields).strict();
 // a caller bug, and answering 200 to it hides the bug.
 const updateGroup = z.object({
   key: GROUP_KEY.optional(),
-  name_fr: z.string().trim().min(1).max(GROUP_NAME_MAX).optional(),
+  name_fr: z.string().trim().max(GROUP_NAME_MAX).nullable().optional(),
   name_en: z.string().trim().max(GROUP_NAME_MAX).nullable().optional(),
   icon: z.string().trim().max(60).nullable().optional(),
   sort_order: z.number().int().min(0).max(10000).optional(),

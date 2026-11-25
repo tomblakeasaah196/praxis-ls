@@ -19,6 +19,14 @@ import {
   en as quotationEn,
   fr as quotationFr,
 } from "@/features/quotation/quotation-copy";
+import {
+  en as trackPageEn,
+  fr as trackPageFr,
+} from "@/features/tracking/track-copy";
+import {
+  en as corridorEn,
+  fr as corridorFr,
+} from "@/components/site/corridor-copy";
 
 /**
  * The whole translation tree as it exists AT RUNTIME — for tests only.
@@ -51,12 +59,12 @@ import {
  */
 export const en = {
   ...baseEn,
-  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn },
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn },
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
-  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr },
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr },
   portal: { ...baseFr.portal, ...portalFr },
 };

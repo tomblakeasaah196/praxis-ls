@@ -8,7 +8,6 @@ import { BadgePill } from "@/components/ui/badge-pill";
 import { BgMap } from "@/components/ui/bg-map";
 import { Card } from "@/components/ui/card";
 import { ContactForm } from "@/components/site/contact-form";
-import { CoverageFigure } from "@/components/site/coverage-figure";
 import { StagedLines } from "@/components/ui/type";
 import { GlobeIcon } from "@/components/ui/icons";
 import { listPublicEntities, type PublicEntity } from "@/lib/site-api";
@@ -84,6 +83,66 @@ function usePublicEntities(): PublicEntity[] {
   return rows;
 }
 
+/**
+ * One card per published company: the name people know it by, its address,
+ * and the phone and email it publishes. A line it has not published is left
+ * out rather than printed empty, and the phone and email are links, because on
+ * a phone that is what they are for.
+ */
+function OfficeList({ entities }: { entities: PublicEntity[] }) {
+  const { t } = useTranslation();
+  return (
+    <ul className="grid gap-5 md:grid-cols-2">
+      {entities.map((e) => {
+        const name = e.trading_name || e.legal_name;
+        return (
+          <li key={e.id}>
+            <Card padded className="h-full">
+              <h3 className="font-display text-title font-semibold">{name}</h3>
+              {e.trading_name && e.trading_name !== e.legal_name ? (
+                <p className="mt-1 text-sm text-muted-foreground">{e.legal_name}</p>
+              ) : null}
+              {e.registered_address ? (
+                <address className="mt-4 text-sm not-italic text-foreground">
+                  {e.registered_address}
+                </address>
+              ) : null}
+              <dl className="mt-3 space-y-2 text-sm">
+                {e.phone ? (
+                  <div className="flex gap-2">
+                    <dt className="text-muted-foreground">{t("site.contact.phone")}</dt>
+                    <dd>
+                      <a
+                        href={`tel:${e.phone.replace(/[^\d+]/g, "")}`}
+                        className="text-primary-ink underline-offset-4 hover:underline"
+                      >
+                        {e.phone}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
+                {e.email ? (
+                  <div className="flex gap-2">
+                    <dt className="text-muted-foreground">{t("site.contact.email")}</dt>
+                    <dd>
+                      <a
+                        href={`mailto:${e.email}`}
+                        className="text-primary-ink underline-offset-4 hover:underline"
+                      >
+                        {e.email}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </Card>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function ContactPage() {
   const { t } = useTranslation();
   const entities = usePublicEntities();
@@ -150,21 +209,22 @@ export function ContactPage() {
         </div>
       </Section>
 
-      {/* §8.5's office/coverage figure, fed by §6.9's entities.
-          "Where are you" is the second question a contact page is asked and
-          this one could not answer it — the endpoint has existed since PR 2 and
-          nothing read it. It draws nothing at all for a tenant with no
-          public-enabled entity, which is the default (13787). */}
+      {/* The offices, from the published companies (website v2).
+
+          "Where are you, and how do I reach you" is the second question a
+          contact page is asked. The first tenant's review replaced the
+          "Where we deliver" coverage figure with the plain answer: each office,
+          its full address, its phone and its email, as the company itself
+          publishes them on its letterhead. Nothing is drawn for a tenant with
+          no public-enabled company, which is the default (13787). */}
       {entities.length ? (
         <Section
           divided
-          eyebrow={t("site.contact.coverageKicker")}
+          eyebrow={t("site.contact.offices")}
           eyebrowIcon={GlobeIcon}
-          title={t("site.contact.coverageTitle")}
+          title={t("site.contact.officesTitle")}
         >
-          <div className="mx-auto max-w-3xl">
-            <CoverageFigure entities={entities} />
-          </div>
+          <OfficeList entities={entities} />
         </Section>
       ) : null}
 

@@ -74,9 +74,12 @@ describe("the tenant's switch", () => {
   });
 
   it("is the standard unless the tenant chose As written", async () => {
+    // The theme read also carries the website's switches (14600); a client
+    // with no row answers the product's defaults.
+    const client = { query: async () => ({ rows: [] }) };
     repo.getTheme.mockResolvedValueOnce({ ...theme });
-    expect((await publicTheme({})).labelCase).toBe("TITLE");
+    expect((await publicTheme(client)).labelCase).toBe("TITLE");
     repo.getTheme.mockResolvedValueOnce({ ...theme, label_case: "AS_WRITTEN" });
-    expect((await publicTheme({})).labelCase).toBe("AS_WRITTEN");
+    expect((await publicTheme(client)).labelCase).toBe("AS_WRITTEN");
   });
 });

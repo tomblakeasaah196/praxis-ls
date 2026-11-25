@@ -10,6 +10,7 @@ import { StagedLines, PullQuote } from "@/components/ui/type";
 import { EsgTriptych } from "@/components/site/esg-triptych";
 import { LeaderCard, LeaderGrid } from "@/components/site/leader-card";
 import { EntityNetwork } from "@/components/site/entity-network";
+import { useSiteSwitches } from "@/lib/site-switches";
 import { ClientBand, CarrierMarks, CredentialStrip } from "@/components/site/proof-bands";
 import { Timeline } from "@/components/site/timeline";
 import { GlobeIcon, ShieldIcon } from "@/components/ui/icons";
@@ -104,6 +105,9 @@ function useAboutData() {
 
 export function AboutPage() {
   const { t } = useTranslation();
+  /* The network scene rides the corridors switch (website v2): the map
+     scenes are off until a tenant turns them on. */
+  const { corridors: networkOn } = useSiteSwitches();
   const { about, entities, proof } = useAboutData();
 
   useDocumentMeta({
@@ -233,7 +237,7 @@ export function AboutPage() {
 
       {/* ── the entities, as a network ────────────────────────────────── */}
 
-      {entities.length ? (
+      {networkOn && entities.length ? (
         <Section
           divided
           eyebrowIcon={GlobeIcon}

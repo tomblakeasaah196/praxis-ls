@@ -14,6 +14,8 @@ import { p } from "@/lib/base-path";
 import { usePointerLight } from "@/lib/motion";
 import { useHeaderScroll, useTravellingPill } from "./use-header-scroll";
 import { useServicesPanelReady } from "./nav-services-ready";
+import { isMultilingual, useSiteSwitches, type SiteSwitches } from "@/lib/site-switches";
+import { ThemeToggle } from "./theme-toggle";
 
 /**
  * The panel is LAZY, and the readiness rule that decides whether to render it
@@ -130,11 +132,26 @@ const NAV = [
   { to: p("/about"), labelKey: "site.nav.about" },
   { to: p("/services"), labelKey: "site.nav.services", panel: true },
   { to: p("/track"), labelKey: "site.nav.track" },
-  { to: p("/portfolio"), labelKey: "site.nav.portfolio" },
+  { to: p("/portfolio"), labelKey: "site.nav.portfolio", when: "portfolio" },
   { to: p("/insights"), labelKey: "site.nav.insights" },
-  { to: p("/careers"), labelKey: "site.nav.careers" },
+  { to: p("/careers"), labelKey: "site.nav.careers", when: "careers_in_header" },
   { to: p("/contact"), labelKey: "site.nav.contact" },
 ] as const;
+
+/**
+ * The nav for THIS tenant (website v2). Portfolio and Careers are each behind a
+ * website switch, off until a tenant turns them on: one build serves every
+ * tenant, so a section is hidden here rather than deleted. Careers keeps its
+ * footer link either way.
+ */
+export function navFor(switches: SiteSwitches) {
+  return NAV.filter((item) => !("when" in item) || switches[item.when]);
+}
+
+/** Up to this many links, the row has room for the Client Portal button at
+ *  every desktop width; beyond it the button waits for `xl` (see the note on
+ *  the button below). */
+const ROOMY_NAV = 5;
 
 /**
  * How many particles the strip erodes into.
@@ -178,6 +195,8 @@ export function SiteHeader({
   const [open, setOpen] = React.useState(false);
   const location = useLocation();
   const lang = getLang();
+  const switches = useSiteSwitches();
+  const nav = navFor(switches);
 
   /* `--hdr` and `--read`, on the element every part of the header inherits
      from. Also the element the ResizeObserver below measures — one ref, because
@@ -304,9 +323,15 @@ export function SiteHeader({
       className="site-shell sticky top-0 z-40"
     >
       {/* ── the utility strip, which erodes ───────────────────────────────
+          Behind a website switch (`top_rail`, off until a tenant turns it on).
+          It no longer carries the Client Portal link: the bar's button is the
+          one way in, and two portal entries a few pixels apart read as two
+          different places.
+
           `.hdr-erode` collapses its height and dissolves its content through a
           dot mask as `--hdr` rises. It keeps `overflow: clip` so the embers
           leaving it do not paint over the bar below. */}
+      {switches.top_rail ? (
       <div className="site-utility hdr-erode">
         <div className="wrap flex h-10 items-center justify-between gap-4 text-xs">
           <Link
@@ -316,15 +341,17 @@ export function SiteHeader({
             {t("site.hero.cta2")}
           </Link>
           <div className="flex items-center gap-3">
-            <Link
-              to="/portal/login"
-              className="font-medium text-[var(--hero-foreground)] transition-opacity hover:opacity-80"
-            >
-              {t("site.chrome.portalEntry")}
-            </Link>
-            <span aria-hidden className="opacity-40">
-              |
-            </span>
+            {/* The one band where the bar's Client Portal button steps aside
+                (a long nav at lg, see the button below): the rail carries the
+                way in there, and only there, so there is always exactly one. */}
+            {nav.length > ROOMY_NAV ? (
+              <Link
+                to="/portal/login"
+                className="hidden font-medium text-[var(--hero-foreground)] transition-opacity hover:opacity-80 lg:inline xl:hidden"
+              >
+                {t("site.chrome.portalEntry")}
+              </Link>
+            ) : null}
             <LangToggle onDark />
           </div>
         </div>
@@ -344,6 +371,7 @@ export function SiteHeader({
           ))}
         </span>
       </div>
+      ) : null}
 
       <div ref={barRef} className="site-header">
         {/* The lit top edge — the site's own 60° source, brightest at the left
@@ -400,7 +428,7 @@ export function SiteHeader({
             <span aria-hidden className="navpill" />
             <span aria-hidden className="navrail" />
 
-            {NAV.map((item) => {
+            {nav.map((item) => {
               const hasPanel = "panel" in item && item.panel && panelReady;
               return (
                 <span key={item.to} className="navitem">
@@ -459,7 +487,12 @@ export function SiteHeader({
                 (116px each side in English, 62px in French). */}
             <Link
               to="/portal/login"
-              className="btn-outline hidden h-11 items-center whitespace-nowrap rounded-[calc(var(--radius)-2px)] px-4 text-[0.9375rem] font-semibold md:inline-flex lg:hidden xl:inline-flex"
+              className={cn(
+                "btn-outline hidden h-11 items-center whitespace-nowrap rounded-[calc(var(--radius)-2px)] px-4 text-[0.9375rem] font-semibold md:inline-flex",
+                // Steps aside at lg only when the rail is there to carry the
+                // link instead; otherwise it stays, tight row or not.
+                nav.length > ROOMY_NAV && switches.top_rail && "lg:hidden xl:inline-flex",
+              )}
             >
               {t("site.chrome.portalEntry")}
             </Link>
@@ -469,6 +502,9 @@ export function SiteHeader({
             >
               {t("site.hero.cta")}
             </Link>
+            {/* The visitor's light/dark switch, when the tenant offers one
+                (website v2). Renders nothing otherwise. */}
+            <ThemeToggle onDark={overlay} />
             <button
               type="button"
               className="btn-surface grid h-11 w-11 place-items-center rounded-[calc(var(--radius)-2px)] lg:hidden"
@@ -538,7 +574,7 @@ export function SiteHeader({
                   {t("site.hero.cta")}
                 </Link>
               </li>
-              {NAV.map((item, i) => (
+              {nav.map((item, i) => (
                 <li
                   key={item.to}
                   className="drawer-row"
@@ -549,12 +585,14 @@ export function SiteHeader({
                   </Link>
                 </li>
               ))}
-              <li
-                className="drawer-row flex items-center justify-end gap-3 py-3"
-                style={{ "--i": NAV.length + 1 } as React.CSSProperties}
-              >
-                <LangToggle />
-              </li>
+              {isMultilingual(switches) ? (
+                <li
+                  className="drawer-row flex items-center justify-end gap-3 py-3"
+                  style={{ "--i": nav.length + 1 } as React.CSSProperties}
+                >
+                  <LangToggle />
+                </li>
+              ) : null}
             </ul>
           </nav>
         ) : null}
@@ -575,6 +613,10 @@ export function SiteHeader({
 export function LangToggle({ onDark = false }: { onDark?: boolean }) {
   const { t } = useTranslation();
   const lang = getLang();
+  const switches = useSiteSwitches();
+  // One language offered, no switch (website v2): a control with one option
+  // is a control that does nothing.
+  if (!isMultilingual(switches)) return null;
   return (
     <span
       role="group"

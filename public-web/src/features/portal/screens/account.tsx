@@ -38,6 +38,7 @@ import {
 } from "@/lib/portal-api";
 import { portalSession } from "@/lib/portal-session";
 import { getLang, setLang } from "@/lib/i18n";
+import { isMultilingual, useSiteSwitches } from "@/lib/site-switches";
 import { cn } from "@/lib/cn";
 import { usePortal, KindSwitchContext, type PortalKind } from "../lib/portal-context";
 import { getPortalTheme, setPortalTheme, type PortalTheme } from "../lib/theme";
@@ -891,8 +892,11 @@ function Preferences() {
   const { t } = useTranslation();
   const [lang, setLangState] = React.useState(getLang());
   const [theme, setTheme] = React.useState<PortalTheme>(getPortalTheme());
+  // No language row on a site that offers one language (website v2).
+  const multilingual = isMultilingual(useSiteSwitches());
   return (
     <Section title={t("portal.account.preferences")} icon={<GlobeIcon size={20} />}>
+      {multilingual ? (
       <div className="pt-row flex-wrap justify-between">
         <span className="flex items-center gap-3 text-[0.95rem] font-semibold text-foreground">
           <GlobeIcon size={20} className="text-muted-foreground" />
@@ -911,6 +915,7 @@ function Preferences() {
           ]}
         />
       </div>
+      ) : null}
       <div className="pt-row flex-wrap justify-between">
         <span className="flex items-center gap-3 text-[0.95rem] font-semibold text-foreground">
           <SunIcon size={20} className="text-muted-foreground" />

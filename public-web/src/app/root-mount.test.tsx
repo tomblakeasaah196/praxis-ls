@@ -3,7 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { BrandingProvider } from "@/app/branding";
 import { AppErrorBoundary } from "@/app/error-boundary";
-import { en } from "@/lib/i18n-dict";
+import { en } from "@/lib/i18n-tree.test-helper";
 
 /**
  * The app on a host it OWNS — a domain the client brought, where the site is
@@ -168,9 +168,13 @@ describe("routes on a host the site owns", () => {
     // The assertion that matters is the location: a redirect loop leaves the
     // path unchanged too, so the copy is checked as well.
     await waitFor(() => expect(getByTestId("loc").textContent).toBe("/"));
-    expect(await findByText(heroTitle())).toBeTruthy();
+    // The first test in the file pays for the cold lazy chunk; the 4 s every
+    // route test in app.test.tsx allows, not the 1 s default.
+    expect(await findByText(heroTitle(), {}, { timeout: 4000 })).toBeTruthy();
     expect(queryByText(CRASH)).toBeNull();
-  });
+    // A test budget to match: the module registry is reset per test, so this
+    // one boots the router, the marketing chunk and its bands from cold.
+  }, 15000);
 
   it("serves the tracking page at /track, with no redirect in the way", async () => {
     const { AppRouter } = await routerAt("/");

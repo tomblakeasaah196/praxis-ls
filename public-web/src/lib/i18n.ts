@@ -64,6 +64,7 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { en, fr } from "./i18n-dict";
 import { labelCasePostProcessor } from "./label-case";
+import { offersLanguage, subscribeSiteSwitches } from "./site-switches";
 
 export type Lang = "en" | "fr";
 
@@ -120,15 +121,30 @@ export function fromBrowser(): Lang | null {
  *  mount path in main.tsx, which has to run it BEFORE the first render.
  *
  *  An explicit link, then an explicit choice, then English. `fromBrowser()` is
- *  deliberately absent from this chain — the header says why. */
+ *  deliberately absent from this chain — the header says why.
+ *
+ *  ── AND ONLY A LANGUAGE THE TENANT OFFERS (website v2) ──────────────────
+ *
+ *  A site that offers English only answers English whatever the link or the
+ *  stored choice says: `?lang=fr` is ignored, and a visitor who pressed FR on
+ *  another tenant's site (the key is shared) is not shown French here. */
 export function detectLang(): Lang {
-  return fromQuery() || fromStorage() || DEFAULT_LANG;
+  const asked = fromQuery() || fromStorage() || DEFAULT_LANG;
+  return offersLanguage(asked) ? asked : DEFAULT_LANG;
 }
+
+/* Copies, not the dictionary objects themselves. i18next MERGES a tenant's
+   copy overlay into the resource it was given (`addResourceBundle` deep), so
+   handing it `en` would rewrite the shipped dictionary in place, and anything
+   that compares a string with what we ship (the hero's headline does) would be
+   comparing the tenant's words with themselves. The dictionary is plain data,
+   so a JSON round trip is a faithful copy. */
+const copy = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 i18n.use(initReactI18next).use(labelCasePostProcessor).init({
   resources: {
-    en: { translation: en },
-    fr: { translation: fr },
+    en: { translation: copy(en) },
+    fr: { translation: copy(fr) },
   },
   lng: typeof window !== "undefined" ? detectLang() : "en",
   fallbackLng: "en",
@@ -153,6 +169,12 @@ export type LangChoice = Lang | "auto";
  * `detectLang()` — today that means English unless the URL says otherwise.
  */
 export function setLang(lang: LangChoice): void {
+  // A language the tenant does not offer is not a choice anybody can make
+  // here: no control renders for it, and a stray call is English.
+  if (lang !== "auto" && !offersLanguage(lang)) {
+    void i18n.changeLanguage(DEFAULT_LANG);
+    return;
+  }
   try {
     if (lang === "auto") window.localStorage.removeItem(LANG_KEY);
     else window.localStorage.setItem(LANG_KEY, lang);
@@ -160,6 +182,16 @@ export function setLang(lang: LangChoice): void {
     /* session only */
   }
   void i18n.changeLanguage(lang === "auto" ? detectLang() : lang);
+}
+
+/* The switches can arrive after first paint (a first visit). The moment they
+   say French is not offered, a page that started in French — from a stale
+   `?lang=fr` link, say — turns English, and turns back if they say it is. */
+if (typeof window !== "undefined") {
+  subscribeSiteSwitches(() => {
+    const want = detectLang();
+    if (getLang() !== want) void i18n.changeLanguage(want);
+  });
 }
 
 export const getLang = (): Lang =>
