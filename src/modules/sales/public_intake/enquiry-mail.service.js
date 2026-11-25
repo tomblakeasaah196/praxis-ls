@@ -154,6 +154,18 @@ function composeAck({ row, tenantName }) {
   return { subject, text, html };
 }
 
+/** The tenant's display name from its branding, or "" (never throws). */
+async function brandName(client) {
+  try {
+    const branding = require("../../branding/branding.service");
+    const b = await branding.getBranding(client);
+    return (b && typeof b.name === "string" && b.name.trim()) || "";
+  } catch {
+    // @silent:storage a missing name must not stop the email; the copy reads "the company"
+    return "";
+  }
+}
+
 /* ── sending ────────────────────────────────────────────────────────────── */
 
 function transportFor(mailbox) {
@@ -226,6 +238,9 @@ async function attachmentsFor(client, { row, attachments, slug }) {
  * recording what did go out, so the worker retries only the rest.
  */
 async function deliverEnquiry(client, { enquiryId, slug, tenantName, siteOrigin }, tx = null) {
+  // The request's tenant meta does not always carry a display name; the
+  // tenant's own branding does (Settings › Branding).
+  if (!tenantName) tenantName = await brandName(client);
   const row = await repo.getEnquiry(client, enquiryId);
   if (!row) return { skipped: "not_found" };
   const delivery = await settings.delivery(client);

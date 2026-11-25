@@ -183,7 +183,7 @@ describe("the preview a phone shows", () => {
     const opts = mockNotifyMany.mock.calls[0][2];
     // Shared mailbox → the title says which hat to put on.
     expect(opts.title).toBe("Ama Boateng → billing@praxisls.com");
-    expect(opts.body).toBe("Re: BL 4471 demurrage — Please confirm the free days before Friday.");
+    expect(opts.body).toBe("Re: BL 4471 demurrage. Please confirm the free days before Friday.");
     // The quoted history is what the reader has ALREADY seen; a snippet made of
     // it says "> On Monday you wrote" and nothing about why the phone buzzed.
     expect(opts.body).not.toMatch(/On Monday you wrote/);
