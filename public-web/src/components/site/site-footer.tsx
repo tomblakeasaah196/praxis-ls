@@ -18,7 +18,12 @@ import { useSiteSwitches } from "@/lib/site-switches";
  * entities. Empty until then, and an empty slot draws nothing, so no footer
  * carries a link to a page that does not exist yet.
  */
-export const FOOTER_LEGAL_LINKS: { to: string; labelKey: string }[] = [];
+export const FOOTER_LEGAL_LINKS: { to: string; labelKey: string }[] = [
+  // PR 4: base-relative, joined to the host's base where they are drawn.
+  { to: "/trust", labelKey: "site.footer.trust" },
+  { to: "/legal/impressum", labelKey: "site.footer.impressum" },
+  { to: "/legal/privacy", labelKey: "site.footer.privacy" },
+];
 
 /**
  * The footer. Four columns and a small print line, which is what a logistics
@@ -94,6 +99,8 @@ export function SiteFooter() {
       // §9.1: About was absent from the footer as well as from the nav, and
       // `site.footer.about` has been in the dictionary unused since PR 1.
       { to: p("/about"), label: t("site.footer.about") },
+      // PR 4: the page an overseas agent opens before nominating a shipment.
+      { to: p("/partners"), label: t("site.footer.partners") },
       // The verification portal, and the footer is the RIGHT place for it
       // rather than the nav: nobody browses here. A reader arrives holding a
       // document, and the footer is where you look for the thing a company
@@ -181,7 +188,7 @@ export function SiteFooter() {
           {FOOTER_LEGAL_LINKS.length ? (
             <nav aria-label={t("site.footer.legal")} className="flex flex-wrap gap-3">
               {FOOTER_LEGAL_LINKS.map((l) => (
-                <Link key={l.to} to={l.to} className="underline-offset-4 hover:underline">
+                <Link key={l.to} to={p(l.to)} className="underline-offset-4 hover:underline">
                   {t(l.labelKey)}
                 </Link>
               ))}

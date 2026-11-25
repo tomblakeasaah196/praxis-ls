@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { useTranslation } from "react-i18next";
 import {
   mediaSrcSet,
@@ -8,6 +9,9 @@ import {
   type PublicProof,
 } from "@/lib/site-api";
 import { dateFmt } from "@/lib/format";
+import { useInView } from "@/components/ui/reveal";
+import "./brand.css";
+import "./brand-i18n";
 
 /**
  * Partners, clients and credentials — guide §9.4.
@@ -270,5 +274,106 @@ export function CredentialStrip({ proof }: { proof: PublicProof }) {
         </>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The client logo band (PR 4, the CEO's review of 24 Nov 2026: "no case
+ * studies; a scrolling band of client logos instead").
+ *
+ * ── WHAT IT CLAIMS ─────────────────────────────────────────────────────────
+ *
+ * Only `kind = client` rows that are active, and an active row cannot exist
+ * without its permission note (13782). Carriers are never here: moving cargo
+ * on Maersk does not make Maersk a client, and the owner said so (answer 5).
+ *
+ * ── HOW IT MOVES, AND WHEN IT DOES NOT ─────────────────────────────────────
+ *
+ * The list is drawn twice and the track slides by exactly one copy, so the
+ * loop has no seam. The second copy is `aria-hidden`: a screen reader hears
+ * each client once. The track is paused off screen (`data-live`), on hover and
+ * on keyboard focus, so a reader can stop it to look; under reduced motion it
+ * does not move at all and the logos sit in a still, wrapped row. Logos are in
+ * greyscale until the pointer reaches one, so eight brand colours do not fight
+ * the page's own.
+ */
+export function ClientLogoBand({
+  proof,
+  caption,
+  className,
+}: {
+  proof: PublicProof;
+  caption?: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  const [ref, live] = useInView<HTMLDivElement>();
+  const clients = partnersOfKind(proof, "client").filter((c) => c.logo_id);
+  if (!clients.length) return null;
+  const row = (hidden: boolean) => (
+    <ul className="logo-marquee-row" aria-hidden={hidden || undefined}>
+      {clients.map((c) => (
+        <li key={c.id} className="logo-marquee-item">
+          <Mark partner={c} />
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <section aria-labelledby="client-logos" className={className ? `logo-band ${className}` : "logo-band"}>
+      <h2 id="client-logos" className="logo-band-caption">
+        {caption || t("site.brand.clientsCaption")}
+      </h2>
+      <div
+        ref={ref}
+        className="logo-marquee"
+        data-live={live ? "true" : "false"}
+        style={{ "--logo-count": String(clients.length) } as React.CSSProperties}
+      >
+        <div className="ambient-marquee">
+          {row(false)}
+          {row(true)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The networks we belong to, each with its member number, so an agent can look
+ * us up in the network's own directory. `kind = network`, active only.
+ */
+export function MembershipList({ proof, className }: { proof: PublicProof; className?: string }) {
+  const { t } = useTranslation();
+  const memberships = partnersOfKind(proof, "network");
+  if (!memberships.length) return null;
+  return (
+    <ul className={className ? `membership-list ${className}` : "membership-list"}>
+      {memberships.map((m) => (
+        <li key={m.id} className="membership">
+          {m.logo_id ? (
+            <span className="membership-mark">
+              <Mark partner={m} />
+            </span>
+          ) : null}
+          <span className="membership-text">
+            <span className="membership-name">
+              {m.url ? (
+                <a href={m.url} target="_blank" rel="noopener noreferrer">
+                  {t("site.brand.memberOf", { name: m.name })}
+                </a>
+              ) : (
+                t("site.brand.memberOf", { name: m.name })
+              )}
+            </span>
+            {m.member_number ? (
+              <span className="membership-number">
+                {t("site.brand.memberNumber")} <span className="font-mono">{m.member_number}</span>
+              </span>
+            ) : null}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

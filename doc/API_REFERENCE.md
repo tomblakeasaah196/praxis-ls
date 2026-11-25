@@ -6,8 +6,8 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1878 |
-| Modules mounted | 140 |
+| Routes | 1905 |
+| Modules mounted | 141 |
 | API version | v1 |
 
 ## The out-of-band request contract
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1878 mounted routes, grouped by path prefix.
+All 1905 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -433,10 +433,10 @@ All 1878 mounted routes, grouped by path prefix.
 |---|---|---|
 | GET | `/api/tenant/careers/` | — |
 | GET | `/api/tenant/careers/:token` | — |
-| POST | `/api/tenant/careers/:token/apply` | — |
+| POST | `/api/tenant/careers/:token/apply` | yes |
 | POST | `/api/tenant/careers/alerts` | — |
 | POST | `/api/tenant/careers/alerts/unsubscribe/:token` | — |
-| POST | `/api/tenant/careers/open-application` | — |
+| POST | `/api/tenant/careers/open-application` | yes |
 | GET | `/api/tenant/careers/settings/public` | — |
 
 ### `tenant/cash-requests`
@@ -1048,12 +1048,15 @@ All 1878 mounted routes, grouped by path prefix.
 | DELETE | `/api/tenant/insights/:id` | yes |
 | GET | `/api/tenant/insights/:id` | — |
 | PATCH | `/api/tenant/insights/:id` | — |
+| DELETE | `/api/tenant/insights/:id/byline-photo` | yes |
+| POST | `/api/tenant/insights/:id/byline-photo` | — |
 | DELETE | `/api/tenant/insights/:id/cover` | yes |
 | POST | `/api/tenant/insights/:id/cover` | — |
 | POST | `/api/tenant/insights/:id/gallery` | — |
 | PUT | `/api/tenant/insights/:id/gallery` | — |
 | POST | `/api/tenant/insights/:id/pin` | — |
 | POST | `/api/tenant/insights/:id/publish` | — |
+| POST | `/api/tenant/insights/import` | — |
 
 ### `tenant/intake`
 
@@ -1063,12 +1066,14 @@ All 1878 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/intake/enquiries` | — |
 | GET | `/api/tenant/intake/enquiries/:id` | — |
 | PATCH | `/api/tenant/intake/enquiries/:id` | — |
+| GET | `/api/tenant/intake/enquiries/:id/attachments/:docId` | — |
 | POST | `/api/tenant/intake/enquiries/:id/read` | — |
 | POST | `/api/tenant/intake/enquiries/:id/respond` | — |
 | POST | `/api/tenant/intake/enquiries/:id/transition` | — |
 | POST | `/api/tenant/intake/enquiries/:id/triage` | — |
 | GET | `/api/tenant/intake/enquiries/export.csv` | — |
 | GET | `/api/tenant/intake/enquiries/tiles` | — |
+| POST | `/api/tenant/intake/website-mail/test` | — |
 
 ### `tenant/inventory`
 
@@ -1728,8 +1733,11 @@ All 1878 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/public/insights/` | — |
 | GET | `/api/tenant/public/insights/:slug` | — |
 | GET | `/api/tenant/public/insights/media/:id` | — |
-| POST | `/api/tenant/public/intake/contact-enquiries` | — |
-| POST | `/api/tenant/public/intake/quote-requests` | — |
+| GET | `/api/tenant/public/intake/attachments/:token` | — |
+| GET | `/api/tenant/public/intake/config` | — |
+| POST | `/api/tenant/public/intake/contact-enquiries` | yes |
+| POST | `/api/tenant/public/intake/messages` | yes |
+| POST | `/api/tenant/public/intake/quote-requests` | yes |
 | GET | `/api/tenant/public/places/` | — |
 | GET | `/api/tenant/public/portfolio/` | — |
 | GET | `/api/tenant/public/portfolio/:slug` | — |
@@ -1756,7 +1764,12 @@ All 1878 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/public/site/about` | — |
 | GET | `/api/tenant/public/site/announcements` | — |
 | GET | `/api/tenant/public/site/copy` | — |
+| GET | `/api/tenant/public/site/documents` | — |
+| GET | `/api/tenant/public/site/documents/:key` | — |
+| GET | `/api/tenant/public/site/documents/:key/pdf` | — |
 | GET | `/api/tenant/public/site/entities` | — |
+| GET | `/api/tenant/public/site/images` | — |
+| GET | `/api/tenant/public/site/legal` | — |
 | GET | `/api/tenant/public/site/media/:id` | — |
 | GET | `/api/tenant/public/site/media/:id/:variant` | — |
 | GET | `/api/tenant/public/site/pages` | — |
@@ -2089,6 +2102,23 @@ All 1878 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/site/pages/:pageId/blocks/reorder` | — |
 | POST | `/api/tenant/site/pages/:pageId/publish` | — |
 
+### `tenant/site-brand`
+
+| Method | Path | Body validated |
+|---|---|---|
+| GET | `/api/tenant/site-brand/documents` | — |
+| POST | `/api/tenant/site-brand/documents` | — |
+| DELETE | `/api/tenant/site-brand/documents/:id` | — |
+| GET | `/api/tenant/site-brand/documents/:id` | — |
+| PATCH | `/api/tenant/site-brand/documents/:id` | — |
+| GET | `/api/tenant/site-brand/documents/:id/preview.pdf` | — |
+| POST | `/api/tenant/site-brand/documents/:id/publish` | — |
+| POST | `/api/tenant/site-brand/documents/privacy-draft` | — |
+| GET | `/api/tenant/site-brand/images` | — |
+| POST | `/api/tenant/site-brand/images/:slot` | — |
+| PUT | `/api/tenant/site-brand/images/:slot` | — |
+| DELETE | `/api/tenant/site-brand/images/:slot/file` | — |
+
 ### `tenant/site-settings`
 
 | Method | Path | Body validated |
@@ -2116,6 +2146,8 @@ All 1878 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/site-settings/service-types` | — |
 | GET | `/api/tenant/site-settings/social` | — |
 | PUT | `/api/tenant/site-settings/social` | — |
+| GET | `/api/tenant/site-settings/switches` | — |
+| PUT | `/api/tenant/site-settings/switches` | — |
 | GET | `/api/tenant/site-settings/theme` | — |
 | PUT | `/api/tenant/site-settings/theme` | — |
 | GET | `/api/tenant/site-settings/theme/preview` | — |

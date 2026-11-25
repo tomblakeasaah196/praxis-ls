@@ -47,7 +47,14 @@ const TYPES = [
   { value: "MEDIA", key: "site.contact.typeMedia" },
 ] as const;
 
-export function ContactForm() {
+/**
+ * `defaultType` opens the form on one enquiry type: the For Partners page opens
+ * it on PARTNERSHIP, so an agent's offer reaches the desk that handles agents
+ * without the agent having to know our categories. The choice stays editable.
+ */
+export function ContactForm({
+  defaultType = "GENERAL_ENQUIRY",
+}: { defaultType?: (typeof TYPES)[number]["value"] } = {}) {
   const { t } = useTranslation();
   const [f, setF] = React.useState({
     name: "",
@@ -55,7 +62,7 @@ export function ContactForm() {
     email: "",
     phone: "",
     subject: "",
-    enquiry_type: "GENERAL_ENQUIRY",
+    enquiry_type: defaultType as string,
     message: "",
   });
   const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));

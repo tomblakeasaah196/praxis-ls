@@ -115,7 +115,9 @@ function parseBlocks(src: string): Block[] {
 
   const flushPara = () => {
     if (!para.length) return;
-    blocks.push({ t: "p", text: para.join(" ").trim() });
+    // A line that ended in two spaces carries a newline: a hard break, which
+    // is how an address in a privacy policy keeps one line per line (PR 4).
+    blocks.push({ t: "p", text: para.join(" ").replace(/\n /g, "\n").trim() });
     para = [];
   };
 
@@ -209,7 +211,7 @@ function parseBlocks(src: string): Block[] {
       continue;
     }
 
-    para.push(line.trim());
+    para.push(/ {2,}$/.test(line) ? `${line.trim()}\n` : line.trim());
     i += 1;
   }
   flushPara();
@@ -306,7 +308,16 @@ export function Markdown({ text }: { text: string }) {
               </div>
             );
           default:
-            return <p key={k}>{renderInline(b.text, k)}</p>;
+            return (
+              <p key={k}>
+                {b.text.split("\n").map((line, j, all) => (
+                  <React.Fragment key={j}>
+                    {renderInline(line, `${k}-l${j}`)}
+                    {j < all.length - 1 ? <br /> : null}
+                  </React.Fragment>
+                ))}
+              </p>
+            );
         }
       })}
     </div>

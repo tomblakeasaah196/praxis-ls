@@ -197,7 +197,7 @@ function makeUploadClient({ priorCoverId = null, failOn = null } = {}) {
       // The public serve joins, answered with the predicates the SQL carries.
       // The three mark/portrait slots have nothing in these fixtures; the
       // entity-cover join answers from the same state the transaction moved.
-      if (/JOIN (site_leader|site_partner|site_credential|corporate_entity) o ON o\./.test(q)) {
+      if (/JOIN (site_leader|site_partner|site_credential|corporate_entity|site_image) o ON o\./.test(q)) {
         if (!/JOIN corporate_entity/.test(q)) return { rows: [], rowCount: 0 };
         const docId = params[0];
         const wantsScope = /v\.public_media_scope = 'SITE'/.test(q);
@@ -347,7 +347,10 @@ describe("the slot register", () => {
     // the constraints, the server needs the tables — so nothing but a test
     // stops one growing a slot the other has never heard of. A slot with no
     // owner would validate, reach the service, and 422 with "Unknown slot".
-    expect(Object.keys(media.OWNERS).sort()).toEqual(siteSettings.SITE_MEDIA_SLOT_IDS.sort());
+    // Plus `site-image` (14660), whose slots are addressed by their own route
+    // (`/site-brand/images/:slot`) rather than by this enum: the photograph
+    // slots are keyed by a place on the site, not by a row's id.
+    expect(Object.keys(media.OWNERS).sort()).toEqual([...siteSettings.SITE_MEDIA_SLOT_IDS, "site-image"].sort());
   });
 
   test("every slot is an evidence slot, so none of them accepts generated imagery", () => {

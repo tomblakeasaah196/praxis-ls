@@ -685,6 +685,9 @@ export const en = {
       socialOn: "{{platform}}, in a new tab",
       credentials: "Accredited:",
       legalEntity: "Legal entity:",
+      partners: "For partners",
+      trust: "Trust and compliance",
+      impressum: "Impressum",
     },
     preview: {
       /* The real reference shape (SL + 12 random characters + service code,
@@ -1402,6 +1405,9 @@ export const fr = {
       socialOn: "{{platform}}, dans un nouvel onglet",
       credentials: "Agréments :",
       legalEntity: "Entité juridique :",
+      partners: "Partenaires",
+      trust: "Confiance et conformité",
+      impressum: "Impressum",
     },
     preview: {
       reference: "SL7Z3K9QW2M4XBSM",

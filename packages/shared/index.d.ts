@@ -1001,6 +1001,9 @@ export declare const siteSettings: {
   socialLink: z.ZodTypeAny;
   partner: z.ZodTypeAny;
   credential: z.ZodTypeAny;
+  /** One field at a time, from the partners screen (14660). */
+  partnerPatch: z.ZodTypeAny;
+  credentialPatch: z.ZodTypeAny;
   about: z.ZodTypeAny;
   leader: z.ZodTypeAny;
   entityPublicStory: z.ZodTypeAny;
@@ -1050,6 +1053,32 @@ export type SiteSwitchKey =
  * fall back to (rules/site-languages.js). English always offered, French
  * opt-in; English only means English is required and French never shown.
  */
+/**
+ * The website's brand layer (14660): photograph slots, the About page's
+ * sections and the trust documents. See schemas/site-brand.js.
+ */
+export declare const siteBrand: {
+  SITE_IMAGE_SLOTS: Record<
+    string,
+    { page: "home" | "about" | "partners" | "trust" | "services"; label: string; aspect: string }
+  >;
+  SITE_IMAGE_LIMITS: { maxBytes: number; minWidth: number };
+  isImageSlot: (key: string) => boolean;
+  imageSlotKey: z.ZodTypeAny;
+  imageAlt: z.ZodObject<{
+    alt_en: z.ZodTypeAny;
+    alt_fr: z.ZodTypeAny;
+  }>;
+  imageUpload: z.ZodTypeAny;
+  aboutSections: z.ZodTypeAny;
+  DOCUMENT_KINDS: ("POLICY" | "LEGAL")[];
+  DOCUMENT_LANGS: ("en" | "fr" | "de")[];
+  documentCreate: z.ZodTypeAny;
+  documentUpdate: z.ZodTypeAny;
+  documentPublish: z.ZodTypeAny;
+  publishGaps: (doc: Record<string, unknown>, required?: "en" | "fr") => string[];
+};
+
 export declare namespace siteLanguages {
   type Lang = "en" | "fr";
   type Input = Lang[] | { languages?: Lang[] | null } | null | undefined;

@@ -29,6 +29,7 @@ const settings = require("../site_settings/site_settings.service");
 const insights = require("../../content/insight/insight.service");
 const insightV = require("../../content/insight/insight.validator");
 const media = require("../site_settings/site_settings.media");
+const brand = require("../site_brand/site_brand.service");
 const storage = require("../../../services/storage.service");
 
 const router = express.Router();
@@ -156,6 +157,53 @@ router.get("/about", limit, asyncHandler(async (req, res) => {
  *  `publicEntities` in the service for the argument. */
 router.get("/entities", limit, asyncHandler(async (req, res) => {
   res.json({ data: await req.tenantDbIn("live", (c) => settings.publicEntities(c)) });
+}));
+
+/* ── the brand layer (14660) ────────────────────────────────────────────────
+ *
+ * Photographs by slot, the published trust documents and the legal facts of
+ * the published companies. Same LIVE pin, same limiter. The language a visitor
+ * asks for is one of three literal values or ignored, so no request string
+ * reaches a query. */
+
+const langOf = (req) => (["en", "fr", "de"].includes(String(req.query.lang)) ? String(req.query.lang) : "en");
+
+router.get("/images", limit, asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "public, max-age=300");
+  res.json({ data: await req.tenantDbIn("live", (c) => brand.publicImages(c)) });
+}));
+
+router.get("/documents", limit, asyncHandler(async (req, res) => {
+  res.json({ data: await req.tenantDbIn("live", (c) => brand.publicDocuments(c, { lang: langOf(req) })) });
+}));
+
+router.get("/documents/:key", limit, asyncHandler(async (req, res) => {
+  res.json({ data: await req.tenantDbIn("live", (c) => brand.publicDocument(c, { key: req.params.key, lang: langOf(req) })) });
+}));
+
+/** The designed PDF of the published copy. Rendered once per publish and
+ *  language, then served from storage; its own tighter limit because the
+ *  first request after a Publish starts a browser. */
+const pdfLimit = makeLimiter({ name: "site-public-document-pdf", max: 30, windowMs: 15 * 60 * 1000 });
+
+router.get("/documents/:key/pdf", pdfLimit, asyncHandler(async (req, res) => {
+  const { buffer, filename, etag } = await req.tenantDbIn("live", (c) => brand.publicPdf(c, {
+    key: req.params.key,
+    lang: langOf(req),
+    tenantSlug: req.tenant && req.tenant.slug,
+  }));
+  res
+    .set("Cache-Control", "public, max-age=300")
+    .set("ETag", `"${etag}"`)
+    .set("X-Content-Type-Options", "nosniff")
+    .set("Content-Disposition", `inline; filename="${filename}"`)
+    .type("application/pdf")
+    .send(buffer);
+}));
+
+/** Who the published companies are, as an Impressum must state it. */
+router.get("/legal", limit, asyncHandler(async (req, res) => {
+  res.json({ data: await req.tenantDbIn("live", (c) => brand.publicLegal(c)) });
 }));
 
 /* ── website media ──────────────────────────────────────────────────────────

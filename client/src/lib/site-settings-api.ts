@@ -87,6 +87,8 @@ export type Partner = {
   /** Who cleared this mark, and when. The server refuses `is_active` without
    *  it, and a CHECK constraint refuses it again. */
   permission_note: string | null;
+  /** 14660: a network's membership number, printed beside its name. */
+  member_number?: string | null;
   sort_order: number;
   is_active: boolean;
 };
@@ -151,6 +153,31 @@ export type SiteAbout = {
   timeline: (BilingualItem & { year: number })[];
   founded_year: number | null;
   headquarters: string | null;
+  /** 14660: the rebuilt About page's sections. Shape: `siteBrand.aboutSections`. */
+  sections?: AboutSections;
+};
+
+/** `{ en, fr }`, either half optional; which half is required is the
+ *  tenant's language switch, checked by the API on save. */
+export type BiText = { en?: string | null; fr?: string | null } | null;
+
+export type AboutSections = {
+  hero_eyebrow?: BiText;
+  credentials?: { label: BiText; value: BiText }[];
+  story?: { title?: BiText; paragraphs?: BiText[] };
+  principles_title?: BiText;
+  message?: { leader_id?: string | null; title?: BiText; paragraphs?: BiText[] };
+  offices?: {
+    title?: BiText;
+    items?: { entity_id: string; heading?: BiText; label?: BiText; services?: BiText }[];
+  };
+  sectors?: {
+    title?: BiText;
+    items?: { title: BiText; text: BiText }[];
+    clients_caption?: BiText;
+  };
+  standards?: { title?: BiText; text?: BiText };
+  closing?: { title?: BiText; text?: BiText };
 };
 
 export type Leader = {
@@ -167,6 +194,11 @@ export type Leader = {
   linkedin_url: string | null;
   sort_order: number;
   is_active: boolean;
+  /** 14660: a named contact on the For Partners page. Email and phone are
+   *  published only while this is on. */
+  partner_desk?: boolean;
+  email?: string | null;
+  phone?: string | null;
 };
 
 export const getAbout = () => tenant<SiteAbout>("/site-settings/about");

@@ -48,6 +48,8 @@ import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/site-settings-api";
 import { WebsiteNav } from "./website-nav";
 import { AssetSlotField } from "./website-assets";
+import { AboutSectionsEditor } from "./website-about-sections";
+import { listEntities } from "@/lib/masterdata-api";
 
 /** A bilingual pair. FR is the fallback everywhere in this product, so the
  *  French field leads — a half-translated page falls back to it rather than to
@@ -97,6 +99,9 @@ const PILLAR_LABEL: Record<(typeof PILLARS)[number], string> = {
 export function WebsiteAboutPage() {
   const [about, setAbout] = React.useState<api.SiteAbout | null>(null);
   const [leaders, setLeaders] = React.useState<api.Leader[] | null>(null);
+  const [entities, setEntities] = React.useState<
+    { entity_id: string; legal_name: string; trading_name?: string | null }[]
+  >([]);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
@@ -116,6 +121,16 @@ export function WebsiteAboutPage() {
   }, []);
 
   React.useEffect(load, [load]);
+
+  // The companies an office can point at. Read once; a person without Master
+  // Data access sees an empty list and can still edit every other section.
+  React.useEffect(() => {
+    listEntities()
+      .then((rows) => setEntities(Array.isArray(rows) ? rows : []))
+      .catch(() => {
+        /* @silent:teardown the office picker is optional; every other section still saves. */
+      });
+  }, []);
 
   const set = <K extends keyof api.SiteAbout>(k: K, v: api.SiteAbout[K]) => {
     setSaved(false);
@@ -214,6 +229,70 @@ export function WebsiteAboutPage() {
               </div>
             </div>
           </SettingsCard>
+
+          <SettingsCard title={tr("How We Work")}>
+            <div className="space-y-3">
+              {(about.principles ?? []).map((p, i) => (
+                <div key={i} className="rounded-lg border border-[var(--border)] p-3">
+                  <Bilingual
+                    label={tr("Principle")}
+                    rows={1}
+                    fr={p.label_fr ?? ""}
+                    en={p.label_en ?? ""}
+                    onChange={({ fr, en }) =>
+                      set(
+                        "principles",
+                        about.principles.map((x, j) => (j === i ? { ...x, label_fr: fr, label_en: en } : x)),
+                      )
+                    }
+                  />
+                  <div className="mt-3">
+                    <Bilingual
+                      label={tr("Two Sentences")}
+                      fr={p.text_fr ?? ""}
+                      en={p.text_en ?? ""}
+                      onChange={({ fr, en }) =>
+                        set(
+                          "principles",
+                          about.principles.map((x, j) => (j === i ? { ...x, text_fr: fr, text_en: en } : x)),
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => set("principles", about.principles.filter((_, j) => j !== i))}
+                    >
+                      {tr("Remove")}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {(about.principles ?? []).length < 12 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    set("principles", [
+                      ...(about.principles ?? []),
+                      { label_fr: "", label_en: "", text_fr: "", text_en: "" },
+                    ])
+                  }
+                >
+                  {tr("Add Principle")}
+                </Button>
+              ) : null}
+            </div>
+          </SettingsCard>
+
+          <AboutSectionsEditor
+            sections={about.sections ?? {}}
+            leaders={leaders ?? []}
+            entities={entities}
+            onChange={(next) => set("sections", next)}
+          />
 
           <SettingsCard title={tr("Mission and vision")}>
             <div className="space-y-4">
@@ -338,6 +417,44 @@ export function WebsiteAboutPage() {
                         run(() =>
                           api.updateLeader(l.leader_id, { linkedin_url: e.target.value || null }),
                         )
+                      }
+                    />
+                  </Field>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <Field
+                    label={tr("Named Contact for Partners")}
+                    about={tr("Shows this person, with the email and phone below, on the For Partners page. Off by default.")}
+                  >
+                    <label className="inline-flex h-9 items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(l.partner_desk)}
+                        disabled={busy}
+                        onChange={(e) =>
+                          run(() => api.updateLeader(l.leader_id, { partner_desk: e.target.checked }))
+                        }
+                      />
+                      {tr("Show on For Partners")}
+                    </label>
+                  </Field>
+                  <Field label={tr("Email")}>
+                    <Input
+                      type="email"
+                      defaultValue={l.email ?? ""}
+                      onBlur={(e) =>
+                        (e.target.value || null) !== (l.email ?? null) &&
+                        run(() => api.updateLeader(l.leader_id, { email: e.target.value || null }))
+                      }
+                    />
+                  </Field>
+                  <Field label={tr("Phone")}>
+                    <Input
+                      type="tel"
+                      defaultValue={l.phone ?? ""}
+                      onBlur={(e) =>
+                        (e.target.value || null) !== (l.phone ?? null) &&
+                        run(() => api.updateLeader(l.leader_id, { phone: e.target.value || null }))
                       }
                     />
                   </Field>

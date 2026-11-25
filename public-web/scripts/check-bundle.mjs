@@ -145,8 +145,29 @@ const KB = (n) => (n / 1024).toFixed(1) + " kB";
  * request's language), so the two chunks are fetched in parallel. That is the
  * work; the measurement above is the reason it is worth doing, and it is where
  * the next raise should be refused and sent instead.
+ *
+ * ── RAISED A SECOND TIME, 131 → 131.5, AND WHAT THE STRANGER GETS ────────
+ *
+ * Website v2's PR 4 (the About page, the trust documents, the legal pages)
+ * measured 0.7 kB on the entry against 0.4 kB of headroom.
+ *
+ *   · IT IS NOT DRIFT, AND THE PAGES ARE NOT IN IT. Every new page is a lazy
+ *     route; its styles are `components/site/brand.css`, imported by those
+ *     routes; its copy lives in five chunk-local `*-copy.ts` files registered
+ *     when the chunk loads (the move `features/tracking/track-copy.ts` made);
+ *     the homepage's logo band and the partners form are `React.lazy`. That
+ *     took the attempt from 135.8 kB down to 131.3.
+ *   · WHAT IS LEFT IS THE FOOTER. Impressum, privacy, Trust and Compliance and
+ *     For Partners are links on every page, so their words are in the entry
+ *     dictionary in both languages, with their Title Case entries. The
+ *     Impressum link is not optional: § 5 DDG requires the notice to be
+ *     immediately reachable from every page.
+ *
+ * Half a kilobyte, not a round number, so the headroom stays thin and the next
+ * shared change is refused by its own cost. F-39 above is still where the real
+ * saving is.
  */
-const FIRST_PAINT_BUDGET_KB = 131;
+const FIRST_PAINT_BUDGET_KB = 131.5;
 
 /**
  * The DEFERRED budget — §5.6, and the thing that keeps a WebGL set piece honest

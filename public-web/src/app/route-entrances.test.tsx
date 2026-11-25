@@ -51,6 +51,10 @@ const DOCUMENT_HEADER: Record<string, string> = {
     "the tenant's Company Profile, shared by a token with one recipient and printed beside the PDF rendered from the same object. It is the tenant presenting itself to a buyer who asked for it, so its own cover photograph and name are the entrance; a marketing plate above them would be the site advertising over a document the recipient is reading.",
   "features/insights/insight-page.tsx":
     "long-form, which §1.5 exempts in as many words — a reader who clicked an article wants an article. It opens with the date, the title and the byline, and §8.6's reading rail is its affordance. A marketing plate on an essay is how a serious piece starts reading as an advertisement.",
+  "features/trust/document-page.tsx":
+    "a published policy or the privacy policy, read as a document and downloaded as the PDF printed from the same frozen copy. Its reader is checking what the company has committed to, often to file it, so the title, version and effective date are the entrance; a marketing plate over a policy would be the site advertising over a commitment (PR 4).",
+  "features/legal/impressum-page.tsx":
+    "a legal notice a German law requires, stating who operates the site, where it is registered and who represents it. It is consulted, not browsed, and a marketing plate over a statutory disclosure would make the one page a regulator reads look like a brochure (PR 4).",
   "features/verify/verify-page.tsx":
     "a verification result, reached by scanning a QR on paper, and the one page on this site that is evidence rather than publishing. Its reader is a customs officer or a lawyer deciding whether a document is genuine, and they often print or screenshot what they see. A marketing plate above that verdict would do real harm rather than merely look wrong: a branded hero over a REVOKED signature reads as reassurance, and the page's whole job is to be believed when it says no. It opens with the verdict instead, which is the entrance its audience came for.",
 };
@@ -130,6 +134,9 @@ describe("§8.7 — every route has a designed entrance", () => {
    */
   const ENTRANCE_COMPONENTS: Array<[RegExp, string]> = [
     [/<Hero\b/, "components/site/hero.tsx"],
+    // PR 4: the photographic band that opens About, For Partners and Trust
+    // and Compliance. Its root is the same `band-hero` plate.
+    [/<PhotoBand\b[^>]*size="hero"/, "components/site/photo-band.tsx"],
   ];
 
   /**

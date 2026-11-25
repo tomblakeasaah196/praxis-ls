@@ -1,12 +1,12 @@
 {
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
-  "modules_mounted": 140,
-  "route_count": 1878,
+  "modules_mounted": 141,
+  "route_count": 1905,
   "tiers": {
-    "public": 80,
+    "public": 88,
     "self-scoped": 117,
-    "gated": 1681
+    "gated": 1700
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -327,6 +327,12 @@
       "validated": true,
       "tier": "gated"
     },
+    "DELETE /api/tenant/insights/:id/byline-photo": {
+      "auth": true,
+      "rbac": true,
+      "validated": true,
+      "tier": "gated"
+    },
     "DELETE /api/tenant/insights/:id/cover": {
       "auth": true,
       "rbac": true,
@@ -562,6 +568,18 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/settings/:section/:key": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/site-brand/documents/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/site-brand/images/:slot/file": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -2565,6 +2583,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/intake/enquiries/:id/attachments/:docId": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/intake/enquiries/export.csv": {
       "auth": true,
       "rbac": true,
@@ -4005,6 +4029,18 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/public/intake/attachments/:token": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/intake/config": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/places/": {
       "auth": false,
       "rbac": false,
@@ -4101,7 +4137,37 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/public/site/documents": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/documents/:key": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/documents/:key/pdf": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/site/entities": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/images": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
+    "GET /api/tenant/public/site/legal": {
       "auth": false,
       "rbac": false,
       "validated": false,
@@ -4725,6 +4791,30 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/site-brand/documents": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-brand/documents/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-brand/documents/:id/preview.pdf": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-brand/images": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/site-settings/about": {
       "auth": true,
       "rbac": true,
@@ -4768,6 +4858,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/site-settings/social": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/switches": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -6285,6 +6381,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "PATCH /api/tenant/site-brand/documents/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "PATCH /api/tenant/site-settings/credentials/:id": {
       "auth": true,
       "rbac": true,
@@ -7164,7 +7266,7 @@
     "POST /api/tenant/careers/:token/apply": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/careers/alerts": {
@@ -7182,7 +7284,7 @@
     "POST /api/tenant/careers/open-application": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/cash-requests/": {
@@ -8049,6 +8151,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/insights/:id/byline-photo": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/insights/:id/cover": {
       "auth": true,
       "rbac": true,
@@ -8068,6 +8176,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/insights/:id/publish": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/insights/import": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8098,6 +8212,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/intake/enquiries/:id/triage": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/intake/website-mail/test": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -9354,13 +9474,19 @@
     "POST /api/tenant/public/intake/contact-enquiries": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
+      "tier": "public"
+    },
+    "POST /api/tenant/public/intake/messages": {
+      "auth": false,
+      "rbac": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/public/intake/quote-requests": {
       "auth": false,
       "rbac": false,
-      "validated": false,
+      "validated": true,
       "tier": "public"
     },
     "POST /api/tenant/public/qes/:provider/webhook": {
@@ -9950,6 +10076,30 @@
       "rbac": false,
       "validated": false,
       "tier": "self-scoped"
+    },
+    "POST /api/tenant/site-brand/documents": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/site-brand/documents/:id/publish": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/site-brand/documents/privacy-draft": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/site-brand/images/:slot": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
     },
     "POST /api/tenant/site-settings/credentials": {
       "auth": true,
@@ -11217,6 +11367,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "PUT /api/tenant/site-brand/images/:slot": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "PUT /api/tenant/site-settings/about": {
       "auth": true,
       "rbac": true,
@@ -11236,6 +11392,12 @@
       "tier": "gated"
     },
     "PUT /api/tenant/site-settings/social": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/switches": {
       "auth": true,
       "rbac": true,
       "validated": false,

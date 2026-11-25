@@ -29,6 +29,7 @@ const registry = require("../../services/tenant/registry.service");
 const { config } = require("../../config/env");
 const { logger } = require("../../config/logger");
 const paths = require("./public-web-paths");
+const brandHeads = require("./public-head-brand");
 
 /**
  * Hosts that must answer `noindex` and a blanket robots Disallow.
@@ -162,15 +163,26 @@ const absolute = (origin, url) =>
  * not hold would be worse than claiming none. Name and logo are what branding
  * actually knows.
  */
-function organizationLd(branding, origin) {
+function organizationLd(branding, origin, org = null) {
   const name = (branding && branding.name) || null;
   if (!name) return null;
+  // PR 4 (14660): the offices as Places with their addresses, the founding
+  // year, a contact and the social profiles, all from the tenant's own records
+  // (`public-head-brand.offices`). The registered office is the `address`;
+  // every office, that one included, is a `location`.
+  const places = (org && org.places) || [];
   return compact({
     "@context": "https://schema.org",
     "@type": "Organization",
     name,
     url: origin,
     logo: absolute(origin, branding && branding.logoUrl),
+    foundingDate: org && org.founded,
+    email: org && org.email,
+    telephone: org && org.phone,
+    address: places[0] ? places[0].address : null,
+    location: places.length > 1 ? places : null,
+    sameAs: org && org.sameAs,
   });
 }
 
@@ -325,6 +337,11 @@ function articleLd(a, origin, branding, canonical) {
 }
 
 const ROUTES = [
+  // PR 4: the brand pages (home, About, services, For Partners, Trust and
+  // Compliance, the documents, the legal pages). Kept in their own file so
+  // this table stays readable; matched first, and none of their patterns
+  // overlaps an entry below.
+  ...brandHeads.ROUTES,
   {
     // The public quotation (lean revamp §3.4). `peek` records no open: a link
     // preview fetched by a chat app is not the client reading the offer.
@@ -503,7 +520,7 @@ async function headFor(host, urlPath, origin, base) {
     break;
   }
 
-  const title = page && page.title ? page.title + " · " + name : name;
+  const title = page && page.title ? (page.fullTitle ? page.title : page.title + " · " + name) : name;
   const description = (page && page.description) || null;
   const image = (page && page.image) || (branding && branding.logoUrl) || null;
   const canonical = origin + urlPath;
@@ -555,7 +572,8 @@ async function headFor(host, urlPath, origin, base) {
   // results markup on a page we are asking not to be indexed is at best wasted
   // bytes and at worst a staging vacancy in Google Jobs.
   if (!noindex) {
-    const graphs = [organizationLd(branding, origin)];
+    const org = await withTenant(host, (client) => brandHeads.offices(client)).catch(() => null);
+    const graphs = [organizationLd(branding, origin, org)];
     if (page && typeof page.ld === "function") graphs.push(page.ld(origin, branding, canonical));
     if (page && page.trail) graphs.push(breadcrumbLd(origin, base, page.trail));
     for (const g of graphs) {
@@ -644,6 +662,12 @@ const SITEMAP_ROUTES = [
   "/portfolio",
   "/careers",
   "/insights",
+  // PR 4: who we are to an agent, how we are governed, and the legal pages.
+  // Each published document is added below from the database.
+  "/partners",
+  "/trust",
+  "/legal/impressum",
+  "/legal/privacy",
 ];
 
 async function sitemap(host, origin, base) {
@@ -675,6 +699,13 @@ async function sitemap(host, origin, base) {
           .listPublic(client, { page: 1, perPage: 500 })).articles,
         // English slug first (14680), matching the head and the site's links.
         (r) => at("/insights/" + encodeURIComponent(r.slug_en || r.slug_fr || "")),
+      ],
+      // Published policies (PR 4). The privacy policy has its own address,
+      // already listed above.
+      [
+        async () => (await require("../../modules/site/site_brand/site_brand.service")
+          .publicDocuments(client, { lang: "en" })).filter((d) => d.kind === "POLICY"),
+        (r) => at("/trust/" + encodeURIComponent(r.key || "")),
       ],
     ];
     for (const [read, make] of sections) {

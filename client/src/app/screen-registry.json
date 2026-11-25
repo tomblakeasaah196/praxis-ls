@@ -2492,6 +2492,26 @@
       "actions": []
     },
     {
+      "id": "settings_website_photographs",
+      "title": "Website Photographs",
+      "title_fr": "Photographies du site web",
+      "route": "/settings/website/photographs",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "The pictures in the bands of the public pages, one slot at a time: the homepage steps, the About page, For Partners, Trust and Compliance, and each service family. Upload, replace, describe for screen readers, or remove.",
+      "actions": []
+    },
+    {
+      "id": "settings_website_documents",
+      "title": "Trust Documents",
+      "title_fr": "Documents de confiance",
+      "route": "/settings/website/documents",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "The policies on the public website (Quality, Health Safety and Environment, ESG, Code of Conduct, Anti-Corruption) and the privacy policy: edit the draft, publish it as a page and a PDF, withdraw it, and draft the privacy policy from your companies.",
+      "actions": []
+    },
+    {
       "id": "settings_business_policies",
       "title": "Business Policies",
       "title_fr": "Politiques de l'entreprise",

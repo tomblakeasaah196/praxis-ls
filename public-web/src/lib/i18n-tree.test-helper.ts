@@ -27,6 +27,26 @@ import {
   en as corridorEn,
   fr as corridorFr,
 } from "@/components/site/corridor-copy";
+import {
+  en as brandEn,
+  fr as brandFr,
+} from "@/components/site/brand-copy";
+import {
+  en as aboutPageEn,
+  fr as aboutPageFr,
+} from "@/features/about/about-copy";
+import {
+  en as partnersPageEn,
+  fr as partnersPageFr,
+} from "@/features/partners/partners-copy";
+import {
+  en as trustEn,
+  fr as trustFr,
+} from "@/features/trust/trust-copy";
+import {
+  en as legalEn,
+  fr as legalFr,
+} from "@/features/legal/legal-copy";
 
 /**
  * The whole translation tree as it exists AT RUNTIME — for tests only.
@@ -59,12 +79,12 @@ import {
  */
 export const en = {
   ...baseEn,
-  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn },
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn, brand: brandEn, aboutPage: aboutPageEn, partnersPage: partnersPageEn, trust: trustEn, legal: legalEn },
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
-  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr },
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr, brand: brandFr, aboutPage: aboutPageFr, partnersPage: partnersPageFr, trust: trustFr, legal: legalFr },
   portal: { ...baseFr.portal, ...portalFr },
 };

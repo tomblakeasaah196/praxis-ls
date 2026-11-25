@@ -571,6 +571,11 @@ export type PublicLeader = {
   photo_id: string | null;
   photo_variants: MediaVariants;
   linkedin_url: string | null;
+  /** 14660: a named contact on the For Partners page; email and phone are
+   *  published by the server only while this is on. */
+  partner_desk?: boolean;
+  email?: string | null;
+  phone?: string | null;
 };
 
 /** One dated moment in the company's story. `year` is required upstream; the
@@ -592,6 +597,9 @@ export type PublicAbout = {
   foundedYear: number | null;
   headquarters: string | null;
   leaders: PublicLeader[];
+  /** 14660: the rebuilt About page's sections, read in the visitor's language
+   *  by `aboutSections` (lib/about-sections.ts). Raw here. */
+  sections: Record<string, unknown>;
 };
 
 type RawBilingual = { fr?: unknown; en?: unknown };
@@ -627,6 +635,9 @@ const readLeader = (raw: unknown): PublicLeader => {
     photo_id: l.photo_id == null ? null : String(l.photo_id),
     photo_variants: (l.photo_variants as MediaVariants) ?? null,
     linkedin_url: l.linkedin_url == null ? null : String(l.linkedin_url),
+    partner_desk: l.partner_desk === true,
+    email: l.email == null ? null : String(l.email),
+    phone: l.phone == null ? null : String(l.phone),
   };
 };
 
@@ -679,6 +690,8 @@ export function getPublicAbout(opts: { lang: Lang; signal?: AbortSignal }) {
         foundedYear: Number.isFinite(Number(a.founded_year)) ? Number(a.founded_year) : null,
         headquarters: a.headquarters == null ? null : String(a.headquarters),
         leaders: (Array.isArray(a.leaders) ? a.leaders : []).map(readLeader),
+        sections:
+          a.sections && typeof a.sections === "object" ? (a.sections as Record<string, unknown>) : {},
       };
     })
     /* Every failure is the same answer, for the reason `getSitePage` states. An
@@ -700,6 +713,7 @@ export const EMPTY_ABOUT: PublicAbout = {
   foundedYear: null,
   headquarters: null,
   leaders: [],
+  sections: {},
 };
 
 /* ── partners, clients and credentials (§9.4) ──────────────────────────────
@@ -723,6 +737,8 @@ export type PublicPartner = {
   logo_id: string | null;
   logo_variants: MediaVariants;
   url: string | null;
+  /** 14660: a network membership's number. Null for every other kind. */
+  member_number?: string | null;
 };
 
 export type PublicCredential = {

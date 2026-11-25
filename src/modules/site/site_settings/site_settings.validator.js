@@ -44,11 +44,17 @@ const schemas = {
   social: shared.socialSet,
 
   createPartner: shared.partner,
-  updatePartner: shared.partner,
+  // One field at a time; the whole-row rules run on the merged row in the
+  // service (`partners.update`), where the stored half is known.
+  updatePartner: shared.partnerPatch,
   createCredential: shared.credential,
-  updateCredential: shared.credential,
+  updateCredential: shared.credentialPatch,
   createLeader: shared.leader,
-  updateLeader: shared.leader,
+  // PARTIAL: the About screen saves one field as it loses focus (a role, a
+  // LinkedIn link, the partner-desk switch). The whole schema demanded
+  // `full_name` on every one of those, so each was refused with a 422 and the
+  // edit was silently lost (found building PR 4, 25 Nov 2026).
+  updateLeader: partial(shared.leader),
   about: shared.about,
 
   // Partial for the reason `partial()` states: the careers screen has three
