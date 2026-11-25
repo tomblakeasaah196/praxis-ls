@@ -10,6 +10,7 @@ import { StagedLines } from "@/components/ui/type";
 import { Card } from "@/components/ui/card";
 import { QuoteWizard } from "@/components/site/quote-wizard";
 import { usePublishedServices } from "@/lib/use-services";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/quote` — the quote desk, on its own page.
@@ -55,9 +56,8 @@ export function QuotePage() {
   });
 
   return (
-    <PageShell label={t("site.quote.title")} footer>
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+    <PageShell overlayHeader label={t("site.quote.title")} footer>
+      <PageHero slot="quote-hero" fallback={<BgMap />}>
         {/* The container is positioned so the copy sits ABOVE the map rather
             than being painted over by it. */}
         <PageContainer className="relative">
@@ -78,7 +78,7 @@ export function QuotePage() {
             lead={t("site.quote.sub")}
           />
         </PageContainer>
-      </section>
+      </PageHero>
 
       <Section>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">

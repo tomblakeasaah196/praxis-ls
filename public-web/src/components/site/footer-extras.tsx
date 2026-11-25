@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { SocialRow } from "./social-row";
+import "./footer-extras.css";
 import {
   getPublicProof,
   listPublicEntities,
@@ -8,6 +9,13 @@ import {
   type PublicEntity,
 } from "@/lib/site-api";
 import { afterPaint } from "@/lib/after-paint";
+import { Link } from "react-router-dom";
+import { listPublicDocuments, type PublicDocumentCard } from "@/lib/brand-api";
+import { getLang } from "@/lib/i18n";
+import { p } from "@/lib/base-path";
+// The heading is the Trust page's own "Policies", from its chunk-local
+// dictionary, so the footer adds no key to the first-paint bundle.
+import "@/features/trust/trust-i18n";
 
 /**
  * Everything §9.5 adds to the footer, in its own chunk.
@@ -69,7 +77,6 @@ import { afterPaint } from "@/lib/after-paint";
 export function FooterExtrasContent() {
   const { t } = useTranslation();
   const [credentials, setCredentials] = React.useState<PublicCredential[]>([]);
-  const [entities, setEntities] = React.useState<PublicEntity[]>([]);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -79,15 +86,6 @@ export function FooterExtrasContent() {
       getPublicProof({ signal }).then((proof) => {
         if (alive) setCredentials(proof.credentials);
       });
-      listPublicEntities({ signal })
-        .then((rows) => {
-          if (alive) setEntities(Array.isArray(rows) ? rows : []);
-        })
-        .catch(() => {
-          /* silent-catch: PRESENTATION. No public entity is the normal state
-             (13787), and a footer line that is absent is the correct rendering
-             of it. doc/ERROR_HANDLING.md */
-        });
     });
     return () => {
       alive = false;
@@ -95,22 +93,6 @@ export function FooterExtrasContent() {
       controller.abort();
     };
   }, []);
-
-  /* Each company by its LEGAL name, with its registered address (website v2):
-     the footer is where a procurement officer or an overseas agent checks who
-     they are contracting with and where that company is registered. One line
-     per company, de-duplicated on the name and address together, so a group
-     whose companies share a legal name and an office prints it once. */
-  const legal = [
-    ...new Map(
-      entities
-        .filter((e) => e.legal_name)
-        .map((e) => {
-          const address = e.registered_address || "";
-          return [`${e.legal_name}|${address}`, { name: e.legal_name, address }] as const;
-        }),
-    ).values(),
-  ];
 
   return (
     <div className="footer-extras">
@@ -120,17 +102,105 @@ export function FooterExtrasContent() {
           {credentials.map((c) => c.name).join(" · ")}
         </p>
       ) : null}
-      {legal.length ? (
-        <ul className="footer-legal">
-          {legal.map((l) => (
-            <li key={`${l.name}|${l.address}`}>
-              <span className="footer-extras-label">{l.name}</span>
-              {l.address ? <> {l.address}</> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
       <SocialRow onDark />
+    </div>
+  );
+}
+
+/**
+ * The companies behind the site, under the brand block's tagline (owner's
+ * review of staging, 25 Nov 2026): each a small block, the LEGAL name on one
+ * line and the registered office on the next, with the country's full name
+ * (`footer_address`, composed by the server from the same row the letterhead
+ * uses). De-duplicated on name and address, so a group whose companies share
+ * both prints them once. The footer's brand name is the trading name; this is
+ * where a procurement officer reads who they would actually contract with.
+ */
+export function FooterEntities() {
+  const [entities, setEntities] = React.useState<PublicEntity[]>([]);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    let alive = true;
+    listPublicEntities({ signal: controller.signal })
+      .then((rows) => {
+        if (alive) setEntities(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        /* silent-catch: PRESENTATION. No public entity is the normal state
+           (13787), and a footer block that is absent is the correct rendering
+           of it. doc/ERROR_HANDLING.md */
+      });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, []);
+
+  const legal = [
+    ...new Map(
+      entities
+        .filter((e) => e.legal_name)
+        .map((e) => {
+          const address = e.footer_address || e.registered_address || "";
+          return [`${e.legal_name}|${address}`, { name: e.legal_name, address }] as const;
+        }),
+    ).values(),
+  ];
+  if (!legal.length) return null;
+  return (
+    <ul className="footer-entities">
+      {legal.map((l) => (
+        <li key={`${l.name}|${l.address}`}>
+          <span className="footer-entity-name">{l.name}</span>
+          {l.address ? <span>{l.address}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The published policies, under For Clients (owner's review, 25 Nov 2026):
+ * each links to its own page. Only what the Publish button has released is
+ * listed, because the read returns nothing else; a tenant with none shows no
+ * heading.
+ */
+export function FooterPolicies() {
+  const { t } = useTranslation();
+  const [docs, setDocs] = React.useState<PublicDocumentCard[]>([]);
+  const lang = getLang();
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    let alive = true;
+    void listPublicDocuments({ lang, signal: controller.signal }).then((rows) => {
+      if (alive) setDocs(rows.filter((d) => d.kind === "POLICY"));
+    });
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [lang]);
+
+  if (!docs.length) return null;
+  return (
+    <div className="mt-8">
+      <h2 className="text-micro font-semibold uppercase tracking-[0.08em] text-[var(--hero-muted)]">
+        {t("site.trust.policiesTitle")}
+      </h2>
+      <ul className="mt-3 space-y-2">
+        {docs.map((d) => (
+          <li key={d.key}>
+            <Link
+              to={p(`/trust/${d.key}`)}
+              className="text-sm text-[var(--hero-foreground)] underline-offset-4 hover:underline"
+            >
+              {d.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1796,6 +1796,26 @@
     background: color-mix(in srgb, var(--hero) calc(var(--hdr) * 92%), transparent);
   }
 
+  /* ── THE SURFACES THE HEADER OPENS ARE THE PAGE'S, NOT THE HERO'S ───────
+   *
+   * The re-pointing above reaches EVERY descendant of the header, and two of
+   * them are not bar: the Services panel and the phone drawer. Both paint
+   * `--background`, so under an overlaying bar they drew hero ink on a white
+   * sheet, light grey on white, which read as a disabled menu (owner's review
+   * of staging, 25 Nov 2026). The page's own pair is saved on the shell,
+   * above the header's override, and handed back to those two surfaces.
+   * `check:contrast` fails if either restore goes missing. */
+  .site-shell[data-overlay="true"] {
+    --page-foreground: var(--foreground);
+    --page-border: var(--border);
+  }
+  .site-shell[data-overlay="true"] .nav-panel,
+  .site-shell[data-overlay="true"] .site-drawer {
+    --foreground: var(--page-foreground);
+    --border: var(--page-border);
+    color: var(--foreground);
+  }
+
   /* `<main>` pulled up under the bar. The hero pads its own content back down
      by the same measured property (`.hero-band`), so the composition is
      unchanged and only the PAINT moves — which is what keeps this a styling
@@ -4059,67 +4079,8 @@
     font-size: 0.8125rem;
   }
 
-  /* ── the footer's small print and social row (§9.5) ────────────────── */
-
-  /* Rendered only once its chunk lands, so it must not reserve space it may
-     never use: no min-height, no placeholder. An empty block collapses. */
-  .footer-extras {
-    margin-top: 2rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.375rem 1.5rem;
-    font-size: 0.75rem;
-    color: var(--hero-muted);
-  }
-
-  .footer-extras-label {
-    font-weight: 500;
-    color: var(--hero-foreground);
-  }
-
-  /* One line per company: legal name, then its registered address (website
-     v2). A full-width row of its own, so two companies stack rather than
-     running into the credentials line beside them. */
-  .footer-legal {
-    flex-basis: 100%;
-    display: grid;
-    gap: 0.25rem;
-  }
-
-
-  .social-row ul {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .social-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* 32px, which is under the 44px pointer-target guidance and deliberate: a
-       footer icon row at 44px each is a 300px block of chrome under the small
-       print. The row is one of several routes to the same destination — the
-       tenant's own name links home, the columns carry every page — so the
-       trade is a dense row rather than an unreachable control. */
-    width: 2rem;
-    height: 2rem;
-    border-radius: 999px;
-    color: currentColor;
-    opacity: 0.75;
-    transition: opacity var(--dur-response) var(--ease-standard);
-  }
-
-  .social-link:hover,
-  .social-link:focus-visible {
-    opacity: 1;
-  }
-
-  .social-link:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-  }
+  /* The footer's small print, companies and social row are styled in
+     components/site/footer-extras.css, which loads with them after paint. */
 
   /* A dark band's version of the plate, for the entrance states below the hero
      on the empty and not-found screens. */

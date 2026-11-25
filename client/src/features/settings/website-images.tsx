@@ -39,9 +39,10 @@ const PAGE_TITLE: Record<api.ImageSlot["page"], () => string> = {
   partners: () => tr("For Partners Page"),
   trust: () => tr("Trust and Compliance Page"),
   services: () => tr("Service Families"),
+  pages: () => tr("Other Pages"),
 };
 
-const PAGE_ORDER: api.ImageSlot["page"][] = ["home", "about", "partners", "trust", "services"];
+const PAGE_ORDER: api.ImageSlot["page"][] = ["home", "about", "partners", "trust", "pages", "services"];
 
 const mb = (bytes: number) => Math.round(bytes / (1024 * 1024));
 

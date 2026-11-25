@@ -1,0 +1,79 @@
+/*
+ * The footer's after-paint half (§9.5): small print, the companies under the
+ * tagline and the social row. Out of index.css because none of it can render
+ * before its chunk lands, and the entry stylesheet is on the first-paint
+ * budget (scripts/check-bundle.mjs). Unlayered, for hero.css's reason.
+ */
+
+/* ── the footer's small print and social row (§9.5) ────────────────── */
+
+/* Rendered only once its chunk lands, so it must not reserve space it may
+   never use: no min-height, no placeholder. An empty block collapses. */
+.footer-extras {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 1.5rem;
+  font-size: 0.75rem;
+  color: var(--hero-muted);
+}
+
+.footer-extras-label {
+  font-weight: 500;
+  color: var(--hero-foreground);
+}
+
+/* The companies under the brand block's tagline: a small block each, the
+   legal name over its registered office. */
+.footer-entities {
+  margin-top: 1.25rem;
+  display: grid;
+  gap: 0.875rem;
+  max-width: 17rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--hero-muted);
+}
+.footer-entities li {
+  display: grid;
+}
+.footer-entity-name {
+  font-weight: 500;
+  color: var(--hero-foreground);
+}
+
+
+.social-row ul {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 32px, which is under the 44px pointer-target guidance and deliberate: a
+     footer icon row at 44px each is a 300px block of chrome under the small
+     print. The row is one of several routes to the same destination — the
+     tenant's own name links home, the columns carry every page — so the
+     trade is a dense row rather than an unreachable control. */
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: currentColor;
+  opacity: 0.75;
+  transition: opacity var(--dur-response) var(--ease-standard);
+}
+
+.social-link:hover,
+.social-link:focus-visible {
+  opacity: 1;
+}
+
+.social-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+

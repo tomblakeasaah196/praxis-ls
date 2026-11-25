@@ -146,7 +146,7 @@ export function PartnersPage() {
   const offices = officeList(data, lang);
 
   return (
-    <PageShell label={title} footer>
+    <PageShell overlayHeader label={title} footer>
       <PhotoBand image={images["partners-hero"]} size="hero" priority>
         <BadgePill onDark>
           {(hero && hero.kicker && pickBilingual(hero.kicker, lang)) || t("site.partnersPage.eyebrow")}

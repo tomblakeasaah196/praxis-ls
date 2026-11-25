@@ -68,6 +68,12 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
   const switches = useSiteSwitches();
   const tagline = t("site.hero.eyebrow");
+  const extras = useFooterExtras();
+  // The copyright names the brand, not the legal form: "© 2026 Smart
+  // Logistics and Services", without the "Ltd" the tenant's display name
+  // carries (owner's review, 25 Nov 2026). The companies and their forms are
+  // listed under the tagline.
+  const owner = name.replace(/[\s,]+(ltd|limited|sarlu?|sas|sa|gmbh|ug|llc|plc|inc)\.?$/i, "");
 
   const links = {
     services: [
@@ -147,6 +153,7 @@ export function SiteFooter() {
                 {tagline}
               </p>
             ) : null}
+            {extras ? <extras.FooterEntities /> : null}
           </div>
 
           {(
@@ -175,15 +182,18 @@ export function SiteFooter() {
                   ))}
               </ul>
               {withServices ? <PublishedServiceLinks /> : null}
+              {items === links.clients && extras ? (
+                <extras.FooterPolicies />
+              ) : null}
             </nav>
           ))}
         </div>
 
-        <FooterExtras />
+        {extras ? <extras.FooterExtrasContent /> : null}
 
         <div className="mt-10 flex flex-wrap items-center justify-between gap-4 text-xs text-[var(--hero-muted)]">
           <p>
-            © {year} {name}. {t("site.footer.rights")}
+            © {year} {owner}. {t("site.footer.rights")}
           </p>
           {FOOTER_LEGAL_LINKS.length ? (
             <nav aria-label={t("site.footer.legal")} className="flex flex-wrap gap-3">
@@ -197,7 +207,14 @@ export function SiteFooter() {
           <div className="flex items-center gap-3">
             <LangToggle onDark />
             <ThemeToggle onDark />
-            <span>{t("site.footer.powered")}</span>
+            <a
+              href="https://jbspraxis.com"
+              target="_blank"
+              rel="noopener"
+              className="underline-offset-4 hover:underline"
+            >
+              {t("site.footer.powered")}
+            </a>
           </div>
         </div>
       </div>
@@ -258,15 +275,17 @@ function PublishedServiceLinks() {
  * state, and on any failure simply never render. There is no error state,
  * because there is no error: there is a footer, and it is the one above.
  */
-function FooterExtras() {
-  const [Extras, setExtras] = React.useState<React.ComponentType | null>(null);
+type ExtrasModule = typeof import("./footer-extras");
+
+function useFooterExtras(): ExtrasModule | null {
+  const [mod, setMod] = React.useState<ExtrasModule | null>(null);
 
   React.useEffect(() => {
     let alive = true;
     const cancel = afterPaint(() => {
       import("./footer-extras")
-        .then((mod) => {
-          if (alive) setExtras(() => mod.FooterExtrasContent);
+        .then((m) => {
+          if (alive) setMod(m);
         })
         .catch(() => {
           /* silent-catch: PRESENTATION. See the header — the footer above is
@@ -279,5 +298,5 @@ function FooterExtras() {
     };
   }, []);
 
-  return Extras ? <Extras /> : null;
+  return mod;
 }

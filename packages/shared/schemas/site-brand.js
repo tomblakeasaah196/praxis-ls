@@ -72,6 +72,20 @@ const SITE_IMAGE_SLOTS = {
   "about-closing": { page: "about", label: "About: Closing Band", aspect: "21:9" },
   "partners-hero": { page: "partners", label: "For Partners: Hero", aspect: "16:9" },
   "trust-hero": { page: "trust", label: "Trust and Compliance: Hero", aspect: "16:9" },
+  // One hero per remaining page, so no page opens on a bare black plate
+  // (owner's review of staging, 25 Nov 2026). Drawn by <PageHero> in
+  // public-web/src/components/site/photo-band.tsx.
+  "services-hero": { page: "pages", label: "Services: Hero", aspect: "16:9" },
+  "insights-hero": { page: "pages", label: "Insights: Hero", aspect: "16:9" },
+  "track-hero": { page: "pages", label: "Track: Hero", aspect: "16:9" },
+  "contact-hero": { page: "pages", label: "Contact: Hero", aspect: "16:9" },
+  "careers-hero": { page: "pages", label: "Careers: Hero", aspect: "16:9" },
+  "quote-hero": { page: "pages", label: "Request a Quote: Hero", aspect: "16:9" },
+  "impressum-hero": { page: "pages", label: "Impressum: Hero", aspect: "16:9" },
+  "privacy-hero": { page: "pages", label: "Privacy Policy: Hero", aspect: "16:9" },
+  "verify-hero": { page: "pages", label: "Verify a Document: Hero", aspect: "16:9" },
+  "notfound-hero": { page: "pages", label: "Page Not Found: Hero", aspect: "16:9" },
+  "portfolio-hero": { page: "pages", label: "Our Work: Hero", aspect: "16:9" },
 };
 
 const FAMILY_SLOT = /^family-[a-z0-9]+(-[a-z0-9]+)*$/;

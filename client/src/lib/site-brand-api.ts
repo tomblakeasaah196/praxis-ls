@@ -13,7 +13,7 @@ import { download, tenant, tenantWithProgress } from "./api-client";
 
 export type ImageSlot = {
   key: string;
-  page: "home" | "about" | "partners" | "trust" | "services";
+  page: "home" | "about" | "partners" | "trust" | "services" | "pages";
   label: string;
   aspect: string;
   image_id: string | null;

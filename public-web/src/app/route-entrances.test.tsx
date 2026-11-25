@@ -44,6 +44,11 @@ const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
  * one of them still has a designed entrance — it is a statement that the
  * entrance is a different kind on purpose.
  */
+/* The policy pages, the Impressum and Verify left this table on 25 Nov 2026:
+ * the owner asked for a photograph at the top of EVERY page. They open on a
+ * `<PageHero>` carrying the title only (no pill, no staged words, no call to
+ * action), so the document, the statutory notice and the verdict below it are
+ * unchanged. See NOT_STAGED for the half of the old reasoning that stands. */
 const DOCUMENT_HEADER: Record<string, string> = {
   "features/quotation/quotation-page.tsx":
     "a priced document addressed to one recipient, reached by a token, answered and often printed. The server's one render is the document, the same HTML the PDF prints, so its own number and title are the entrance; a marketing plate, a badge pill or an accent word above it would be the site advertising over a quotation somebody is deciding whether to sign.",
@@ -51,12 +56,15 @@ const DOCUMENT_HEADER: Record<string, string> = {
     "the tenant's Company Profile, shared by a token with one recipient and printed beside the PDF rendered from the same object. It is the tenant presenting itself to a buyer who asked for it, so its own cover photograph and name are the entrance; a marketing plate above them would be the site advertising over a document the recipient is reading.",
   "features/insights/insight-page.tsx":
     "long-form, which §1.5 exempts in as many words — a reader who clicked an article wants an article. It opens with the date, the title and the byline, and §8.6's reading rail is its affordance. A marketing plate on an essay is how a serious piece starts reading as an advertisement.",
-  "features/trust/document-page.tsx":
-    "a published policy or the privacy policy, read as a document and downloaded as the PDF printed from the same frozen copy. Its reader is checking what the company has committed to, often to file it, so the title, version and effective date are the entrance; a marketing plate over a policy would be the site advertising over a commitment (PR 4).",
-  "features/legal/impressum-page.tsx":
-    "a legal notice a German law requires, stating who operates the site, where it is registered and who represents it. It is consulted, not browsed, and a marketing plate over a statutory disclosure would make the one page a regulator reads look like a brochure (PR 4).",
-  "features/verify/verify-page.tsx":
-    "a verification result, reached by scanning a QR on paper, and the one page on this site that is evidence rather than publishing. Its reader is a customs officer or a lawyer deciding whether a document is genuine, and they often print or screenshot what they see. A marketing plate above that verdict would do real harm rather than merely look wrong: a branded hero over a REVOKED signature reads as reassurance, and the page's whole job is to be believed when it says no. It opens with the verdict instead, which is the entrance its audience came for.",
+};
+
+/** Pages that open on the photographic plate with a PLAIN title. A policy,
+ *  a statutory notice and a verification verdict are read as documents, and
+ *  words arriving one by one above them would make them read as marketing. */
+const NOT_STAGED: Record<string, true> = {
+  "features/trust/document-page.tsx": true,
+  "features/legal/impressum-page.tsx": true,
+  "features/verify/verify-page.tsx": true,
 };
 
 /** Every `element={<X />}` the router mounts, paired with the module it lazily
@@ -137,6 +145,12 @@ describe("§8.7 — every route has a designed entrance", () => {
     // PR 4: the photographic band that opens About, For Partners and Trust
     // and Compliance. Its root is the same `band-hero` plate.
     [/<PhotoBand\b[^>]*size="hero"/, "components/site/photo-band.tsx"],
+    // The same photograph and plate, opening every other page (owner's
+    // review of staging, 25 Nov 2026).
+    [/<PageHero\b/, "components/site/page-hero.tsx"],
+    // `PrivacyPage` is `<DocumentPage docKey="privacy-policy" />`, and
+    // DocumentPage opens on a `<PageHero>` (asserted by its own route above).
+    [/<DocumentPage\b/, "components/site/page-hero.tsx"],
   ];
 
   /**
@@ -210,7 +224,8 @@ describe("§8.7 — every route has a designed entrance", () => {
       if (file.includes("features/portal/")) continue;
       if (DOCUMENT_HEADER[file]) continue;
       const source = componentBody(file, routed.exported);
-      if (!/className="band-hero/.test(source)) continue;
+      if (!/className="band-hero|<PageHero\b/.test(source)) continue;
+      if (NOT_STAGED[file]) continue;
       if (!source.includes("<StagedLines")) {
         unstaged.push(`${name} (${file}) — plate with no staged headline`);
         continue;

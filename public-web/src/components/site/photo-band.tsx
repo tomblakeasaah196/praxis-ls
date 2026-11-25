@@ -1,8 +1,8 @@
 import * as React from "react";
 import { PageContainer } from "@/components/site/page-shell";
-import { SitePhoto } from "@/components/site/site-photo";
-import { HERO_SCRIMS } from "@/components/site/hero-scrim";
-import type { SiteImage } from "@/lib/brand-api";
+import { PhotoArt } from "@/components/site/page-hero-art";
+import "./page-hero.css";
+import type { SiteImage } from "@/lib/site-images";
 import "./brand.css";
 
 /**
@@ -35,19 +35,7 @@ export function PhotoBand({
   const has = Boolean(image && image.id);
   return (
     <section aria-labelledby={labelledBy} className="band-hero photo-band" data-size={size}>
-      {has ? (
-        <div className="photo-band-art" aria-hidden>
-          <SitePhoto image={image} sizes="100vw" priority={priority} decorative />
-          <div
-            className="photo-band-scrim photo-band-scrim-stacked"
-            style={{ backgroundImage: HERO_SCRIMS.css(HERO_SCRIMS.stacked) }}
-          />
-          <div
-            className="photo-band-scrim photo-band-scrim-split"
-            style={{ backgroundImage: HERO_SCRIMS.css(HERO_SCRIMS.split) }}
-          />
-        </div>
-      ) : null}
+      {has ? <PhotoArt image={image} priority={priority} /> : null}
       <PageContainer className="photo-band-body">{children}</PageContainer>
     </section>
   );

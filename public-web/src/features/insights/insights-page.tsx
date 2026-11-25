@@ -31,6 +31,7 @@ import { BgMap } from "@/components/ui/bg-map";
 import { Reveal } from "@/components/ui/reveal";
 import { DocumentIcon } from "@/components/ui/icons";
 import { Byline, ReadingTime } from "./insight-parts";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/public/insights` — the tenant's own writing.
@@ -153,9 +154,8 @@ export function InsightsPage() {
     state.kind === "ready" && page === 1 && !tag && !year && state.view.articles.length > 0;
 
   return (
-    <PageShell label={t("site.insights.title")} footer>
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+    <PageShell overlayHeader label={t("site.insights.title")} footer>
+      <PageHero slot="insights-hero" fallback={<BgMap />}>
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.insights.kicker")}</BadgePill>
           <SectionHead
@@ -255,7 +255,7 @@ export function InsightsPage() {
             </nav>
           )}
         </PageContainer>
-      </section>
+      </PageHero>
 
       <Section>
         {state.kind === "loading" ? (

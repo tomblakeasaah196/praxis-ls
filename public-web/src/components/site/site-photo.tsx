@@ -1,5 +1,5 @@
 import { getLang } from "@/lib/i18n";
-import { imageSources, type SiteImage } from "@/lib/brand-api";
+import { imageSources, type SiteImage } from "@/lib/site-images";
 import { cn } from "@/lib/cn";
 
 /**

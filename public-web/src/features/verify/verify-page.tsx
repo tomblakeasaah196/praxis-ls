@@ -68,6 +68,8 @@ import { PublicApiError, publicGet } from "@/lib/api";
 import { useBranding } from "@/app/branding";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
+import { PageHero } from "@/components/site/page-hero";
+import { SectionHead } from "@/components/site/section-head";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
@@ -501,10 +503,14 @@ export function VerifyPage() {
           : null;
 
   return (
-    <PageShell label={c("title")}>
+    <PageShell overlayHeader label={c("title")}>
+      <PageHero slot="verify-hero">
+        <PageContainer size="reading" className="relative">
+          <SectionHead as="h1" titleClass="hero-title" onDark title={c("title")} />
+        </PageContainer>
+      </PageHero>
       <PageContainer size="reading">
-        <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
-          <h1 className="text-2xl font-bold md:text-3xl">{c("title")}</h1>
+        <header className="flex items-start justify-end gap-4 border-b border-border pb-4">
           <Button size="sm" variant="ghost" onClick={toggleLang}>
             {c("langSwitch")}
           </Button>
