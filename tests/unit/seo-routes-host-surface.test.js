@@ -13,14 +13,14 @@
  * staging.smartls.cm served `index, follow` the same day.
  */
 
-const HOSTS = {
+const mockHosts = {
   "smartlsgroup.com": { tenant_id: "t1", surface: "public", public_base: null },
   "smartls.praxisls.com": { tenant_id: "t1", surface: "erp", public_base: "/public" },
   "staging.smartls.cm": { tenant_id: "t1", surface: "public", public_base: null },
 };
 
 jest.mock("../../src/services/tenant/registry.service", () => ({
-  resolveByHost: async (host) => HOSTS[host] || null,
+  resolveByHost: async (host) => mockHosts[host] || null,
   withTenantConnection: async () => null,
 }));
 jest.mock("../../src/config/logger", () => ({
