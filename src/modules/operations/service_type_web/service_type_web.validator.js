@@ -61,6 +61,13 @@ const GALLERY_MAX = 12;
 // One sentence, not a paragraph — the card closes on it (12755).
 const CLAIM_MAX = 200;
 const FAQ_MAX = 12;
+const WEB_NAME_MAX = 80;
+// A website service stands over a handful of types (import, export, end to
+// end); twenty is room for any tenant without being an unbounded list.
+const MEMBERS_MAX = 20;
+// Twelve cells per scope (two directions by six spans); the engine refuses a
+// second rule for a cell, so more rows than that can only be a mistake.
+const RULES_MAX = 12;
 
 // The optional bilingual media-replace / FAQ / related shapes are scoped to
 // their own handlers. The PROFILE upsert is the larger one below.
@@ -92,6 +99,11 @@ const profileFields = {
   claim_fr: z.string().trim().max(CLAIM_MAX).nullable().optional(),
   claim_en: z.string().trim().max(CLAIM_MAX).nullable().optional(),
   accent: z.enum(["PRIMARY", "ACCENT", "SUCCESS"]).optional(),
+  // 14640 — the website's name for the service ("Sea Freight" over the ERP's
+  // "Sea Freight Import"), and whether the homepage band draws it.
+  web_name_fr: z.string().trim().max(WEB_NAME_MAX).nullable().optional(),
+  web_name_en: z.string().trim().max(WEB_NAME_MAX).nullable().optional(),
+  is_featured: z.boolean().optional(),
 };
 
 // `.partial()` so omitted keys are unchanged on update (one writer per
@@ -167,7 +179,24 @@ const updateGroup = z.object({
   message: "send at least one field to change",
 });
 
-const schemas = { upsertProfile, replaceFaq, replaceRelated, replaceMedia, createGroup, updateGroup };
+/* 14640 — the website service's members and its quote routing rules. The
+   vocabulary (directions, spans, outcomes) is the quote engine's and is
+   checked by the service through quoteEngine.validateRules, so it is held in
+   one place; this bounds only the shape. */
+const replaceMembers = z.object({
+  member_service_type_ids: z.array(z.string().guid()).max(MEMBERS_MAX),
+}).strict();
+const replaceRouting = z.object({
+  rows: z.array(z.object({
+    direction: z.string().trim().toUpperCase().max(10),
+    span: z.string().trim().toUpperCase().max(4),
+    outcome: z.string().trim().toUpperCase().max(12),
+    service_type_id: z.string().guid().nullable().optional(),
+    note: z.string().trim().max(300).nullable().optional(),
+  }).strict()).max(RULES_MAX),
+}).strict();
+
+const schemas = { upsertProfile, replaceFaq, replaceRelated, replaceMedia, createGroup, updateGroup, replaceMembers, replaceRouting };
 
 /**
  * Bodyless action (publish, unpublish) — accept an empty body and refuse
@@ -197,6 +226,8 @@ module.exports = {
   replaceMedia: mw("replaceMedia"),
   createGroup: mw("createGroup"),
   updateGroup: mw("updateGroup"),
+  replaceMembers: mw("replaceMembers"),
+  replaceRouting: mw("replaceRouting"),
   validateNoBody: noBodyMw,
   schemas,
   // The share image and the share title/description both fall back to the
@@ -215,5 +246,8 @@ module.exports = {
     FAQ_MAX,
     CLAIM_MAX,
     GROUP_NAME_MAX,
+    WEB_NAME_MAX,
+    MEMBERS_MAX,
+    RULES_MAX,
   },
 };

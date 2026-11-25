@@ -286,6 +286,8 @@ const {
   validateNoBody: validateWebAction,
   createGroup: validateCreateGroup,
   updateGroup: validateUpdateGroup,
+  replaceMembers: validateReplaceMembers,
+  replaceRouting: validateReplaceRouting,
 } = require("../service_type_web/service_type_web.validator");
 // The assistant's request shape travels with the generator rather than with the
 // column validators — see the note above `validateAiCopy`.
@@ -342,6 +344,29 @@ router.delete(
   asyncHandler(async (req, res) => {
     const data = await req.tenantDb((c) => webService.deleteGroup(c, {
       groupId: req.params.groupId, actor: req.user || {},
+    }));
+    res.json({ data });
+  }),
+);
+
+// ── Quote routing, generic (14640) ────────────────────────────────────────
+// The twelve (direction, span) cells every website service falls back to.
+// Literal path, registered before `/:id/web` for the reason given above.
+router.get(
+  "/web/routing",
+  requirePermission(MODULE, "view"),
+  asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => webService.genericRules(c));
+    res.json({ data });
+  }),
+);
+router.put(
+  "/web/routing",
+  requirePermission(MODULE, "edit"),
+  validateReplaceRouting,
+  asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => webService.replaceRules(c, {
+      serviceTypeId: null, rows: req.body.rows, actor: req.user || {},
     }));
     res.json({ data });
   }),
@@ -466,6 +491,34 @@ router.put(
       serviceTypeId: req.params.id,
       relatedIds: req.body.related_service_type_ids,
       actor: req.user || {},
+    }));
+    res.json({ data });
+  }),
+);
+
+// ── Website service (14640): the other types it quotes for, and its own
+// routing rules. Both stay live while published: they change where a quote
+// lands, not what the public page shows.
+router.put(
+  "/:id/web/members",
+  requirePermission(MODULE, "edit"),
+  validateReplaceMembers,
+  asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => webService.replaceMembers(c, {
+      serviceTypeId: req.params.id,
+      memberIds: req.body.member_service_type_ids,
+      actor: req.user || {},
+    }));
+    res.json({ data });
+  }),
+);
+router.put(
+  "/:id/web/routing",
+  requirePermission(MODULE, "edit"),
+  validateReplaceRouting,
+  asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => webService.replaceRules(c, {
+      serviceTypeId: req.params.id, rows: req.body.rows, actor: req.user || {},
     }));
     res.json({ data });
   }),

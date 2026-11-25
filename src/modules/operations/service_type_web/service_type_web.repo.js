@@ -67,6 +67,9 @@ function emptyProfile(serviceTypeId) {
     published_at: null,
     published_by: null,
     sort_order: 100,
+    web_name_en: null,
+    web_name_fr: null,
+    is_featured: false,
     created_at: null,
     updated_at: null,
     service_type_name_en: null,
@@ -145,6 +148,8 @@ const PROFILE_COLUMNS = [
   "video_url",
   "sort_order",
   "group_id", "claim_fr", "claim_en", "accent",
+  // 14640 — the website's name for the service, and the homepage band.
+  "web_name_en", "web_name_fr", "is_featured",
 ];
 
 async function upsertProfile(client, serviceTypeId, patch) {
@@ -365,6 +370,7 @@ async function publicList(client) {
   const { rows } = await client.query(
     `SELECT p.service_type_id, p.slug_fr, p.slug_en,
             st.name_fr, st.name_en, st.key AS service_key,
+            p.web_name_fr, p.web_name_en, p.is_featured,
             st.enquiry_shape, st.transport_mode, st.territory, st.incoterms,
             p.short_description_fr, p.short_description_en,
             p.claim_fr, p.claim_en, p.accent,
@@ -463,7 +469,9 @@ async function publicDetail(client, slug) {
  */
 async function publicRelated(client, serviceTypeId) {
   const { rows } = await client.query(
-    `SELECT st.service_type_id, st.name_fr, st.name_en,
+    `SELECT st.service_type_id,
+            COALESCE(NULLIF(p.web_name_fr, ''), st.name_fr) AS name_fr,
+            COALESCE(NULLIF(p.web_name_en, ''), st.name_en) AS name_en,
             p.slug_fr, p.slug_en
        FROM service_type_web_related r
        JOIN service_type st ON st.service_type_id = r.related_service_type_id
@@ -652,6 +660,116 @@ async function deleteGroup(client, groupId) {
   return rows[0] || null;
 }
 
+/* ── WEBSITE SERVICES: members and routing rules (14640) ─────────────────── */
+
+/**
+ * The ERP types each website service quotes for: the profile's own type first,
+ * then the members in their order. Inactive types are left out, so an archived
+ * service type is never a place a quote can route to.
+ */
+async function membersOf(client, websiteServiceIds) {
+  if (!websiteServiceIds || !websiteServiceIds.length) return [];
+  const { rows } = await client.query(
+    `SELECT x.website_service_id, st.service_type_id, st.key, st.name_en, st.name_fr,
+            st.transport_mode, st.territory, st.incoterms, st.enquiry_shape,
+            x.is_anchor, x.sort_order
+       FROM (
+         SELECT p.service_type_id AS website_service_id, p.service_type_id AS member_id,
+                true AS is_anchor, -1 AS sort_order
+           FROM service_type_web_profile p
+          WHERE p.service_type_id = ANY($1::uuid[])
+         UNION ALL
+         SELECT m.service_type_id, m.member_service_type_id, false, m.sort_order
+           FROM service_type_web_member m
+          WHERE m.service_type_id = ANY($1::uuid[])
+       ) x
+       JOIN service_type st ON st.service_type_id = x.member_id
+      WHERE st.is_active = true
+      ORDER BY x.website_service_id, x.sort_order, st.name_en`,
+    [websiteServiceIds],
+  );
+  return rows;
+}
+
+/** The members a website service lists (not its own type), for the admin tab. */
+async function listMembers(client, websiteServiceId) {
+  const { rows } = await client.query(
+    `SELECT m.member_service_type_id AS service_type_id, m.sort_order,
+            st.key, st.name_en, st.name_fr, st.territory, st.transport_mode, st.is_active
+       FROM service_type_web_member m
+       JOIN service_type st ON st.service_type_id = m.member_service_type_id
+      WHERE m.service_type_id = $1
+      ORDER BY m.sort_order, st.name_en`,
+    [websiteServiceId],
+  );
+  return rows;
+}
+
+/**
+ * Who already holds a type: as another website service's member, or as a
+ * website service of its own. A type belongs to one website service at most.
+ */
+async function memberHolders(client, ids, exceptWebsiteServiceId) {
+  if (!ids.length) return [];
+  const { rows } = await client.query(
+    `SELECT m.member_service_type_id AS service_type_id, 'MEMBER' AS held_as,
+            st.name_en AS holder_name_en
+       FROM service_type_web_member m
+       JOIN service_type st ON st.service_type_id = m.service_type_id
+      WHERE m.member_service_type_id = ANY($1::uuid[]) AND m.service_type_id <> $2
+     UNION ALL
+     SELECT p.service_type_id, 'WEBSITE_SERVICE', st.name_en
+       FROM service_type_web_profile p
+       JOIN service_type st ON st.service_type_id = p.service_type_id
+      WHERE p.service_type_id = ANY($1::uuid[]) AND p.is_published = true`,
+    [ids, exceptWebsiteServiceId],
+  );
+  return rows;
+}
+
+async function replaceMembers(client, websiteServiceId, ids) {
+  await client.query("DELETE FROM service_type_web_member WHERE service_type_id = $1", [websiteServiceId]);
+  for (const [i, id] of ids.entries()) {
+    await client.query(
+      `INSERT INTO service_type_web_member (service_type_id, member_service_type_id, sort_order)
+            VALUES ($1, $2, $3)`,
+      [websiteServiceId, id, (i + 1) * 10],
+    );
+  }
+  return listMembers(client, websiteServiceId);
+}
+
+const RULE_COLUMNS = "rule_id, website_service_id, direction, span, outcome, service_type_id, note, updated_at";
+
+/** The generic rules and, when ids are given, those services' own. */
+async function routeRules(client, websiteServiceIds = []) {
+  const { rows } = await client.query(
+    `SELECT ${RULE_COLUMNS}
+       FROM quote_route_rule
+      WHERE website_service_id IS NULL OR website_service_id = ANY($1::uuid[])
+      ORDER BY website_service_id NULLS FIRST, direction, span`,
+    [websiteServiceIds],
+  );
+  return rows;
+}
+
+/** Set-replace one scope's rules: the generic set (null) or one service's. */
+async function replaceRules(client, websiteServiceId, rows) {
+  if (websiteServiceId) {
+    await client.query("DELETE FROM quote_route_rule WHERE website_service_id = $1", [websiteServiceId]);
+  } else {
+    await client.query("DELETE FROM quote_route_rule WHERE website_service_id IS NULL");
+  }
+  for (const r of rows) {
+    await client.query(
+      `INSERT INTO quote_route_rule (website_service_id, direction, span, outcome, service_type_id, note, updated_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [websiteServiceId || null, r.direction, r.span, r.outcome, r.service_type_id || null, r.note || null, r.updated_by || null],
+    );
+  }
+  return routeRules(client, websiteServiceId ? [websiteServiceId] : []);
+}
+
 module.exports = {
   IMAGE_TYPES,
   PROFILE_COLUMNS,
@@ -681,4 +799,10 @@ module.exports = {
   vaultMediaForServe,
   publicMediaForServe,
   UUID_RE,
+  membersOf,
+  listMembers,
+  memberHolders,
+  replaceMembers,
+  routeRules,
+  replaceRules,
 };
