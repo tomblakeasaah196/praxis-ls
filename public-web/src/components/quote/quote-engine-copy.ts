@@ -2,7 +2,9 @@
  * The quote engine's questions, EN and FR (SmartLS website v2, PR 3): which
  * way the goods go, whether the visitor knows their Incoterm, buying or
  * selling, where our work begins and ends, who insures, and the place names
- * those questions offer. Mounted at `site.quoteEngine`.
+ * those questions offer. Mounted at `site.quoteEngine`. The questions themselves are
+ * sentences, not labels, so they live in `quote-steps-copy.ts` as prose and keep
+ * their sentence case.
  *
  * Its own file because only the quote wizard's lazy "Your Terms" step reads
  * it, so no other page downloads it (the reason `quote-steps-copy.ts` and
@@ -15,18 +17,12 @@
  */
 
 export const en = {
-  direction: "Are you importing or exporting?",
   directionIMPORT: "Importing",
   directionEXPORT: "Exporting",
-  knows: "Do you know your Incoterm?",
   knowsYES: "Yes",
   knowsNO: "No",
-  incoterm: "Which Incoterm?",
-  party: "Are you buying or selling?",
   partyBUYER: "Buying",
   partySELLER: "Selling",
-  start: "Where should our work begin?",
-  end: "Where should it end?",
   pointSUPPLIER_PREMISES_BUYER: "Your Supplier's Premises",
   pointSUPPLIER_PREMISES_SELLER: "Your Premises",
   pointORIGIN_PORT_SEA: "Port of Loading",
@@ -39,27 +35,18 @@ export const en = {
   pointPREMISES_SELLER: "Your Buyer's Premises",
   pointPREMISES_DUTY_PAID_BUYER: "Your Premises, Duties Paid",
   pointPREMISES_DUTY_PAID_SELLER: "Your Buyer's Premises, Duties Paid",
-  insuredBUYER: "Has your supplier insured the voyage?",
-  insuredSELLER: "Will you insure the voyage for your buyer?",
   insuredYES: "Yes",
   insuredNO: "No",
-  member: "Which of these fits?",
   handle: "What We Handle",
 } as const;
 
 export const fr = {
-  direction: "Importez-vous ou exportez-vous ?",
   directionIMPORT: "J’importe",
   directionEXPORT: "J’exporte",
-  knows: "Connaissez-vous votre Incoterm ?",
   knowsYES: "Oui",
   knowsNO: "Non",
-  incoterm: "Quel Incoterm ?",
-  party: "Achetez-vous ou vendez-vous ?",
   partyBUYER: "J’achète",
   partySELLER: "Je vends",
-  start: "Où notre travail doit-il commencer ?",
-  end: "Où doit-il s’arrêter ?",
   pointSUPPLIER_PREMISES_BUYER: "Chez votre fournisseur",
   pointSUPPLIER_PREMISES_SELLER: "Dans vos locaux",
   pointORIGIN_PORT_SEA: "Port de chargement",
@@ -72,10 +59,7 @@ export const fr = {
   pointPREMISES_SELLER: "Chez votre acheteur",
   pointPREMISES_DUTY_PAID_BUYER: "Dans vos locaux, droits acquittés",
   pointPREMISES_DUTY_PAID_SELLER: "Chez votre acheteur, droits acquittés",
-  insuredBUYER: "Votre fournisseur a-t-il assuré le voyage ?",
-  insuredSELLER: "Assurez-vous le voyage pour votre acheteur ?",
   insuredYES: "Oui",
   insuredNO: "Non",
-  member: "Lequel correspond ?",
   handle: "Ce que nous prenons en charge",
 } as const;

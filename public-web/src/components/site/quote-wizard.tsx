@@ -479,7 +479,6 @@ export function QuoteWizard({
         counter={t("site.quote.stepCounter", { step: stepIndex + 1, total: STEPS.length })}
       />
 
-      {intake.error && <ErrorState message={intake.error} className="mt-2" />}
 
       {/* THE HEADING MOVES; THE FIELDS DO NOT. §8.3's rule is "never animate a
           field into place under a cursor", so the rise is confined to the
@@ -725,6 +724,9 @@ export function QuoteWizard({
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+        {/* Beside Submit, not above the stepper: on the last step the top of
+            the form is out of sight, so a refused send looked like a dead button. */}
+        {intake.error ? <ErrorState message={intake.error} className="w-full" /> : null}
         <p className="text-xs text-muted-foreground">{t("site.quote.privacy")}</p>
         <div className="flex items-center gap-2">
           {stepIndex > 0 && (

@@ -93,7 +93,7 @@ async function toTerms(name = "Sea Freight") {
   choose(name);
   press(en.site.quote.next);
   await screen.findByRole("heading", { name: steps.stepTerms });
-  await screen.findByText(qe.direction);
+  await screen.findByText(steps.questionDirection);
 }
 
 async function finish() {
@@ -130,6 +130,12 @@ afterEach(() => {
 });
 
 describe("the wizard over website services", () => {
+  it("asks its questions as sentences, not in Title Case", async () => {
+    await mount();
+    await toTerms();
+    expect(screen.getByText("Are you importing or exporting?")).toBeInTheDocument();
+  });
+
   it("lists website services by their website names, never the import/export split", async () => {
     await mount();
     expect(screen.getByRole("radio", { name: /^Sea Freight$/ })).toBeInTheDocument();
@@ -194,7 +200,7 @@ describe("the wizard over website services", () => {
     choose("CIF");
     choose(/^No(?!t)/);
     expect(screen.queryByText(/^This is CIF:/)).not.toBeInTheDocument();
-    expect(screen.getByText(qe.party)).toBeInTheDocument();
+    expect(screen.getByText(steps.questionParty)).toBeInTheDocument();
   });
 
   it("puts no terms question for a service with nothing to decide", async () => {

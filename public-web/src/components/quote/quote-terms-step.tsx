@@ -152,21 +152,21 @@ export function QuoteTermsStep({
   const legend = (step: QeStep) => {
     switch (step.id) {
       case "direction":
-        return hinterlandOnly ? t("site.quoteSteps.hinterland") : t("site.quoteEngine.direction");
+        return hinterlandOnly ? t("site.quoteSteps.hinterland") : t("site.quoteSteps.questionDirection");
       case "knows":
-        return t("site.quoteEngine.knows");
+        return t("site.quoteSteps.questionKnows");
       case "incoterm":
-        return t("site.quoteEngine.incoterm");
+        return t("site.quoteSteps.questionIncoterm");
       case "party":
-        return t("site.quoteEngine.party");
+        return t("site.quoteSteps.questionParty");
       case "start":
-        return t("site.quoteEngine.start");
+        return t("site.quoteSteps.questionStart");
       case "end":
-        return t("site.quoteEngine.end");
+        return t("site.quoteSteps.questionEnd");
       case "insured":
-        return t(`site.quoteEngine.insured${party}`);
+        return t(`site.quoteSteps.questionInsured${party}`);
       default:
-        return t("site.quoteEngine.member");
+        return t("site.quoteSteps.questionMember");
     }
   };
 

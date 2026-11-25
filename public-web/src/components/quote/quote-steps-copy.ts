@@ -74,6 +74,16 @@ export const en = {
   engineKnowsNOHint: "Answer three plain questions instead.",
   engineDesk: "Our team will look at your answers and confirm the right service and terms with you.",
   errTerms: "Answer the questions above to continue.",
+  // The quote engine's questions: sentences, so prose (sentence case).
+  questionDirection: "Are you importing or exporting?",
+  questionKnows: "Do you know your Incoterm?",
+  questionIncoterm: "Which Incoterm?",
+  questionParty: "Are you buying or selling?",
+  questionStart: "Where should our work begin?",
+  questionEnd: "Where should it end?",
+  questionInsuredBUYER: "Has your supplier insured the voyage?",
+  questionInsuredSELLER: "Will you insure the voyage for your buyer?",
+  questionMember: "Which of these fits?",
 } as const;
 
 export const fr = {
@@ -125,4 +135,14 @@ export const fr = {
   engineKnowsNOHint: "Répondez plutôt à trois questions simples.",
   engineDesk: "Notre équipe examinera vos réponses et confirmera avec vous le bon service et les conditions.",
   errTerms: "Répondez aux questions ci-dessus pour continuer.",
+  // The quote engine's questions: sentences, so prose (sentence case).
+  questionDirection: "Importez-vous ou exportez-vous ?",
+  questionKnows: "Connaissez-vous votre Incoterm ?",
+  questionIncoterm: "Quel Incoterm ?",
+  questionParty: "Achetez-vous ou vendez-vous ?",
+  questionStart: "Où notre travail doit-il commencer ?",
+  questionEnd: "Où doit-il s’arrêter ?",
+  questionInsuredBUYER: "Votre fournisseur a-t-il assuré le voyage ?",
+  questionInsuredSELLER: "Assurez-vous le voyage pour votre acheteur ?",
+  questionMember: "Lequel correspond ?",
 } as const;
