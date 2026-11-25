@@ -22,6 +22,9 @@ const path = require("path");
 
 const repo = path.resolve(__dirname, "../..");
 const serverSrc = fs.readFileSync(path.join(repo, "src/server.js"), "utf8");
+// The surface lookup itself, shared by the middleware and by /robots.txt and
+// /sitemap.xml, which run ahead of it (seo-routes-host-surface.test.js).
+const surfaceSrc = fs.readFileSync(path.join(repo, "src/shared/http/host-surface.js"), "utf8");
 const viteSrc = fs.readFileSync(path.join(repo, "public-web/vite.config.ts"), "utf8");
 
 /** The real builder, not a copy of it. The prefix is a per-host setting now, so
@@ -100,8 +103,9 @@ describe("public-web mount path", () => {
     // fits it; one public site serves ONE TENANT, so a single value names one
     // tenant's domain and every other tenant's falls through to the staff app.
     expect(serverSrc).not.toMatch(/PUBLIC_WEB_HOST\s*[:=]/);
-    expect(serverSrc).toMatch(/registry\.resolveByHost/);
-    expect(serverSrc).toMatch(/req\.hostSurface\s*=/);
+    expect(surfaceSrc).toMatch(/registry\.resolveByHost/);
+    expect(surfaceSrc).toMatch(/req\.hostSurface\s*=/);
+    expect(serverSrc).toMatch(/await resolveHostSurface\(req\)/);
   });
 
   test("the surface column exists, defaults to erp, and is constrained", () => {
@@ -144,7 +148,7 @@ describe("public-web mount path", () => {
     // Failing closed would take a tenant's workspace offline because a registry
     // row could not be read — worse than showing the workspace on a marketing
     // domain during an outage in which nothing else works either.
-    const block = serverSrc.slice(serverSrc.indexOf("host surface lookup failed") - 400);
+    const block = surfaceSrc.slice(surfaceSrc.indexOf("host surface lookup failed"));
     expect(block).toMatch(/req\.hostSurface = "erp"/);
   });
 
@@ -215,11 +219,11 @@ describe("public-web mount path", () => {
     expect(paths.isRoot(paths.ROOT_BASE)).toBe(true);
     expect(paths.isRoot("/public")).toBe(false);
     // The server picks between them on the surface, not on the column.
-    const block = serverSrc.slice(
-      serverSrc.indexOf("req.hostSurface = meta"),
-      serverSrc.indexOf("host surface lookup failed"),
+    const block = surfaceSrc.slice(
+      surfaceSrc.indexOf("req.hostSurface = meta"),
+      surfaceSrc.indexOf("host surface lookup failed"),
     );
-    expect(block).toMatch(/publicWebPaths\.ROOT_BASE/);
+    expect(block).toMatch(/paths\.ROOT_BASE/);
     expect(block).toMatch(/req\.hostSurface === "public"/);
     // …and the console never offers "/" as a prefix, because it is not a value
     // anyone types — it is what being a public-surface host means.

@@ -39,6 +39,8 @@ const storage = require("./services/storage.service");
 const registry = require("./services/tenant/registry.service");
 const publicHead = require("./shared/http/public-head");
 const publicWebPaths = require("./shared/http/public-web-paths");
+const { resolveHostSurface } = require("./shared/http/host-surface");
+const { seoRoutes } = require("./shared/http/seo-routes");
 const inlineScriptHashes = require("./shared/http/inline-script-hashes");
 const { setSpaCacheHeaders } = require("./shared/http/spa-cache");
 
@@ -652,93 +654,21 @@ function buildApp() {
       publicWebStatic(req, res, () => sendHtml(req, res, () => sendShell(req, res)));
     const isPublicSurface = (req) => req.hostSurface === "public";
 
-    // The canonical prefix for THIS request's host, for robots/sitemap below.
-    // "/" on a host the site owns, the configured prefix on a workspace host —
-    // see the surface middleware immediately below, which is what decides.
-    const baseOf = (req) => req.publicBase || publicWebPaths.DEFAULT_BASE;
+    // robots.txt and sitemap.xml, per host. Ahead of the mounts, so they
+    // resolve the host's surface themselves: see shared/http/seo-routes.js.
+    const seo = seoRoutes({ servePublicWeb: config.SERVE_PUBLIC_WEB });
+    app.get("/robots.txt", seo.robotsTxt);
+    app.get("/sitemap.xml", seo.sitemapXml);
 
     /**
-     * robots.txt and sitemap.xml, per host.
-     *
-     * Ahead of the mounts, because on a WORKSPACE host neither prefix claims
-     * `/robots.txt` — and a workspace host is precisely the one that needs to say
-     * "do not index me". Serving nothing there means a crawler decides for itself.
-     */
-    app.get("/robots.txt", (req, res) => {
-      const origin = `${req.protocol}://${req.headers.host}`;
-      res
-        .type("text/plain")
-        .set("Cache-Control", "public, max-age=3600")
-        .send(
-          publicHead.robots(
-            origin,
-            isPublicSurface(req) || config.SERVE_PUBLIC_WEB,
-            baseOf(req),
-            // SEO_NOINDEX_HOSTS — a staging host refuses the whole crawl,
-            // whatever surface it serves.
-            String(req.headers.host || "").toLowerCase().split(":")[0],
-          ),
-        );
-    });
-
-    app.get("/sitemap.xml", async (req, res, next) => {
-      if (!isPublicSurface(req) && !config.SERVE_PUBLIC_WEB) return next();
-      const host = String(req.headers.host || "").toLowerCase().split(":")[0];
-      const origin = `${req.protocol}://${req.headers.host}`;
-      try {
-        const xml = await publicHead.sitemap(host, origin, baseOf(req));
-        res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(xml);
-      } catch (err) {
-        // A sitemap that 500s is worse than one that is briefly absent: a crawler
-        // retries a 404 and gives up on repeated errors.
-        logger.warn({ err, host }, "sitemap failed");
-        next();
-      }
-    });
-
-    /**
-     * Resolve the host's surface once, before either mount reads it.
-     *
-     * The host string is derived exactly as `hostTenantResolver` derives it —
-     * raw `Host`, lowercased, port stripped — and deliberately not via
-     * `req.hostname`, which prefers `X-Forwarded-Host` under `trust proxy`. If
-     * the two disagreed, the app a visitor is served and the tenant its data
-     * comes from could be decided by different strings, which is a bug nobody
-     * would find twice.
-     *
-     * `resolveByHost` is cached per host (60s hit, 10s miss), so this costs a
-     * Map lookup on all but the first request — which matters, because every
-     * asset on every page passes through here.
-     *
-     * A failed lookup falls back to 'erp', i.e. exactly today's behaviour. The
-     * alternative — failing closed — would take a tenant's workspace offline
-     * because their registry row could not be read, which is worse than showing
-     * the workspace on a marketing domain during an outage in which nothing else
-     * works either.
+     * Resolve the host's surface once, before either mount reads it. Which
+     * host string, the cache, and why a failed lookup serves the workspace:
+     * shared/http/host-surface.js.
      */
     app.use(async (req, res, next) => {
       if (onConsoleHost(req)) return next();
       if (req.path.startsWith("/api") || req.path.startsWith("/media")) return next();
-      const host = String(req.headers.host || "").toLowerCase().split(":")[0];
-      try {
-        const meta = await registry.resolveByHost(host);
-        req.hostSurface = meta && meta.surface === "public" ? "public" : "erp";
-        // A host the site OWNS serves it at the root. `public_base` is the
-        // prefix that keeps the marketing site out of the ERP's way on a shared
-        // origin, and on a domain the client brought there is no ERP to avoid —
-        // so honouring the column there would put a meaningless `/public` in
-        // front of every URL that client prints. The column still applies the
-        // moment the host is flipped back to serving the workspace.
-        req.publicBase =
-          req.hostSurface === "public"
-            ? publicWebPaths.ROOT_BASE
-            : publicWebPaths.normaliseBase(meta && meta.public_base) ||
-              publicWebPaths.DEFAULT_BASE;
-      } catch (err) {
-        logger.warn({ err, host }, "host surface lookup failed — serving the workspace");
-        req.hostSurface = "erp";
-        req.publicBase = publicWebPaths.DEFAULT_BASE;
-      }
+      await resolveHostSurface(req);
       return next();
     });
 

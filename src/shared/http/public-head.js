@@ -50,8 +50,19 @@ const NOINDEX_HOSTS = new Set(
     .filter(Boolean),
 );
 
-const isNoindexHost = (host) =>
-  NOINDEX_HOSTS.has(String(host || "").toLowerCase().split(":")[0]);
+/**
+ * A host whose FIRST label names a rehearsal is noindex without being listed:
+ * staging.smartls.cm served `index, follow` on 25 Nov 2026 because nobody had
+ * added it to SEO_NOINDEX_HOSTS, and would have become a crawlable duplicate of
+ * smartlsgroup.com the moment that domain's robots.txt was fixed. A list
+ * somebody must remember to extend is the failure; the name already says it.
+ */
+const REHEARSAL_LABELS = new Set(["staging", "dev", "test", "preview", "sandbox"]);
+
+const isNoindexHost = (host) => {
+  const h = String(host || "").toLowerCase().split(":")[0];
+  return NOINDEX_HOSTS.has(h) || (h.includes(".") && REHEARSAL_LABELS.has(h.split(".")[0]));
+};
 
 const TTL_MS = 5 * 60 * 1000;
 const MAX_ENTRIES = 500;
