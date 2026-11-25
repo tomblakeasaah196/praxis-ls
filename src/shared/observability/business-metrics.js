@@ -165,7 +165,8 @@ const PROBES = [
              AND NOT EXISTS (SELECT 1 FROM corporate_entity o WHERE o.public_cover_vault_id = v.doc_id)
              AND NOT EXISTS (SELECT 1 FROM site_leader o WHERE o.photo_vault_id = v.doc_id)
              AND NOT EXISTS (SELECT 1 FROM site_partner o WHERE o.logo_vault_id = v.doc_id)
-             AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)`,
+             AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)
+             AND NOT EXISTS (SELECT 1 FROM site_image o WHERE o.vault_id = v.doc_id)`,
     labels: () => ({}),
   },
   {

@@ -643,3 +643,42 @@ describe("the business-metrics probes (PR-07)", () => {
     expect(orphan.sql).toContain("public_cover_vault_id");
   });
 });
+
+/* ── 14661: the owner-table list moved from a CHECK into the service ───────*/
+
+describe("the tables that may own an upload (14661)", () => {
+  test("a website photograph slot may own an upload", async () => {
+    const insert = jest.fn().mockResolvedValue({ attachment_id: "A-1" });
+    const repo = require("../../src/modules/vault/document_vault/attachment_outbox.repo");
+    const spy = jest.spyOn(repo, "insert").mockImplementation(insert);
+    try {
+      await outbox.begin({ query: jest.fn().mockResolvedValue({ rows: [] }) }, {
+        kind: "SITE_MEDIA", ownerTable: "site_image", ownerId: "00000000-0000-0000-0000-000000000001",
+      });
+      expect(insert).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ owner_table: "site_image" }));
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("a table that is not on the list is refused before anything is written", async () => {
+    const repo = require("../../src/modules/vault/document_vault/attachment_outbox.repo");
+    const spy = jest.spyOn(repo, "insert");
+    try {
+      await expect(outbox.begin({ query: jest.fn() }, { kind: "SITE_MEDIA", ownerTable: "operation", ownerId: "X" }))
+        .rejects.toThrow(/not a table that may own an upload/);
+      await expect(outbox.recordScanUpload({ query: jest.fn() }, { ownerTable: "operation", ownerId: "X", vaultDocId: "V" }))
+        .rejects.toThrow(/not a table that may own an upload/);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("the list is the one 13980's CHECK held, plus site_image", () => {
+    expect([...outbox.OWNER_TABLES].sort()).toEqual([
+      "client_document", "corporate_entity", "entity_document", "site_credential",
+      "site_image", "site_leader", "site_partner", "supplier_document",
+    ]);
+  });
+});

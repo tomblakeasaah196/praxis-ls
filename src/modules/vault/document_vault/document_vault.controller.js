@@ -40,8 +40,8 @@ const { EXT_BY_MIME, contentTypeForPath } = require("./document_vault.mime");
  * bytes that will never be linked — worth having, never worth failing a
  * completed upload over.
  *
- * The table list is the same frozen set the outbox migration's owner_table
- * CHECK admits. An entity_ref naming anything else (an operation, a mail
+ * The table list is the document-scan part of OWNER_TABLES in
+ * attachment_outbox.service.js. An entity_ref naming anything else (an operation, a mail
  * attachment, a site slot) is not a document scan and is left alone.
  */
 const SCAN_OWNER_TABLES = new Set(["entity_document", "client_document", "supplier_document"]);
