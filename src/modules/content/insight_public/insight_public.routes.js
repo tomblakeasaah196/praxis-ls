@@ -54,11 +54,14 @@ const notFound = (msg) => new AppError("NOT_FOUND", msg, 404);
  * is the first UI to ask for it.
  */
 router.get("/", limit, v.listQuery, asyncHandler(async (req, res) => {
-  const { tag, kind, page, per_page: perPage } = req.validatedQuery;
+  const { tag, kind, year, page, per_page: perPage } = req.validatedQuery;
   res.json({
     data: await req.tenantDbIn("live", (c) => service.listPublic(c, {
       tag: tag || null,
       kind: kind || null,
+      // 14680, the year archive. Destructured here on purpose: `kind` once
+      // sat validated and dropped on this exact line (see the note above).
+      year: year || null,
       page: page || 1,
       perPage: perPage || service.DEFAULT_PER_PAGE,
     })),

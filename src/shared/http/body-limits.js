@@ -110,13 +110,13 @@ const RAISED = [
   {
     name: "website-images",
     /* POST /api/tenant/service-types/:id/web/media
-       POST /api/tenant/insights/:id/cover  and  /:id/gallery
+       POST /api/tenant/insights/:id/cover, /:id/gallery and /:id/byline-photo
        POST /api/tenant/site-settings/media
        POST /api/tenant/success-stories/:id/media
 
        The DELETE that removes one image is `…/web/media/:docId` and carries no
        body, so the trailing `$` correctly leaves it on the global parser. */
-    path: /^\/api\/(v\d+\/)?tenant\/(service-types\/[^/]+\/web\/media|insights\/[^/]+\/(cover|gallery)|site-settings\/media|success-stories\/[^/]+\/media)\/?$/,
+    path: /^\/api\/(v\d+\/)?tenant\/(service-types\/[^/]+\/web\/media|insights\/[^/]+\/(cover|gallery|byline-photo)|site-settings\/media|success-stories\/[^/]+\/media)\/?$/,
     limit: "15mb",
     advertises: 10 * 1024 * 1024,
     why: "Every picture on the tenant's public website.",

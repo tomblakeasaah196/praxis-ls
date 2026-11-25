@@ -64,6 +64,7 @@ describe("the public card", () => {
       name: "Joseph Moukoko",
       title: "Head of Operations",
       avatar_ref: "avatars/jm.png",
+      photo_id: null,
     });
   });
 

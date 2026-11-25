@@ -198,8 +198,11 @@
       "route": "/settings/website/articles",
       "area": "settings",
       "module_key": "MOD-29",
-      "purpose": "The tenant's public articles: headline, address, tags and publish state, with creation reduced to a headline. Publishing is its own action and is refused until the article has an address and a body. Sits beside Website pages because an article is website content; requires MOD-29 edit and is not gated on the website package, so articles can be written before a site is bought.",
-      "actions": [],
+      "purpose": "The tenant's public articles: headline (English or French), date, byline and role, tags and state (draft, scheduled or published). Creation asks for a headline; Import turns Markdown files with front matter into drafts. Publishing is its own action and is refused until the article has an address and a body. Sits beside Website pages because an article is website content; requires MOD-29 edit and is not gated on the website package, so articles can be written before a site is bought.",
+      "actions": [
+        "list_insight_articles",
+        "create_insight_draft"
+      ],
       "title_fr": "Articles"
     },
     {
@@ -208,8 +211,10 @@
       "route": "/settings/website/articles/:articleId",
       "area": "settings",
       "module_key": "MOD-29",
-      "purpose": "One article: bilingual headline, address (suggested from the headline until typed), excerpt, body, tags and search metadata. One explicit save with a discard warning, because an article is one long text rather than a set of independent blocks. The cover uploads through the vault and saves immediately, since an upload that waited for Save would leave an orphaned public document.",
-      "actions": [],
+      "purpose": "One article: headline and address in English or French, byline name, role and photo, its date (past backdates, future schedules), excerpt, body, tags and search metadata. One explicit save with a discard warning, because an article is one long text rather than a set of independent blocks. Cover and photos upload through the vault and save immediately, since an upload that waited for Save would leave an orphaned public document.",
+      "actions": [
+        "get_insight_article"
+      ],
       "title_fr": "Article"
     },
     {

@@ -30,8 +30,11 @@ import { publicGet } from "./api";
 
 export type InsightAuthor = {
   name: string;
+  /** The role printed beside the name, as held on the article's date (14680). */
   title: string | null;
   avatar_ref: string | null;
+  /** The byline photograph's vault id, served by `coverUrl()` (same route). */
+  photo_id?: string | null;
 };
 
 /** `article` or `announcement` — the `ck_insight_kind` CHECK (13784) admits
@@ -51,6 +54,8 @@ export type InsightCard = {
   has_cover: boolean;
   cover_id: string | null;
   author: InsightAuthor | null;
+  /** Minutes to read at 220 words a minute, null with no body (14680). */
+  reading_minutes?: number | null;
   kind: InsightKind;
   /** When this pin lapses. The band SHOWS it: a visitor who reads "until 4
    *  March" knows the notice is current, which is most of what a notice is
@@ -70,14 +75,21 @@ export type InsightArticle = InsightCard & {
   meta_title_en: string | null;
   meta_description_fr: string | null;
   meta_description_en: string | null;
+  /** Up to three live articles to read next, as cards (14680). */
+  related?: InsightCard[];
 };
 
 /** `{tag, count}` — the count is what lets the bar show "Strategy (3)". */
 export type InsightTag = { tag: string; count: number };
 
+/** `{year, count}`, newest first, derived from the live articles (14680). */
+export type InsightYear = { year: number; count: number };
+
 export type InsightIndex = {
   articles: InsightCard[];
   tags: InsightTag[];
+  /** The year archive. Optional: an older server does not send it. */
+  years?: InsightYear[];
   page: number;
   per_page: number;
   total: number;
@@ -93,12 +105,14 @@ export const listInsights = (
      *  server since 13784; the public route only started READING it in PR 4,
      *  which is why nothing sent it before. */
     kind?: InsightKind | "";
+    /** The year archive (14680). */
+    year?: number;
     page?: number;
     signal?: AbortSignal;
   } = {},
 ) =>
   publicGet<InsightIndex>("/public/insights", {
-    query: { tag: opts.tag, kind: opts.kind || undefined, page: opts.page },
+    query: { tag: opts.tag, kind: opts.kind || undefined, year: opts.year, page: opts.page },
     signal: opts.signal,
   });
 
@@ -165,3 +179,14 @@ export const insightExcerpt = (a: InsightCard, lang: string): string | null =>
 
 export const insightBody = (a: InsightArticle, lang: string): string | null =>
   (lang === "fr" ? a.body_fr || a.body_en : a.body_en || a.body_fr) || null;
+
+/**
+ * The three share targets (14680), as plain links: no script from LinkedIn or
+ * Meta loads on our page, nothing tracks the reader, and each works with the
+ * one URL a crawler already describes through the server-built head.
+ */
+export const shareLinks = (url: string, title: string) => ({
+  linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+  whatsapp: `https://wa.me/?text=${encodeURIComponent(`${title} ${url}`)}`,
+  email: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`,
+});

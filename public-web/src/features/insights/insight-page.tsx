@@ -8,7 +8,9 @@ import {
   insightBody,
   insightExcerpt,
   insightTitle,
+  insightSlug,
   type InsightArticle,
+  type InsightCard,
 } from "@/lib/insights-api";
 import { getLang, tStatic } from "@/lib/i18n";
 import { caseLabel } from "@/lib/label-case";
@@ -23,6 +25,7 @@ import { Chip } from "@/components/ui/pill";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState, LoadingState, NotFoundState } from "@/components/state";
+import { Byline, ReadingTime, ShareLinks } from "./insight-parts";
 
 /**
  * `/public/insights/:slug` — one article.
@@ -222,6 +225,7 @@ function Article({
               {dateFmt(article.published_at)}
             </time>
           )}
+          <ReadingTime minutes={article.reading_minutes} />
           {article.tags.map((tg) => (
             <Chip key={tg}>{tg}</Chip>
           ))}
@@ -231,16 +235,10 @@ function Article({
               tenant chose "As written" (D5). Its body is never touched. */}
           {typeof title === "string" ? caseLabel(title, getLang()) : title}
         </h1>
-        {article.author && (
-          <p className="mt-4 text-sm text-muted-foreground">
-            {/* The name is a fact from a staff record, not a translated string —
-                which is the bug on theirs, where "By Joseph MOUKOKO" lives
-                inside a translation key. Only the word "by" is translated. */}
-            {t("site.insights.by")}{" "}
-            <span className="font-medium text-foreground">{article.author.name}</span>
-            {article.author.title ? " · " + article.author.title : ""}
-          </p>
-        )}
+        {/* The byline as printed on the article's date (14680): a name and the
+            role then held, with a photograph when one was uploaded. The name is
+            data, never a translated string. */}
+        <Byline article={article} className="mt-4 text-sm" />
       </header>
 
       {src && coverOk && (
@@ -299,6 +297,67 @@ function Article({
           </figcaption>
         </figure>
       )}
+
+      {/* Share (14680), at the END of the piece: the moment somebody has read
+          it is the moment they decide whether it is worth passing on. The URL
+          is the page's own address without query or hash, which is the URL the
+          server-built head describes, so the card on LinkedIn or WhatsApp
+          shows this article's title, description and image. */}
+      <div className="mt-12 border-t pt-6">
+        <ShareLinks
+          url={typeof window === "undefined" ? "" : window.location.origin + window.location.pathname}
+          title={title}
+        />
+      </div>
+
+      {(article.related?.length ?? 0) > 0 && (
+        <RelatedArticles items={article.related || []} lang={lang} />
+      )}
     </article>
+  );
+}
+
+/**
+ * Read next (14680): up to three live articles chosen by the server, ranked by
+ * the tags they share with this one. Titles, dates and bylines only; a related
+ * list with images competes with the piece the reader has just finished.
+ */
+function RelatedArticles({ items, lang }: { items: InsightCard[]; lang: string }) {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="related-heading" className="mt-12">
+      <h2 id="related-heading" className="font-display text-title font-semibold tracking-tight">
+        {t("site.insights.related")}
+      </h2>
+      <ul className="mt-4 divide-y border-y">
+        {items.map((a) => {
+          const slug = insightSlug(a, lang);
+          const heading = insightTitle(a, lang);
+          return (
+            <li key={a.slug_en || a.slug_fr || heading} className="py-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                {a.published_at && (
+                  <time dateTime={a.published_at} className="num">
+                    {dateFmt(a.published_at)}
+                  </time>
+                )}
+                <ReadingTime minutes={a.reading_minutes} />
+              </div>
+              {slug ? (
+                <Link
+                  to={p("/insights/" + encodeURIComponent(slug))}
+                  className="mt-1 block font-semibold text-foreground underline-offset-4 hover:underline"
+                >
+                  {heading}
+                </Link>
+              ) : (
+                <p className="mt-1 font-semibold">{heading}</p>
+              )}
+              <Byline article={a} className="mt-1 text-xs" />
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

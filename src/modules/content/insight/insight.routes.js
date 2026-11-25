@@ -36,6 +36,19 @@ router.post("/", requirePermission(MODULE, "edit"), v.create, asyncHandler(async
   res.status(201).json({ data });
 }));
 
+/**
+ * Import one Markdown file with front matter as a DRAFT (14680). One file per
+ * request, so the screen shows each file's own progress and its own answer, and
+ * one bad file in a folder of eighteen costs that file, not the batch. Never
+ * publishes: see `importMarkdown`.
+ */
+router.post("/import", requirePermission(MODULE, "edit"), v.importFile, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => service.importMarkdown(c, {
+    name: req.body.name, text: req.body.text, actor: req.user || {},
+  }));
+  res.status(201).json({ data });
+}));
+
 router.get("/:id", requirePermission(MODULE, "view"), asyncHandler(async (req, res) => {
   res.json({ data: await req.tenantDb((c) => service.get(c, req.params.id)) });
 }));
@@ -102,6 +115,28 @@ router.post("/:id/cover", requirePermission(MODULE, "edit"), v.cover, asyncHandl
 
 router.delete("/:id/cover", requirePermission(MODULE, "edit"), v.validateNoBody, asyncHandler(async (req, res) => {
   const data = await req.tenantDb((c) => service.removeCover(c, {
+    id: req.params.id, actor: req.user || {},
+  }));
+  res.json({ data });
+}));
+
+/**
+ * The byline photo (14680). Bytes, so its own pair of endpoints, exactly as the
+ * cover has; `byline_photo_vault_id` is not a field the PATCH accepts.
+ */
+router.post("/:id/byline-photo", requirePermission(MODULE, "edit"), v.cover, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => service.setBylinePhoto(c, {
+    id: req.params.id,
+    dataUrl: req.body.data_url,
+    originalName: req.body.original_name,
+    actor: req.user || {},
+    slug: req.tenant && req.tenant.slug,
+  }));
+  res.json({ data });
+}));
+
+router.delete("/:id/byline-photo", requirePermission(MODULE, "edit"), v.validateNoBody, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => service.removeBylinePhoto(c, {
     id: req.params.id, actor: req.user || {},
   }));
   res.json({ data });

@@ -18,7 +18,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.footer": ["about","careers","clients","company","contact","legal","portal","portfolio","powered","privacy","quote","services","social","terms","track","verify"],
   "site.hero": ["cta","cta2","eyebrow","scrollCue","title","titleAccent","titleMain"],
   "site.how": ["eyebrow","steps.*.t","title"],
-  "site.insights": ["all","backToIndex","by","filterLabel","gallery","gone","kicker","kindAll","kindAnnouncement","kindArticle","kindLabel","next","none","noneForTag","pageOf","pagination","previous","showAll","title","titleAccent","titleMain"],
+  "site.insights": ["all","allYears","backToIndex","by","filterLabel","gallery","gone","kicker","kindAll","kindAnnouncement","kindArticle","kindLabel","lead","minutes","next","none","noneForTag","noneForYear","pageOf","pagination","previous","readArticle","related","share","shareEmail","shareLinkedIn","shareWhatsApp","showAll","title","titleAccent","titleMain","yearLabel"],
   "site.nav": ["about","careers","contact","insights","portfolio","services","servicesAll","servicesMore","track"],
   "site.notFound": ["home","kicker","title"],
   "site.portalBand": ["cta","eyebrow","title"],

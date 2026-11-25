@@ -402,6 +402,26 @@ const ROUTES = [
           },
   },
   {
+    // The Insights index (14680). Until now it shared the bare tenant name with
+    // every page that has no entry, so a shared link to the library read as a
+    // link to the home page. The description is DERIVED (the newest headline),
+    // never written here: this file serves every tenant, and a sentence about
+    // one tenant's subjects would print on all of them.
+    test: /^\/insights()\/?$/,
+    load: async (client) =>
+      (await require("../../modules/content/insight/insight.service")
+        .listPublic(client, { kind: "article", page: 1, perPage: 1 })),
+    shape: (view) => {
+      const latest = view && view.articles && view.articles[0];
+      const headline = latest ? latest.title_en || latest.title_fr : null;
+      return {
+        title: "Insights",
+        description: headline ? summarise("Latest: " + headline) : null,
+        trail: [{ name: "Insights", path: null }],
+      };
+    },
+  },
+  {
     test: /^\/insights\/([^/]+)\/?$/,
     load: (client, slug) =>
       require("../../modules/content/insight/insight.service").getPublic(
@@ -413,23 +433,36 @@ const ROUTES = [
     // shell's generic title instead of describing a page nobody can open.
     shape: (a) => {
       if (!a) return null;
-      // FR first: the tenant is Cameroonian and French is the default. The head
-      // is one document and cannot be bilingual, so it describes the article in
-      // the language it was primarily written in.
-      const title = a.title_fr || a.title_en || null;
-      const description = summarise(a.excerpt_fr || a.excerpt_en || a.body_fr || a.body_en);
+      // ENGLISH first (14680), and the search fields first within each
+      // language. This was French first, on the reasoning that the tenant is
+      // Cameroonian; the first tenant to run a library is English only, and
+      // the head is one document that cannot be bilingual. The writer's own
+      // search title and description win over the headline and the excerpt,
+      // which is what those fields exist for: they were stored and never read.
+      const pick = (...vals) => vals.map((v) => String(v || "").trim()).find(Boolean) || null;
+      const title = pick(a.meta_title_en, a.title_en, a.meta_title_fr, a.title_fr);
+      const headline = pick(a.title_en, a.title_fr) || title;
+      const description = summarise(
+        pick(
+          a.meta_description_en, a.excerpt_en,
+          a.meta_description_fr, a.excerpt_fr,
+          a.body_en, a.body_fr,
+        ),
+      );
       return {
         title,
         description,
         image: a.cover_id ? "/api/tenant/public/insights/media/" + a.cover_id : null,
         trail: [
           { name: "Insights", path: "/insights" },
-          { name: title || "Article", path: null },
+          { name: headline || "Article", path: null },
         ],
         ld: (origin, branding, canonical) =>
           articleLd(
             {
-              title,
+              // The Article's headline is the headline, not the search title:
+              // schema.org reads it as the piece's name.
+              title: headline,
               description,
               published_at: a.published_at,
               image: a.cover_id ? "/api/tenant/public/insights/media/" + a.cover_id : null,
@@ -635,7 +668,8 @@ async function sitemap(host, origin, base) {
       [
         async () => (await require("../../modules/content/insight/insight.service")
           .listPublic(client, { page: 1, perPage: 500 })).articles,
-        (r) => at("/insights/" + encodeURIComponent(r.slug_fr || r.slug_en || "")),
+        // English slug first (14680), matching the head and the site's links.
+        (r) => at("/insights/" + encodeURIComponent(r.slug_en || r.slug_fr || "")),
       ],
     ];
     for (const [read, make] of sections) {
