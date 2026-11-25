@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { getLang } from "@/lib/i18n";
 import type { ServiceCard } from "@/lib/services-api";
 import "@/components/quote/quote-steps-i18n";
+import "@/components/quote/quote-engine-i18n";
 
 /**
  * "Your Terms": the quote engine's questions for one website service (SmartLS
@@ -127,22 +128,22 @@ export function QuoteTermsStep({
               label: t(`site.quoteSteps.hinterland${value === "EXPORT" ? "OUT_OF" : "INTO"}`),
               hint: t(`site.quoteSteps.hinterland${value === "EXPORT" ? "OUT_OF" : "INTO"}Hint`),
             }
-          : { label: t(`site.quoteSteps.engineDirection${value}`), hint: t(`site.quoteSteps.engineDirection${value}Hint`) };
+          : { label: t(`site.quoteEngine.direction${value}`), hint: t(`site.quoteSteps.engineDirection${value}Hint`) };
       case "knows":
-        return { label: t(`site.quoteSteps.engineKnows${value}`), hint: value === "NO" ? t("site.quoteSteps.engineKnowsNOHint") : null };
+        return { label: t(`site.quoteEngine.knows${value}`), hint: value === "NO" ? t("site.quoteSteps.engineKnowsNOHint") : null };
       case "incoterm":
         return { label: value, mono: true };
       case "party":
-        return { label: t(`site.quoteSteps.engineParty${value}`) };
+        return { label: t(`site.quoteEngine.party${value}`) };
       case "start":
       case "end": {
         if (value === "SUPPLIER_PREMISES" || value === "PREMISES" || value === "PREMISES_DUTY_PAID") {
-          return { label: t(`site.quoteSteps.enginePoint${value}_${party}`) };
+          return { label: t(`site.quoteEngine.point${value}_${party}`) };
         }
-        return { label: t(`site.quoteSteps.enginePoint${value}_${mode}`) };
+        return { label: t(`site.quoteEngine.point${value}_${mode}`) };
       }
       case "insured":
-        return { label: t(`site.quoteSteps.engineInsured${value}`) };
+        return { label: t(`site.quoteEngine.insured${value}`) };
       default:
         return { label: value };
     }
@@ -151,21 +152,21 @@ export function QuoteTermsStep({
   const legend = (step: QeStep) => {
     switch (step.id) {
       case "direction":
-        return hinterlandOnly ? t("site.quoteSteps.hinterland") : t("site.quoteSteps.engineDirection");
+        return hinterlandOnly ? t("site.quoteSteps.hinterland") : t("site.quoteEngine.direction");
       case "knows":
-        return t("site.quoteSteps.engineKnows");
+        return t("site.quoteEngine.knows");
       case "incoterm":
-        return t("site.quoteSteps.engineIncoterm");
+        return t("site.quoteEngine.incoterm");
       case "party":
-        return t("site.quoteSteps.engineParty");
+        return t("site.quoteEngine.party");
       case "start":
-        return t("site.quoteSteps.engineStart");
+        return t("site.quoteEngine.start");
       case "end":
-        return t("site.quoteSteps.engineEnd");
+        return t("site.quoteEngine.end");
       case "insured":
-        return t(`site.quoteSteps.engineInsured${party}`);
+        return t(`site.quoteEngine.insured${party}`);
       default:
-        return t("site.quoteSteps.engineMember");
+        return t("site.quoteEngine.member");
     }
   };
 
@@ -223,7 +224,7 @@ export function QuoteTermsStep({
           {scope.length ? (
             <>
               <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {t("site.quoteSteps.engineHandle")}
+                {t("site.quoteEngine.handle")}
               </p>
               <ul className="mt-1.5 flex flex-wrap gap-1.5">
                 {scope.map((s) => (

@@ -83,6 +83,12 @@ const FEATURE_DICTS = [
     mount: "quoteSteps",
   },
   {
+    // The quote engine's questions (website v2, PR 3), read only by the
+    // wizard's lazy "Your Terms" step.
+    file: path.join(WEB_SRC, "components", "quote", "quote-engine-copy.ts"),
+    mount: "quoteEngine",
+  },
+  {
     // The verification portal — ~46 keys of legal-adjacent prose only a
     // stranger holding a signed document can reach. Split out when it pushed
     // first paint past its budget, the same wall careers hit.

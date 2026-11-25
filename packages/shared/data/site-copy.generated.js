@@ -2,14 +2,14 @@
 /**
  * GENERATED FILE — do not hand-edit.
  * The site copy catalogue: every `site.*` string a tenant may override.
- * 795 keys in 34 sections.
+ * 795 keys in 35 sections.
  * Source: public-web/src/lib/i18n-dict.ts
  * Regenerate with: node scripts/gen/gen-site-copy-catalogue.js
  *
  * SITE_COPY_ENTRIES rows are [key, section, label, en, fr].
  */
 
-exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["Home","About","Partners","Trust"]},{"key":"aboutPage","label":"About Page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"brand","label":"Brand","pages":["Home","About","Partners","Trust"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact","Partners"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Quotation","Profile","Careers","Contact","Partners","Trust","Legal","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"legal","label":"Legal","pages":["Legal"]},{"key":"message","label":"Message","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Trust","Page not found"]},{"key":"partnersPage","label":"Partners Page","pages":["Partners"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"profile","label":"Company profile","pages":["Profile"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"quotation","label":"Quotation","pages":["Quotation"]},{"key":"quote","label":"Quote request","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Client portal","Page not found"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Trust","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"trust","label":"Trust","pages":["Trust"]},{"key":"upload","label":"Upload","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
+exports.SITE_COPY_SECTIONS = [{"key":"about","label":"About page","pages":["Home","About","Partners","Trust"]},{"key":"aboutPage","label":"About Page","pages":["About"]},{"key":"announce","label":"Announcements band","pages":["Home"]},{"key":"brand","label":"Brand","pages":["Home","About","Partners","Trust"]},{"key":"careers","label":"Careers","pages":["Careers"]},{"key":"chrome","label":"Site chrome","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"contact","label":"Contact","pages":["Home","Contact","Partners"]},{"key":"corridor","label":"Corridor set piece","pages":["Home"]},{"key":"crash","label":"Error screen","pages":["Every page"]},{"key":"esg","label":"About — ESG pillars","pages":["About","Services"]},{"key":"footer","label":"Footer","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"hero","label":"Hero and shared calls to action","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Quotation","Profile","Careers","Contact","Partners","Trust","Legal","Client portal","Page not found"]},{"key":"how","label":"How it works","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"insights","label":"Insights","pages":["Insights"]},{"key":"legal","label":"Legal","pages":["Legal"]},{"key":"message","label":"Message","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"nav","label":"Header navigation","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"notFound","label":"Page not found","pages":["Trust","Page not found"]},{"key":"partnersPage","label":"Partners Page","pages":["Partners"]},{"key":"portalBand","label":"Client portal band","pages":["Home"]},{"key":"portfolioPage","label":"Our work (case notes)","pages":["Our work"]},{"key":"preview","label":"Shipment preview","pages":["Home"]},{"key":"profile","label":"Company profile","pages":["Profile"]},{"key":"proof","label":"Proof and lanes","pages":["Home","Our work"]},{"key":"quotation","label":"Quotation","pages":["Quotation"]},{"key":"quote","label":"Quote request","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Client portal","Page not found"]},{"key":"quoteEngine","label":"Quote Engine","pages":["Services","Quote"]},{"key":"quoteSteps","label":"Quote Steps","pages":["Services","Quote","Client portal"]},{"key":"services","label":"Services — band and cards","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"servicesPage","label":"Services page","pages":["Home","Services","Our work"]},{"key":"track","label":"Tracking widget","pages":["Home","Track","Trust","Page not found"]},{"key":"trackPage","label":"Tracking page","pages":["Track"]},{"key":"trust","label":"Trust","pages":["Trust"]},{"key":"upload","label":"Upload","pages":["Home","About","Track","Verify","Services","Our work","Quote","Insights","Careers","Contact","Partners","Trust","Legal","Page not found"]},{"key":"verify","label":"Verify","pages":["Verify"]}];
 
 exports.SITE_COPY_ENTRIES = [
   ["site.about.carriersLead","about","Carriers Lead","Carriers and networks we book capacity with. Their marks are theirs; we show them with permission.","Les transporteurs et réseaux auprès desquels nous réservons de la capacité. Leurs marques leur appartiennent ; nous les affichons avec leur accord."],
@@ -583,6 +583,36 @@ exports.SITE_COPY_ENTRIES = [
   ["site.quote.weight","quote","Weight","Estimated weight (kg)","Poids estimé (kg)"],
   ["site.quote.weightHint","quote","Weight Hint","A rough figure is enough.","Un ordre de grandeur suffit."],
   ["site.quote.whatHappens","quote","What Happens","What happens next","La suite"],
+  ["site.quoteEngine.direction","quoteEngine","Direction","Are you importing or exporting?","Importez-vous ou exportez-vous ?"],
+  ["site.quoteEngine.directionEXPORT","quoteEngine","Direction EXPORT","Exporting","J’exporte"],
+  ["site.quoteEngine.directionIMPORT","quoteEngine","Direction IMPORT","Importing","J’importe"],
+  ["site.quoteEngine.end","quoteEngine","End","Where should it end?","Où doit-il s’arrêter ?"],
+  ["site.quoteEngine.handle","quoteEngine","Handle","What We Handle","Ce que nous prenons en charge"],
+  ["site.quoteEngine.incoterm","quoteEngine","Incoterm","Which Incoterm?","Quel Incoterm ?"],
+  ["site.quoteEngine.insuredBUYER","quoteEngine","Insured BUYER","Has your supplier insured the voyage?","Votre fournisseur a-t-il assuré le voyage ?"],
+  ["site.quoteEngine.insuredNO","quoteEngine","Insured NO","No","Non"],
+  ["site.quoteEngine.insuredSELLER","quoteEngine","Insured SELLER","Will you insure the voyage for your buyer?","Assurez-vous le voyage pour votre acheteur ?"],
+  ["site.quoteEngine.insuredYES","quoteEngine","Insured YES","Yes","Oui"],
+  ["site.quoteEngine.knows","quoteEngine","Knows","Do you know your Incoterm?","Connaissez-vous votre Incoterm ?"],
+  ["site.quoteEngine.knowsNO","quoteEngine","Knows NO","No","Non"],
+  ["site.quoteEngine.knowsYES","quoteEngine","Knows YES","Yes","Oui"],
+  ["site.quoteEngine.member","quoteEngine","Member","Which of these fits?","Lequel correspond ?"],
+  ["site.quoteEngine.party","quoteEngine","Party","Are you buying or selling?","Achetez-vous ou vendez-vous ?"],
+  ["site.quoteEngine.partyBUYER","quoteEngine","Party BUYER","Buying","J’achète"],
+  ["site.quoteEngine.partySELLER","quoteEngine","Party SELLER","Selling","Je vends"],
+  ["site.quoteEngine.pointDESTINATION_PORT_AIR","quoteEngine","Point DESTINATION PORT AIR","Airport of Arrival","Aéroport d’arrivée"],
+  ["site.quoteEngine.pointDESTINATION_PORT_ANY","quoteEngine","Point DESTINATION PORT ANY","Port or Airport of Arrival","Port ou aéroport d’arrivée"],
+  ["site.quoteEngine.pointDESTINATION_PORT_SEA","quoteEngine","Point DESTINATION PORT SEA","Port of Arrival","Port d’arrivée"],
+  ["site.quoteEngine.pointORIGIN_PORT_AIR","quoteEngine","Point ORIGIN PORT AIR","Airport of Departure","Aéroport de départ"],
+  ["site.quoteEngine.pointORIGIN_PORT_ANY","quoteEngine","Point ORIGIN PORT ANY","Port or Airport of Loading","Port ou aéroport de chargement"],
+  ["site.quoteEngine.pointORIGIN_PORT_SEA","quoteEngine","Point ORIGIN PORT SEA","Port of Loading","Port de chargement"],
+  ["site.quoteEngine.pointPREMISES_BUYER","quoteEngine","Point PREMISES BUYER","Your Premises","Dans vos locaux"],
+  ["site.quoteEngine.pointPREMISES_DUTY_PAID_BUYER","quoteEngine","Point PREMISES DUTY PAID BUYER","Your Premises, Duties Paid","Dans vos locaux, droits acquittés"],
+  ["site.quoteEngine.pointPREMISES_DUTY_PAID_SELLER","quoteEngine","Point PREMISES DUTY PAID SELLER","Your Buyer's Premises, Duties Paid","Chez votre acheteur, droits acquittés"],
+  ["site.quoteEngine.pointPREMISES_SELLER","quoteEngine","Point PREMISES SELLER","Your Buyer's Premises","Chez votre acheteur"],
+  ["site.quoteEngine.pointSUPPLIER_PREMISES_BUYER","quoteEngine","Point SUPPLIER PREMISES BUYER","Your Supplier's Premises","Chez votre fournisseur"],
+  ["site.quoteEngine.pointSUPPLIER_PREMISES_SELLER","quoteEngine","Point SUPPLIER PREMISES SELLER","Your Premises","Dans vos locaux"],
+  ["site.quoteEngine.start","quoteEngine","Start","Where should our work begin?","Où notre travail doit-il commencer ?"],
   ["site.quoteSteps.docBL_AWB","quoteSteps","Doc BL AWB","BL / AWB","BL / LTA"],
   ["site.quoteSteps.docCARGO_PHOTOS","quoteSteps","Doc CARGO PHOTOS","Photos of the Goods","Photos de la marchandise"],
   ["site.quoteSteps.docCOMMERCIAL_INVOICE","quoteSteps","Doc COMMERCIAL INVOICE","Commercial Invoice","Facture commerciale"],
@@ -606,39 +636,9 @@ exports.SITE_COPY_ENTRIES = [
   ["site.quoteSteps.docsWas","quoteSteps","Docs Was","{{size}} before compression","{{size}} avant compression"],
   ["site.quoteSteps.docsWhy","quoteSteps","Docs Why","With your commercial invoice the team prices faster and more accurately.","Avec votre facture commerciale, l’équipe chiffre plus vite et plus juste."],
   ["site.quoteSteps.engineDesk","quoteSteps","Engine Desk","Our team will look at your answers and confirm the right service and terms with you.","Notre équipe examinera vos réponses et confirmera avec vous le bon service et les conditions."],
-  ["site.quoteSteps.engineDirection","quoteSteps","Engine Direction","Are you importing or exporting?","Importez-vous ou exportez-vous ?"],
-  ["site.quoteSteps.engineDirectionEXPORT","quoteSteps","Engine Direction EXPORT","Exporting","J’exporte"],
   ["site.quoteSteps.engineDirectionEXPORTHint","quoteSteps","Engine Direction EXPORTHint","The goods are leaving you.","La marchandise part de chez vous."],
-  ["site.quoteSteps.engineDirectionIMPORT","quoteSteps","Engine Direction IMPORT","Importing","J’importe"],
   ["site.quoteSteps.engineDirectionIMPORTHint","quoteSteps","Engine Direction IMPORTHint","The goods are coming to you.","La marchandise vient vers vous."],
-  ["site.quoteSteps.engineEnd","quoteSteps","Engine End","Where should it end?","Où doit-il s’arrêter ?"],
-  ["site.quoteSteps.engineHandle","quoteSteps","Engine Handle","What We Handle","Ce que nous prenons en charge"],
-  ["site.quoteSteps.engineIncoterm","quoteSteps","Engine Incoterm","Which Incoterm?","Quel Incoterm ?"],
-  ["site.quoteSteps.engineInsuredBUYER","quoteSteps","Engine Insured BUYER","Has your supplier insured the voyage?","Votre fournisseur a-t-il assuré le voyage ?"],
-  ["site.quoteSteps.engineInsuredNO","quoteSteps","Engine Insured NO","No","Non"],
-  ["site.quoteSteps.engineInsuredSELLER","quoteSteps","Engine Insured SELLER","Will you insure the voyage for your buyer?","Assurez-vous le voyage pour votre acheteur ?"],
-  ["site.quoteSteps.engineInsuredYES","quoteSteps","Engine Insured YES","Yes","Oui"],
-  ["site.quoteSteps.engineKnows","quoteSteps","Engine Knows","Do you know your Incoterm?","Connaissez-vous votre Incoterm ?"],
-  ["site.quoteSteps.engineKnowsNO","quoteSteps","Engine Knows NO","No","Non"],
   ["site.quoteSteps.engineKnowsNOHint","quoteSteps","Engine Knows NOHint","Answer three plain questions instead.","Répondez plutôt à trois questions simples."],
-  ["site.quoteSteps.engineKnowsYES","quoteSteps","Engine Knows YES","Yes","Oui"],
-  ["site.quoteSteps.engineMember","quoteSteps","Engine Member","Which of these fits?","Lequel correspond ?"],
-  ["site.quoteSteps.engineParty","quoteSteps","Engine Party","Are you buying or selling?","Achetez-vous ou vendez-vous ?"],
-  ["site.quoteSteps.enginePartyBUYER","quoteSteps","Engine Party BUYER","Buying","J’achète"],
-  ["site.quoteSteps.enginePartySELLER","quoteSteps","Engine Party SELLER","Selling","Je vends"],
-  ["site.quoteSteps.enginePointDESTINATION_PORT_AIR","quoteSteps","Engine Point DESTINATION PORT AIR","Airport of Arrival","Aéroport d’arrivée"],
-  ["site.quoteSteps.enginePointDESTINATION_PORT_ANY","quoteSteps","Engine Point DESTINATION PORT ANY","Port or Airport of Arrival","Port ou aéroport d’arrivée"],
-  ["site.quoteSteps.enginePointDESTINATION_PORT_SEA","quoteSteps","Engine Point DESTINATION PORT SEA","Port of Arrival","Port d’arrivée"],
-  ["site.quoteSteps.enginePointORIGIN_PORT_AIR","quoteSteps","Engine Point ORIGIN PORT AIR","Airport of Departure","Aéroport de départ"],
-  ["site.quoteSteps.enginePointORIGIN_PORT_ANY","quoteSteps","Engine Point ORIGIN PORT ANY","Port or Airport of Loading","Port ou aéroport de chargement"],
-  ["site.quoteSteps.enginePointORIGIN_PORT_SEA","quoteSteps","Engine Point ORIGIN PORT SEA","Port of Loading","Port de chargement"],
-  ["site.quoteSteps.enginePointPREMISES_BUYER","quoteSteps","Engine Point PREMISES BUYER","Your Premises","Dans vos locaux"],
-  ["site.quoteSteps.enginePointPREMISES_DUTY_PAID_BUYER","quoteSteps","Engine Point PREMISES DUTY PAID BUYER","Your Premises, Duties Paid","Dans vos locaux, droits acquittés"],
-  ["site.quoteSteps.enginePointPREMISES_DUTY_PAID_SELLER","quoteSteps","Engine Point PREMISES DUTY PAID SELLER","Your Buyer's Premises, Duties Paid","Chez votre acheteur, droits acquittés"],
-  ["site.quoteSteps.enginePointPREMISES_SELLER","quoteSteps","Engine Point PREMISES SELLER","Your Buyer's Premises","Chez votre acheteur"],
-  ["site.quoteSteps.enginePointSUPPLIER_PREMISES_BUYER","quoteSteps","Engine Point SUPPLIER PREMISES BUYER","Your Supplier's Premises","Chez votre fournisseur"],
-  ["site.quoteSteps.enginePointSUPPLIER_PREMISES_SELLER","quoteSteps","Engine Point SUPPLIER PREMISES SELLER","Your Premises","Dans vos locaux"],
-  ["site.quoteSteps.engineStart","quoteSteps","Engine Start","Where should our work begin?","Où notre travail doit-il commencer ?"],
   ["site.quoteSteps.errDocs","quoteSteps","Err Docs","Add at least one document. A commercial invoice is best.","Ajoutez au moins un document, de préférence la facture commerciale."],
   ["site.quoteSteps.errFlow","quoteSteps","Err Flow","Choose which way it goes.","Choisissez le sens."],
   ["site.quoteSteps.errHinterland","quoteSteps","Err Hinterland","Say whether it goes into or out of the hinterland.","Indiquez si la marchandise va vers l’hinterland ou en vient."],

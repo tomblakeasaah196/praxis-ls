@@ -33,14 +33,19 @@ import {
   type QuoteService,
 } from "@/lib/quote-scope";
 import { useQuoteDocuments } from "@/lib/use-quote-documents";
-import {
-  EMPTY_PICK,
-  QuoteServiceStep,
-  pickedService,
-  pickProblems,
-  type ServicePick,
-} from "@/components/quote/quote-service-step";
-import { IncotermChoice } from "@/components/quote/incoterm-choice";
+import { EMPTY_PICK, pickedService, pickProblems, type ServicePick } from "@/lib/quote-pick";
+
+/**
+ * The cards-and-flows first step and the Incoterm chips are drawn only for a
+ * payload with no website services (an older API, a cached tab), so they load
+ * on demand (website v2, PR 3) and the quote page stays inside its budget.
+ */
+const QuoteServiceStep = React.lazy(() =>
+  import("@/components/quote/quote-service-step").then((m) => ({ default: m.QuoteServiceStep })),
+);
+const IncotermChoice = React.lazy(() =>
+  import("@/components/quote/incoterm-choice").then((m) => ({ default: m.IncotermChoice })),
+);
 // The shared quote steps' copy lives outside the entry dictionary; see
 // quote-steps-i18n.ts. Imported for the side effect.
 import "@/components/quote/quote-steps-i18n";
@@ -518,6 +523,7 @@ export function QuoteWizard({
 
         {stepKey === "need" && !websitePath && (
           <div className="space-y-4">
+            <React.Suspense fallback={<p className="text-sm text-muted-foreground">{t("common.loading")}</p>}>
             <QuoteServiceStep
               services={services}
               value={f}
@@ -526,6 +532,7 @@ export function QuoteWizard({
               idPrefix="quote"
               errors={{ card: err("card") || err("mode"), service: err("service") || err("service_type_id"), hinterland: err("hinterland") || err("hinterland_direction") }}
             />
+            </React.Suspense>
             {fallback ? (
               <Input
                 label={t("site.quote.service")}
@@ -570,7 +577,9 @@ export function QuoteWizard({
               />
             </div>
             {websitePath ? null : (
-              <IncotermChoice service={chosen} value={f.incoterm} onChange={(code) => set("incoterm", code)} variant="site" idPrefix="quote" />
+              <React.Suspense fallback={null}>
+                <IncotermChoice service={chosen} value={f.incoterm} onChange={(code) => set("incoterm", code)} variant="site" idPrefix="quote" />
+              </React.Suspense>
             )}
             {err("incoterm") ? (
               <p role="alert" className="text-sm text-[rgb(var(--bad))]">

@@ -11,6 +11,7 @@ import {
   en as quoteStepsEn,
   fr as quoteStepsFr,
 } from "@/components/quote/quote-steps-copy";
+import { en as quoteEngineEn, fr as quoteEngineFr } from "@/components/quote/quote-engine-copy";
 import {
   en as profileEn,
   fr as profileFr,
@@ -79,12 +80,20 @@ import {
  */
 export const en = {
   ...baseEn,
+<<<<<<< HEAD
   site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn, brand: brandEn, aboutPage: aboutPageEn, partnersPage: partnersPageEn, trust: trustEn, legal: legalEn },
+=======
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, quoteEngine: quoteEngineEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn },
+>>>>>>> 27a6c5a3 (feat(site): the Terms step's copy and the legacy pickers load on demand, inside the quote page budget)
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
+<<<<<<< HEAD
   site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr, brand: brandFr, aboutPage: aboutPageFr, partnersPage: partnersPageFr, trust: trustFr, legal: legalFr },
+=======
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, quoteEngine: quoteEngineFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr },
+>>>>>>> 27a6c5a3 (feat(site): the Terms step's copy and the legacy pickers load on demand, inside the quote page budget)
   portal: { ...baseFr.portal, ...portalFr },
 };

@@ -16,7 +16,6 @@ import {
   otherServices,
   serviceName,
   servicesOn,
-  type HinterlandDirection,
   type QuoteCard,
   type QuoteService,
 } from "@/lib/quote-scope";
@@ -24,37 +23,10 @@ import {
 // quote-steps-i18n.ts. Imported for the side effect.
 import "@/components/quote/quote-steps-i18n";
 
-/**
- * The first step of every quote request — the client portal's quote sheet and
- * the public website's quote form draw THIS component (tenant review, meeting
- * 6, PR 2, owner decisions Q1, Q2 and Q6).
- *
- *   1. The cards: Sea, Air, Rail, Road under a subtle "Transport" label, then
- *      Storage and Customs — each only when the tenant offers a service there.
- *      Below them, a small "Other services" link opens the services no card
- *      describes, so nothing the tenant sells is unreachable.
- *   2. The flow, when the card holds more than one service: Import, Export,
- *      End-to-End, Inland, Hinterland — only the flows that exist there. Two
- *      services sharing a card and a flow are shown by their names instead.
- *   3. For a hinterland transit, which way: into the hinterland or out of it.
- *
- * A RADIO GROUP at every level (see select-card.tsx for why): one tab stop,
- * arrow keys, and a reader that announces "2 of 6". The two variants differ only
- * in dress — the website's cards are `SelectCard`s with the services named
- * underneath; the portal's are compact chips in its own `pt-chip` style.
- *
- * `services` empty is the website's pre-launch state (nothing published yet):
- * every card is offered, the visitor types the service, and no service type is
- * sent. The portal always has services — it reads every active one.
- */
-
-export type ServicePick = {
-  card: QuoteCard | "";
-  serviceTypeId: string;
-  hinterland: HinterlandDirection | "";
-};
-
-export const EMPTY_PICK: ServicePick = { card: "", serviceTypeId: "", hinterland: "" };
+// The pick and its rules live in lib/quote-pick.ts, so the website's wizard can
+// read them without loading this component (lazy there since website v2, PR 3).
+export { EMPTY_PICK, pickCard, pickedService, pickProblems, type ServicePick } from "@/lib/quote-pick";
+import { pickCard, pickedService, type ServicePick } from "@/lib/quote-pick";
 
 const CARD_ICONS: Record<QuoteCard, IconComponent> = {
   SEA: ShipIcon,
@@ -68,40 +40,6 @@ const CARD_ICONS: Record<QuoteCard, IconComponent> = {
 
 /** How many service names a website card lists before "+n more". */
 const NAMES_ON_CARD = 3;
-
-/**
- * Pick a card. A card with ONE service answers its own second question, so the
- * service is filled in; a card with several keeps the service only if it still
- * belongs there. The hinterland answer goes with the service it was for.
- */
-export function pickCard(services: readonly QuoteService[], prev: ServicePick, card: QuoteCard): ServicePick {
-  const on = servicesOn(services, card);
-  if (on.length === 1) return { card, serviceTypeId: on[0].service_type_id, hinterland: on[0].service_type_id === prev.serviceTypeId ? prev.hinterland : "" };
-  const keep = on.some((s) => s.service_type_id === prev.serviceTypeId);
-  return keep ? { ...prev, card } : { card, serviceTypeId: "", hinterland: "" };
-}
-
-/** The service a pick names, if any. */
-export const pickedService = (services: readonly QuoteService[], pick: ServicePick): QuoteService | null =>
-  services.find((s) => s.service_type_id === pick.serviceTypeId) || null;
-
-/** What step 1 will not let through — the same rules for both wizards. */
-export function pickProblems(
-  services: readonly QuoteService[],
-  pick: ServicePick,
-  t: (k: string) => string,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!services.length) {
-    if (!pick.card) out.card = t("site.quote.errMode");
-    return out;
-  }
-  const svc = pickedService(services, pick);
-  if (!pick.card && !svc) out.card = t("site.quote.errMode");
-  else if (!svc) out.service = t("site.quoteSteps.errFlow");
-  else if (needsHinterlandDirection(svc) && !pick.hinterland) out.hinterland = t("site.quoteSteps.errHinterland");
-  return out;
-}
 
 function Chip({
   variant,
@@ -138,6 +76,30 @@ function Chip({
     </label>
   );
 }
+
+/**
+ * The first step of every quote request — the client portal's quote sheet and
+ * the public website's quote form draw THIS component (tenant review, meeting
+ * 6, PR 2, owner decisions Q1, Q2 and Q6).
+ *
+ *   1. The cards: Sea, Air, Rail, Road under a subtle "Transport" label, then
+ *      Storage and Customs — each only when the tenant offers a service there.
+ *      Below them, a small "Other services" link opens the services no card
+ *      describes, so nothing the tenant sells is unreachable.
+ *   2. The flow, when the card holds more than one service: Import, Export,
+ *      End-to-End, Inland, Hinterland — only the flows that exist there. Two
+ *      services sharing a card and a flow are shown by their names instead.
+ *   3. For a hinterland transit, which way: into the hinterland or out of it.
+ *
+ * A RADIO GROUP at every level (see select-card.tsx for why): one tab stop,
+ * arrow keys, and a reader that announces "2 of 6". The two variants differ only
+ * in dress — the website's cards are `SelectCard`s with the services named
+ * underneath; the portal's are compact chips in its own `pt-chip` style.
+ *
+ * `services` empty is the website's pre-launch state (nothing published yet):
+ * every card is offered, the visitor types the service, and no service type is
+ * sent. The portal always has services — it reads every active one.
+ */
 
 export function QuoteServiceStep({
   services,
