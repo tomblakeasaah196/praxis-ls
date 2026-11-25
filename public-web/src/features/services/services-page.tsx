@@ -48,6 +48,7 @@ import { LongCopy } from "./long-copy";
 import { QuoteBand } from "@/components/site/quote-band";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { p } from "@/lib/base-path";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/public/services` and `/public/services/:slug` — the tenant's published service
@@ -162,15 +163,14 @@ export function ServicesIndexPage() {
   });
 
   return (
-    <PageShell label={t("site.servicesPage.title")} footer>
+    <PageShell overlayHeader label={t("site.servicesPage.title")} footer>
       {/* §8.2's animated header. This page shipped as a bare `<h1>` on white,
           which is exactly what §8 exists to remove — and it is the page a buyer
           lands on from a search for the service they need, so it was the worst
           remaining instance. Same plate and same lane field as the track and
           quote heroes, so the site has one entrance vocabulary rather than a
           different idea per route. */}
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+      <PageHero slot="services-hero" fallback={<BgMap />}>
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.services.eyebrow")}</BadgePill>
           <SectionHead
@@ -189,7 +189,7 @@ export function ServicesIndexPage() {
             lead={t("site.servicesPage.sub")}
           />
         </PageContainer>
-      </section>
+      </PageHero>
 
       <Section>
         {services.length ? (

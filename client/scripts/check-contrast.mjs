@@ -1082,6 +1082,54 @@ if (drawnFailures.length) {
   console.warn("    none — every ground/ink pairing in a class list clears AA.");
 }
 
+/*
+ * 5. SURFACES OPENED FROM AN OVERLAYING HEADER (public-web).
+ *
+ * `.site-shell[data-overlay="true"] .site-header` re-points `--foreground` to
+ * the hero's ink for everything under the bar, and the Services panel and the
+ * phone drawer are under the bar but paint `--background`. Without a restore
+ * they draw hero ink on a white sheet: 1.1:1 in light, a menu that looks
+ * disabled (owner's review of staging, 25 Nov 2026). Every pair above passed
+ * while that shipped, because the ground came from one rule and the ink from
+ * an ancestor's override, so this section checks the override is undone on
+ * each such surface, then measures the pair the panel's links really paint.
+ */
+if (APP === "public-web") {
+  console.warn("\n  Surfaces opened from an overlaying header");
+  const SURFACES_UNDER_BAR = [".nav-panel", ".site-drawer"];
+  const restore = /\.site-shell\[data-overlay="true"\]\s+([^{]+)\{([^}]*)\}/g;
+  const restored = new Set();
+  for (const m of css.matchAll(restore)) {
+    if (!/--foreground:\s*var\(--page-foreground\)/.test(m[2])) continue;
+    for (const sel of m[1].split(",")) {
+      const s = sel.replace(/\.site-shell\[data-overlay="true"\]/, "").trim();
+      restored.add(s);
+    }
+  }
+  for (const s of SURFACES_UNDER_BAR) {
+    const ok = restored.has(s);
+    if (!ok) failed++;
+    console.warn(
+      `    ${ok ? "PASS" : "FAIL"}  ${s} hands --foreground back to the page under an overlaying bar`,
+    );
+  }
+  for (const [themeName, body] of THEMES) {
+    const fg = token(body, "foreground");
+    const bg = token(body, "background");
+    if (!fg || !bg) {
+      console.warn(`    SKIP  services panel link (${themeName}) — token not found`);
+      skipped++;
+      continue;
+    }
+    const ratio = contrast(over({ rgb: fg.rgb, a: fg.a * 0.88 }, bg.rgb), bg.rgb);
+    const ok = ratio >= AA_NORMAL;
+    if (!ok) failed++;
+    console.warn(
+      `    ${ok ? "PASS" : "FAIL"}  ${ratio.toFixed(2).padStart(5)}:1  (min ${AA_NORMAL})  services panel link: --foreground/88 on --background (${themeName})`,
+    );
+  }
+}
+
 /* ── report ───────────────────────────────────────────────────────────────── */
 
 if (aaaMisses.length) {

@@ -173,7 +173,7 @@ export function AboutPage() {
   const hasMemberships = proof.partners.some((x) => x.kind === "network");
 
   return (
-    <PageShell label={t("site.about.title")} footer>
+    <PageShell overlayHeader label={t("site.about.title")} footer>
       <AboutHero about={about} s={s} images={images} loaded={aboutLoaded} />
 
       {s.credentials.length ? <CredentialsRow items={s.credentials} /> : null}

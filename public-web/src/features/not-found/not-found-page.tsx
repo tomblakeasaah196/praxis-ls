@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
@@ -8,6 +9,16 @@ import { StagedLines } from "@/components/ui/type";
 import { Section } from "@/components/site/section";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { p } from "@/lib/base-path";
+
+/* The photograph behind this band, loaded after the page. The router imports
+   this page EAGERLY (it is the boundary for switched-off routes), so the
+   photo pipeline must not ride along: statically, it put first paint 5.5 kB
+   over budget. The plate and its padding are here; only the picture waits. */
+const NotFoundArt = React.lazy(() =>
+  import("@/components/site/page-hero-art").then((m) => ({
+    default: () => <m.PageHeroArt slot="notfound-hero" />,
+  })),
+);
 
 /**
  * The 404 — a real status, not a design flourish.
@@ -29,7 +40,7 @@ export function NotFoundPage() {
   useDocumentMeta({ title: t("site.notFound.title") });
 
   return (
-    <PageShell label={t("site.notFound.title")} footer>
+    <PageShell overlayHeader label={t("site.notFound.title")} footer>
       {/*
         A 404 GETS A DESIGNED ENTRANCE TOO, and this is the route where that is
         least obvious and most worth it.
@@ -45,8 +56,14 @@ export function NotFoundPage() {
         where they were: this page's job is to be left, and the entrance must
         not put anything between the reader and the door.
       */}
-      <section className="band-hero relative overflow-hidden">
+      <section
+        className="band-hero relative isolate overflow-hidden"
+        style={{ paddingTop: "var(--site-header-h, 7rem)" }}
+      >
         <BgMap />
+        <React.Suspense fallback={null}>
+          <NotFoundArt />
+        </React.Suspense>
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.notFound.kicker")}</BadgePill>
           <SectionHead

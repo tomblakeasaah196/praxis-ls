@@ -49,6 +49,7 @@ const {
 } = require("@praxis/shared/design/site-fonts");
 const { SOCIAL_IDS, isValidSocialUrl } = require("@praxis/shared/design/social");
 const { coverage, siteLanguages, siteSettings: siteSettingsShared } = require("@praxis/shared");
+const countries = require("@praxis/shared/data/countries");
 
 const ref = (kind, id) => `${kind}:${id}`;
 
@@ -858,11 +859,40 @@ async function entitiesPayload(client) {
     cover_id: e.public_cover_vault_id || null,
     cover_variants: variants[e.public_cover_vault_id] || null,
     registered_address: letterhead.registeredAddress(e, addresses[e.entity_id] || []),
+    footer_address: footerAddress(addresses[e.entity_id] || []),
     other_addresses: otherPublicAddresses(addresses[e.entity_id] || []),
     leaders: leaders
       .filter((l) => l.entity_id === e.entity_id)
       .map((l) => publicLeader(l, variants)),
   }));
+}
+
+/**
+ * The registered office as the website footer prints it, under the company's
+ * name (owner's review of staging, 25 Nov 2026): street, box, city and the
+ * country's NAME. "1030 Avenue Douala Manga Bell, PO Box 5120, Douala,
+ * Cameroon", not the letterhead's "1030, Avenue …, Littoral, CM".
+ *
+ * Shorter than `registeredAddress` on purpose. The region is on the
+ * letterhead, where the postal system wants it; a footer line that names the
+ * city and the country already says where the company is. A street number
+ * kept in its own field ("1030") joins the street with a space, the way the
+ * address is spoken. Same row, same precedence as the letterhead, so the two
+ * never name different offices.
+ */
+const COUNTRY_NAME = new Map(countries.COUNTRIES.map((c) => [c.code, c.name]));
+function footerAddress(rows) {
+  const a = letterhead.registeredAddressRow(rows);
+  if (!a) return null;
+  const clean = (v) => (v === null || v === undefined ? "" : String(v).trim());
+  const [l1, l2] = [clean(a.line1), clean(a.line2)];
+  const street = l1 && l2 ? `${l1}${/^\d+[a-z]?$/i.test(l1) ? " " : ", "}${l2}` : l1 || l2;
+  const code = clean(a.country_code).toUpperCase();
+  const place = [clean(a.postal_code), clean(a.city)].filter(Boolean).join(" ");
+  const line = [street, clean(a.po_box), place, code ? COUNTRY_NAME.get(code) || code : ""]
+    .filter(Boolean)
+    .join(", ");
+  return line || null;
 }
 
 /**

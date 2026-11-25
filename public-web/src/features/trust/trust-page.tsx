@@ -70,7 +70,7 @@ export function TrustPage() {
   const hasProof = proof.credentials.length > 0 || proof.partners.some((x) => x.kind === "network");
 
   return (
-    <PageShell label={title} footer>
+    <PageShell overlayHeader label={title} footer>
       <PhotoBand image={images["trust-hero"]} size="hero" priority>
         <BadgePill onDark>{(hero && hero.kicker && pickBilingual(hero.kicker, lang)) || t("site.trust.eyebrow")}</BadgePill>
         <SectionHead className="mt-4" as="h1" titleClass="hero-title" onDark title={title} lead={lead} leadClass="about-hero-lead" />

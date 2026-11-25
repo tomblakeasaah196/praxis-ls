@@ -166,8 +166,25 @@ const KB = (n) => (n / 1024).toFixed(1) + " kB";
  * Half a kilobyte, not a round number, so the headroom stays thin and the next
  * shared change is refused by its own cost. F-39 above is still where the real
  * saving is.
+ *
+ * ── A THIRD TIME, 131.5 → 131.8, FOR THE CHROME EVERY PAGE WEARS ─────────
+ *
+ * The owner's review of staging (25 Nov 2026) changed the parts of the site
+ * that are on every page, which is the one thing a lazy route cannot hold:
+ * the header turns see-through over every page's photograph (the restore that
+ * keeps the Services menu and the phone drawer dark-on-white), the message
+ * button is an icon with a tooltip, the footer lists the companies and the
+ * published policies, and the not-found page, which the router imports
+ * eagerly on purpose, has its photograph. Measured 277 bytes over 131.5.
+ *
+ * What was moved out first: every page hero draws its picture from
+ * `page-hero-art.tsx`, a lazy chunk, so no route carries the picture renderer
+ * or the photographs read on its first paint; the footer's companies,
+ * policies, small print and social row, and their styles
+ * (`footer-extras.css`), load after paint; the not-found photograph is lazy.
+ * Three tenths of a kilobyte, so the headroom stays thin.
  */
-const FIRST_PAINT_BUDGET_KB = 131.5;
+const FIRST_PAINT_BUDGET_KB = 131.8;
 
 /**
  * The DEFERRED budget — §5.6, and the thing that keeps a WebGL set piece honest

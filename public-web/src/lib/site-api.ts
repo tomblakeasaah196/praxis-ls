@@ -456,6 +456,9 @@ export type PublicEntity = {
    * A single line, or null when the company has recorded none.
    */
   registered_address?: string | null;
+  /** The same office as the footer prints it: street, box, city and the
+   *  country's full name, no region (owner's review, 25 Nov 2026). */
+  footer_address?: string | null;
   /**
    * Operational/trading addresses an operator EXPLICITLY marked public, each
    * with the label a visitor reads it by (Decision Q2's "both addresses"

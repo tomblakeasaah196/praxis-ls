@@ -1,0 +1,87 @@
+/*
+ * The photographic band (PR 4) and the page hero built on it (owner's review
+ * of staging, 25 Nov 2026: a photograph at the top of every page).
+ *
+ * Its own file, apart from brand.css, because every page's hero loads it and
+ * each route is budgeted on what it adds to the first paint
+ * (scripts/check-bundle.mjs). brand.css carries About, For Partners and Trust;
+ * the Contact or Quote page needs only this. Unlayered, for brand.css's reason.
+ */
+
+/* ── the photographic band ─────────────────────────────────────────── */
+
+.photo-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.photo-band[data-size="hero"] {
+  min-height: clamp(30rem, 78vh, 46rem);
+  display: flex;
+  align-items: flex-end;
+  padding-top: calc(var(--site-header-h) + 3rem);
+  padding-bottom: clamp(3rem, 7vw, 5.5rem);
+}
+
+.photo-band[data-size="band"] {
+  padding-block: var(--py-band);
+}
+
+/* `<PageHero>`: under the overlaying header, so the top clears its measured
+   height; the content's own container brings the rest of the air. Tall
+   enough for the photograph to read as a place, short enough that the page's
+   form or list is in the first screen on a laptop. */
+.photo-band[data-size="page"] {
+  min-height: clamp(22rem, 52vh, 32rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-top: var(--site-header-h, 7rem);
+}
+
+.photo-band[data-size="page"] > .wrap {
+  position: relative;
+}
+
+.photo-band-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.photo-band-art picture,
+.photo-band-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The hero's own scrim (hero-scrim.ts): stacked on a phone, where the text
+   runs the full width; split on a wide screen, where it sits on the left.
+   Either way the words are over the opaque part, so contrast does not
+   depend on the photograph. */
+.photo-band-scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.photo-band-scrim-split {
+  display: none;
+}
+
+@media (min-width: 64em) {
+  .photo-band-scrim-stacked {
+    display: none;
+  }
+  .photo-band-scrim-split {
+    display: block;
+  }
+}
+
+.photo-band-body {
+  position: relative;
+  width: 100%;
+}
+

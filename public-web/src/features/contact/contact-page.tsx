@@ -15,6 +15,7 @@ import { afterPaint } from "@/lib/after-paint";
 import * as React from "react";
 import { p } from "@/lib/base-path";
 import { phoneDisplay, phoneHref } from "@/lib/brand-api";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/contact` — the general enquiry desk, on its own page.
@@ -173,9 +174,8 @@ export function ContactPage() {
   ];
 
   return (
-    <PageShell label={t("site.contact.title")} footer>
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+    <PageShell overlayHeader label={t("site.contact.title")} footer>
+      <PageHero slot="contact-hero" fallback={<BgMap />}>
         {/* Positioned, so the copy sits above the map rather than under it —
             the same arrangement the quote hero uses. */}
         <PageContainer className="relative">
@@ -191,7 +191,7 @@ export function ContactPage() {
             lead={t("site.contact.sub")}
           />
         </PageContainer>
-      </section>
+      </PageHero>
 
       <Section>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">

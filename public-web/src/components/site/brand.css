@@ -24,66 +24,8 @@
    as an accent and never as a ground.
    ══════════════════════════════════════════════════════════════════════ */
 
-/* ── the photographic band ─────────────────────────────────────────── */
-
-.photo-band {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.photo-band[data-size="hero"] {
-  min-height: clamp(30rem, 78vh, 46rem);
-  display: flex;
-  align-items: flex-end;
-  padding-top: calc(var(--site-header-h) + 3rem);
-  padding-bottom: clamp(3rem, 7vw, 5.5rem);
-}
-
-.photo-band[data-size="band"] {
-  padding-block: var(--py-band);
-}
-
-.photo-band-art {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-}
-
-.photo-band-art picture,
-.photo-band-art img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* The hero's own scrim (hero-scrim.ts): stacked on a phone, where the text
-   runs the full width; split on a wide screen, where it sits on the left.
-   Either way the words are over the opaque part, so contrast does not
-   depend on the photograph. */
-.photo-band-scrim {
-  position: absolute;
-  inset: 0;
-}
-
-.photo-band-scrim-split {
-  display: none;
-}
-
-@media (min-width: 64em) {
-  .photo-band-scrim-stacked {
-    display: none;
-  }
-  .photo-band-scrim-split {
-    display: block;
-  }
-}
-
-.photo-band-body {
-  position: relative;
-  width: 100%;
-}
+/* The photographic band itself is in page-hero.css, which every page hero
+   loads without the rest of this file. */
 
 .about-hero-lead {
   max-width: 38rem;

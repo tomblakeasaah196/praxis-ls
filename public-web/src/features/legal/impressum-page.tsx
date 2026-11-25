@@ -5,6 +5,8 @@ import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { getLegalEntities, type LegalEntity } from "@/lib/brand-api";
 import "@/components/site/brand.css";
 import "./legal-i18n";
+import { PageHero } from "@/components/site/page-hero";
+import { SectionHead } from "@/components/site/section-head";
 import { legalNameWithForm, phoneDisplay, phoneHref } from "@/lib/brand-api";
 
 /** The name carries the form as written ("... UG (haftungsbeschränkt)"),
@@ -52,15 +54,24 @@ export function ImpressumPage() {
   useDocumentMeta({ title: t("site.legal.impressum"), description: t("site.legal.impressumLead") });
 
   return (
-    <PageShell label={t("site.legal.impressum")} footer>
+    <PageShell overlayHeader label={t("site.legal.impressum")} footer>
+      <PageHero slot="impressum-hero">
+        <PageContainer size="reading" className="relative">
+          <div lang={lang}>
+            <SectionHead
+              as="h1"
+              titleClass="hero-title"
+              onDark
+              title={L("impressum")}
+              lead={lang === "de" ? t("site.legal.de.lead") : t("site.legal.impressumLead")}
+            />
+          </div>
+        </PageContainer>
+      </PageHero>
       <section className="band doc-page">
         <PageContainer size="reading">
           <header className="doc-head" lang={lang}>
-            <h1 className="font-display text-h2 font-semibold sm:text-h1">{L("impressum")}</h1>
-            <p className="mt-3 text-lg text-muted-foreground">
-              {lang === "de" ? t("site.legal.de.lead") : t("site.legal.impressumLead")}
-            </p>
-            <div className="lang-switch mt-6" role="group" aria-label="Language / Sprache">
+            <div className="lang-switch" role="group" aria-label="Language / Sprache">
               <button type="button" lang="en" aria-pressed={lang === "en"} onClick={() => setLang("en")}>
                 English
               </button>

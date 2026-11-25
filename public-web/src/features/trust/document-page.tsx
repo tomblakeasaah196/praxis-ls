@@ -15,6 +15,9 @@ import {
   type PublicDocument,
 } from "@/lib/brand-api";
 import { NotFoundPage } from "@/features/not-found/not-found-page";
+import { PageHero } from "@/components/site/page-hero";
+import { SectionHead } from "@/components/site/section-head";
+import { BadgePill } from "@/components/ui/badge-pill";
 import "@/components/site/brand.css";
 import "@/components/site/brand-i18n";
 import "./trust-i18n";
@@ -61,7 +64,25 @@ export function DocumentPage({ docKey }: { docKey?: string }) {
   if (doc === null) return <NotFoundPage />;
 
   return (
-    <PageShell label={doc ? doc.title : t("site.trust.title")} footer>
+    <PageShell overlayHeader label={doc ? doc.title : t("site.trust.title")} footer>
+      {/* The title and summary sit on the page's photograph, like every other
+          page (owner's review of staging, 25 Nov 2026). The privacy policy has
+          its own slot; a trust document shares the Trust page's. */}
+      <PageHero slot={key === "privacy-policy" ? "privacy-hero" : "trust-hero"}>
+        <PageContainer size="reading" className="relative">
+          {key === "privacy-policy" ? null : <BadgePill onDark>{t("site.trust.eyebrow")}</BadgePill>}
+          <div lang={doc ? doc.lang : undefined}>
+            <SectionHead
+              className={key === "privacy-policy" ? undefined : "mt-4"}
+              as="h1"
+              titleClass="hero-title"
+              onDark
+              title={doc ? doc.title : " "}
+              lead={doc && doc.summary ? doc.summary : undefined}
+            />
+          </div>
+        </PageContainer>
+      </PageHero>
       <section className="band doc-page">
         <PageContainer size="reading">
           {doc ? (
@@ -70,8 +91,6 @@ export function DocumentPage({ docKey }: { docKey?: string }) {
                 <p className="eyebrow">
                   <a href={p("/trust")}>{t("site.trust.allDocuments")}</a>
                 </p>
-                <h1 className="mt-3 font-display text-h2 font-semibold sm:text-h1">{doc.title}</h1>
-                {doc.summary ? <p className="mt-4 text-lg text-muted-foreground">{doc.summary}</p> : null}
                 <dl className="doc-facts">
                   {doc.version_label ? (
                     <div>
@@ -123,7 +142,7 @@ export function DocumentPage({ docKey }: { docKey?: string }) {
             </>
           ) : (
             <div className="doc-head" aria-busy="true">
-              <div className="h-10 w-2/3 rounded bg-muted" />
+              <div className="h-5 w-1/3 rounded bg-muted" />
               <div className="mt-4 h-5 w-full rounded bg-muted" />
             </div>
           )}

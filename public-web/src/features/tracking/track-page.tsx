@@ -22,6 +22,7 @@ import { BgMap } from "@/components/ui/bg-map";
 import { SearchIcon, BoxIcon, ShieldIcon, DocumentIcon } from "@/components/ui/icons";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { TrackingView } from "./track-result";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/public/track` — the public lookup, and the page most visitors of this whole
@@ -128,12 +129,11 @@ export function TrackPage() {
   }, [ref, nonce]);
 
   return (
-    <PageShell label={t("site.trackPage.title")} footer>
+    <PageShell overlayHeader label={t("site.trackPage.title")} footer>
       {/* The lane field behind the plate (§6.7), the same one the quote hero
           carries. Inline SVG, so it is part of the first paint rather than a
           texture that arrives over copy somebody is already reading. */}
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+      <PageHero slot="track-hero" fallback={<BgMap />}>
         {/* Positioned, so the copy sits above the map rather than under it. */}
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.track.kicker")}</BadgePill>
@@ -159,7 +159,7 @@ export function TrackPage() {
             <TrackWidget variant="page" onDark />
           </div>
         </PageContainer>
-      </section>
+      </PageHero>
 
       <Section>
         {state.kind === "idle" ? (

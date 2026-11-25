@@ -1060,7 +1060,7 @@ export type SiteSwitchKey =
 export declare const siteBrand: {
   SITE_IMAGE_SLOTS: Record<
     string,
-    { page: "home" | "about" | "partners" | "trust" | "services"; label: string; aspect: string }
+    { page: "home" | "about" | "partners" | "trust" | "services" | "pages"; label: string; aspect: string }
   >;
   SITE_IMAGE_LIMITS: { maxBytes: number; minWidth: number };
   isImageSlot: (key: string) => boolean;

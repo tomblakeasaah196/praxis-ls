@@ -27,6 +27,7 @@ import { BgMap } from "@/components/ui/bg-map";
 import { StagedLines } from "@/components/ui/type";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Reveal } from "@/components/ui/reveal";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/public/portfolio` and `/public/portfolio/:slug` — published case notes, from
@@ -91,14 +92,13 @@ export function PortfolioIndexPage() {
   });
 
   return (
-    <PageShell label={t("site.portfolioPage.title")} footer>
+    <PageShell overlayHeader label={t("site.portfolioPage.title")} footer>
       {/* §8.7's first acceptance criterion is EVERY route in `router.tsx`, not
           only the six §8 names. This one shipped as a bare `<h1>` on white and
           is the page a buyer reaches when they want evidence rather than a
           brochure — the same plate as the other index routes, so the site has
           one entrance vocabulary. */}
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+      <PageHero slot="portfolio-hero" fallback={<BgMap />}>
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.proof.eyebrow")}</BadgePill>
           <SectionHead
@@ -117,7 +117,7 @@ export function PortfolioIndexPage() {
             lead={t("site.portfolioPage.sub")}
           />
         </PageContainer>
-      </section>
+      </PageHero>
 
       <Section>
         {error ? (

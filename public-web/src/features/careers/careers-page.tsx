@@ -42,6 +42,7 @@ import { p } from "@/lib/base-path";
 // Registers `site.careers.*`, which lives in this chunk rather than in the
 // entry dictionary. Imported for the side effect; see careers-i18n.ts.
 import "./careers-i18n";
+import { PageHero } from "@/components/site/page-hero";
 
 /**
  * `/public/careers` and `/public/careers/:token` — the one screen in this product
@@ -128,7 +129,7 @@ export function CareersPage() {
   });
 
   return (
-    <PageShell label={t("site.careers.title")} footer>
+    <PageShell overlayHeader label={t("site.careers.title")} footer>
       {/* §8.5's entrance. This page shipped as a bare `<h1>` on white, and it is
           the page whose EMPTY state is the common one — a company is not always
           hiring — so the band is most of what a visitor sees on it. The form's
@@ -136,8 +137,7 @@ export function CareersPage() {
           on a phone is not an audience to experiment on", so the entrance is the
           same plate every other route uses and nothing about the vacancy list or
           the application flow changes. */}
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+      <PageHero slot="careers-hero" fallback={<BgMap />}>
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.careers.list")}</BadgePill>
           <SectionHead
@@ -151,7 +151,7 @@ export function CareersPage() {
             lead={t("site.careers.sub")}
           />
         </PageContainer>
-      </section>
+      </PageHero>
 
       {/* ── the roles, or the answer that there are none ──────────────────
           The list is a SLOT in a page rather than the whole page (13792). What
@@ -336,9 +336,8 @@ export function CareersUnsubscribePage() {
   const { token = "" } = useParams();
   useDocumentMeta({ title: t("site.careers.unsubTitle") });
   return (
-    <PageShell label={t("site.careers.unsubTitle")} footer>
-      <section className="band-hero relative overflow-hidden">
-        <BgMap />
+    <PageShell overlayHeader label={t("site.careers.unsubTitle")} footer>
+      <PageHero slot="careers-hero" fallback={<BgMap />}>
         <PageContainer className="relative">
           <BadgePill onDark>{t("site.careers.list")}</BadgePill>
           <SectionHead
@@ -349,7 +348,7 @@ export function CareersUnsubscribePage() {
             title={<StagedLines paintImmediately text={t("site.careers.unsubTitle")} />}
           />
         </PageContainer>
-      </section>
+      </PageHero>
       <Section>
         <UnsubscribePage token={decodeURIComponent(token)} />
       </Section>
