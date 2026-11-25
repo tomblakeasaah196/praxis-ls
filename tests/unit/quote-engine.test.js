@@ -51,7 +51,7 @@ const SYSTEM_TYPES = {
   END_TO_END_RAIL_FREIGHT: ["End-to-End Rail Freight", "END_TO_END_INTERNATIONAL"],
   // Created in Master Data for the Europe family (not in any migration).
   EXPORT_CONSOLIDATION_AFRICA: ["Export Consolidation to Africa", "INTERNATIONAL_EXPORT"],
-  PURCHASING_SOURCING: ["Purchasing and Sourcing", "OTHER"],
+  SOURCING_SUPPLIER_COORDINATION: ["Sourcing and Supplier Coordination", "OTHER"],
   EUROPEAN_ROAD_FREIGHT: ["European Road Freight", "CROSS_BORDER"],
   EU_IMPORT_CLEARANCE: ["EU Import Clearance", "PORT_AIRPORT_ZONE"],
 };
@@ -89,7 +89,7 @@ const SERVICES = {
   customs: website("customs", ["CUSTOMS_BROKERAGE"]),
   representation: website("representation", ["BUSINESS_REPRESENTATION"]),
   consolidation: website("consolidation", [member("EXPORT_CONSOLIDATION_AFRICA", { card: "SEA", incoterms: incoterms.defaultsForMode("SEA") })]),
-  sourcing: website("sourcing", ["PURCHASING_SOURCING"]),
+  sourcing: website("sourcing", ["SOURCING_SUPPLIER_COORDINATION"]),
   euroad: website("euroad", ["EUROPEAN_ROAD_FREIGHT"]),
   euclearance: website("euclearance", [member("EU_IMPORT_CLEARANCE", { card: "CUSTOMS", incoterms: incoterms.defaultsForMode("CUSTOMS") })]),
   // Configurations a tenant can reach that the engine must still answer.
