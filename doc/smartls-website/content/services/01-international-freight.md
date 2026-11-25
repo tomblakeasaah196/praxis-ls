@@ -114,7 +114,7 @@ delivery and one invoice.
 
 **Closing line.** Every bridge, bend and crane on the route checked before the cargo is booked.
 
-**Meta title.** Project Cargo and Break-bulk, Central Africa | SMART LOGISTICS AND SERVICES
+**Meta title.** Project Cargo and Break-bulk | SMART LOGISTICS AND SERVICES
 
 **Meta description.** Project and break-bulk shipping into Cameroon, Chad and the CAR: route surveys, port handling at Douala and Kribi, permits, escorts and delivery to site.
 

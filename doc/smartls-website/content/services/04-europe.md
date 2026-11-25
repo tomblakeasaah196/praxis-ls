@@ -59,7 +59,7 @@ Featured: no. Accent: accent. Cover: `14-europe-sourcing.jpg`.
 
 **Closing line.** You buy from the supplier; we make sure the goods and the papers are right.
 
-**Meta title.** Supplier Coordination in Europe for African Importers | SMART LOGISTICS AND SERVICES
+**Meta title.** Supplier Coordination in Europe | SMART LOGISTICS AND SERVICES
 
 **Meta description.** For importers in Cameroon and Central Africa: supplier search, quotes, order follow-up, readiness checks and shipping documents, coordinated from Mannheim.
 
@@ -92,7 +92,7 @@ Featured: no. Accent: primary. Cover: `13-europe-road.jpg`.
 
 **Closing line.** A European load arranged by people who know where it goes next.
 
-**Meta title.** Road Freight Across Europe from Mannheim | SMART LOGISTICS AND SERVICES
+**Meta title.** Road Freight Across Europe | SMART LOGISTICS AND SERVICES
 
 **Meta description.** Full and part truckloads across Germany and the European Union, organised from Mannheim with partner hauliers, with CMR documents and delivery to the port.
 

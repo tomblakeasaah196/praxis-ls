@@ -95,7 +95,7 @@ signed delivery note and the empty container's return receipt.
 | Featured | No |
 | Profile on | Rail Transportation (`RAIL_TRANSPORTATION`) |
 | Website name | Rail Transport |
-| Slug | `rail-transport` (live slug `rail-transportation`) |
+| Slug | `rail-transport` |
 | Accent | Accent (blue) |
 | Cover | `08-service-rail.jpg` |
 
@@ -103,7 +103,7 @@ signed delivery note and the empty container's return receipt.
 
 **Closing line.** Rail where it pays, and we tell you plainly where it does not.
 
-**Meta title.** Rail Freight Douala, Yaoundé, Ngaoundéré | SMART LOGISTICS AND SERVICES
+**Meta title.** Rail Freight in Cameroon | SMART LOGISTICS AND SERVICES
 
 **Meta description.** Rail freight on Cameroon's line from Douala to Yaoundé and Ngaoundéré: wagon booking, loading at the terminals, and road onward to the north, Chad and the CAR.
 
