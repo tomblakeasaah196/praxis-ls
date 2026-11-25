@@ -45,6 +45,7 @@ export function MessageButton() {
       <button
         ref={launcher}
         type="button"
+        aria-label={t("site.message.open")}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? "site-message-panel" : undefined}
@@ -54,7 +55,11 @@ export function MessageButton() {
         className="btn-primary fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-3 z-40 inline-flex h-12 min-w-[3rem] items-center justify-center gap-2 rounded-full px-3 text-[0.9375rem] font-semibold shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--brand-orange))] md:bottom-6 md:right-6 md:px-5"
       >
         <ChatGlyph />
-        <span className="sr-only md:not-sr-only">{t("site.message.open")}</span>
+        {/* Shown from md up; the button's aria-label names it at every width.
+            Not `sr-only md:not-sr-only`: this site's `.sr-only` also sets a
+            clip-path that Tailwind's reset leaves in place, so the words were
+            announced but never drawn (found on staging, 25 Nov 2026). */}
+        <span aria-hidden="true" className="hidden md:inline">{t("site.message.open")}</span>
       </button>
       {open ? (
         <React.Suspense fallback={null}>

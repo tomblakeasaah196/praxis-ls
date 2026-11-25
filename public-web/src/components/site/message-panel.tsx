@@ -194,6 +194,11 @@ export default function MessagePanel({ onClose }: { onClose: () => void }) {
       writeSession(DRAFT_KEY, null);
     } else {
       upload.rewind();
+      // The error sits above the message; a visitor who scrolled down to Send
+      // would otherwise see nothing happen (found on staging, 25 Nov 2026).
+      requestAnimationFrame(() =>
+        panel.current?.querySelector('[role="alert"]')?.scrollIntoView?.({ block: "nearest" }),
+      );
     }
   }
 

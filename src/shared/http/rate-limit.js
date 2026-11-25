@@ -51,11 +51,31 @@ const BASE = {
   message: TOO_MANY,
 };
 
-let store = null;
+/**
+ * How to build a Redis store, once Redis is up. Null until `initRateLimitStore`
+ * succeeds, and then each limiter builds ITS OWN store from it.
+ *
+ * ── ONE STORE PER LIMITER, NOT ONE FOR ALL ────────────────────────────────
+ *
+ * There used to be one shared RedisStore, initialised with the options of the
+ * first limiter that touched it, keyed `rl:<ip>`. Two consequences, both found
+ * on staging on 25 Nov 2026 (SmartLS website v2, PR 2) when the website's
+ * first-ever test message was refused as "too many":
+ *
+ *   1. Every IP-keyed limiter counted into the SAME key. Reading the careers
+ *      page, tracking a shipment, signing in: each one spent the visitor's
+ *      ten-per-hour message allowance, because "ten" was compared against the
+ *      sum of everything that address had done.
+ *   2. Every limiter used the FIRST limiter's window, whatever its own said.
+ *
+ * Now each limiter's keys live under `rl:<name>:`, with its own window. The
+ * in-memory fallback was already per limiter and is unchanged.
+ */
+let storeFactory = null;
 let storeKind = "memory";
 
 /**
- * Build the Redis store once, lazily, after `initRedis()` has run.
+ * Prepare the Redis store factory once, lazily, after `initRedis()` has run.
  *
  * Called from server.js at boot rather than at require-time, because the
  * limiters below are constructed when their route module is required — which
@@ -68,13 +88,16 @@ function initRateLimitStore() {
     const { RedisStore } = require("rate-limit-redis");
     const { getClient } = require("../../config/redis");
     const client = getClient();
-    store = new RedisStore({
+    storeFactory = (name) => new RedisStore({
       sendCommand: (...args) => client.call(...args),
-      prefix: "rl:",
+      prefix: `rl:${name}:`,
     });
+    // Built once here so a broken Redis client is caught at boot, as before.
+    storeFactory("boot-check");
     storeKind = "redis";
     logger.info({ store: storeKind }, "rate-limit store ready");
   } catch (err) {
+    storeFactory = null;
     storeKind = "memory";
     logger.warn(
       { err },
@@ -108,15 +131,16 @@ function makeLimiter({ name, max, windowMs, keyGenerator, failuresOnly = false }
       init(options) {
         this._options = options;
       },
-      /** The shared Redis store once it exists; until then (or if it never
-       *  does) this limiter's own in-process MemoryStore. */
+      /** This limiter's own Redis store once Redis is up (its own key prefix
+       *  and its own window); until then, or if it never is, this limiter's
+       *  own in-process MemoryStore. */
       active() {
-        if (store) {
-          if (!store._praxisInit) {
-            store.init(this._options);
-            store._praxisInit = true;
+        if (storeFactory) {
+          if (!this._redis) {
+            this._redis = storeFactory(name || "unnamed");
+            this._redis.init(this._options);
           }
-          return store;
+          return this._redis;
         }
         if (!this._memory) {
           this._memory = new MemoryStore();
