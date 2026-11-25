@@ -498,6 +498,13 @@ const ROUTES = [
   },
 ];
 
+/** `text` with every spelling of `name`, whatever its capitals, as `name`. */
+function spellName(text, name) {
+  if (!name) return text;
+  const pattern = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  return text.replace(pattern, name);
+}
+
 /**
  * Everything a page's head and its share card are made from, for one host and
  * one base-relative path. One function for both, so the card's headline and
@@ -535,10 +542,13 @@ async function describe(host, rel) {
   // page's search title) or one already carrying the name is printed as it is,
   // so the announcement does not read "... Opens in Mannheim | Smart Logistics
   // and Services" twice over.
-  const own = page && page.title ? String(page.title) : null;
+  // The name is spelled ONE way: a written title that carries it in other
+  // capitals ("| SMART LOGISTICS AND SERVICES", from before the tenant chose
+  // its site name) prints it as the site name reads.
+  const own = page && page.title ? spellName(String(page.title), name) : null;
   const title = !own
     ? name
-    : page.fullTitle || own.toLowerCase().includes(name.toLowerCase())
+    : page.fullTitle || own.includes(name)
       ? own
       : own + " | " + name;
   const home = shareCopy.page(share, "home");
@@ -742,6 +752,24 @@ const SITEMAP_ROUTES = [
   "/legal/privacy",
 ];
 
+/** Every published service in the public list, whether it arrives flat or in
+ *  families, once each (a service can sit in two families). */
+function serviceRows(list) {
+  const rows = Array.isArray(list)
+    ? list
+    : [
+      ...((list && Array.isArray(list.groups) ? list.groups : []).flatMap((g) => (g && Array.isArray(g.services) ? g.services : []))),
+      ...(list && Array.isArray(list.services) ? list.services : []),
+    ];
+  const seen = new Set();
+  return rows.filter((r) => {
+    const slug = r && (r.slug_en || r.slug_fr);
+    if (!slug || seen.has(slug)) return false;
+    seen.add(slug);
+    return true;
+  });
+}
+
 async function sitemap(host, origin, base) {
   // `joinBase` and not `base + …`: on a host the site owns, the base is "/"
   // and naive concatenation emits "//track" — a URL a crawler treats as a
@@ -761,7 +789,11 @@ async function sitemap(host, origin, base) {
     // Each section is independent: a tenant with no case notes should still get a
     // sitemap of their services, not a 500.
     const sections = [
-      [() => services.list(client), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
+      // The list became `{ groups: [{ services }] }` with the service families
+      // (website v2, PR 3), and this section silently listed nothing from then
+      // on: thirteen service pages a crawler was never told about. Both shapes
+      // are read, so the next reshaping cannot empty it the same way.
+      [() => services.list(client).then(serviceRows), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
       [() => (portfolioOn ? portfolio.list(client) : []), (r) => at("/portfolio/" + encodeURIComponent(r.slug || ""))],
       [() => careers.list(client), (r) => at("/careers/" + encodeURIComponent(r.public_token || r.token || ""))],
       // Published articles only — listPublic filters, and an unpublished slug in
@@ -844,6 +876,8 @@ module.exports = {
   describeForCard,
   cardUrl,
   headFor,
+  serviceRows,
+  spellName,
   robots,
   sitemap,
   invalidateHost,

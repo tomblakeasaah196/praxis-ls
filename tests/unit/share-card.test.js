@@ -141,6 +141,26 @@ describe("the head", () => {
     expect(tags).toMatch(/<meta property="og:description" content="[^"]+" \/>/);
   });
 
+  test("the site name is spelled one way, whatever capitals a written title used", () => {
+    expect(head.spellName("Sea Freight to Douala and Kribi | SMART LOGISTICS AND SERVICES", "Smart Logistics and Services"))
+      .toBe("Sea Freight to Douala and Kribi | Smart Logistics and Services");
+    expect(head.spellName("A (b) title", "(b)")).toBe("A (b) title");
+    expect(head.spellName("Anything", "")).toBe("Anything");
+  });
+
+  test("the sitemap reads the service families, not only a flat list", () => {
+    const grouped = {
+      groups: [
+        { key: "freight", services: [{ slug_en: "sea-freight" }, { slug_en: "air-freight" }] },
+        { key: "europe", services: [{ slug_en: "sea-freight" }, { slug_en: "european-road-freight" }] },
+      ],
+      routing_rules: [{}],
+    };
+    expect(head.serviceRows(grouped).map((r) => r.slug_en)).toEqual(["sea-freight", "air-freight", "european-road-freight"]);
+    expect(head.serviceRows([{ slug_en: "a" }, { slug_fr: "b" }, {}])).toHaveLength(2);
+    expect(head.serviceRows(null)).toEqual([]);
+  });
+
   test("the card's address changes with what is drawn on it", () => {
     const view = { headline: "x", photo: null, logo: null, accent: null, font: null };
     const a = head.cardUrl("https://h.test", "h.test", "/", view);
