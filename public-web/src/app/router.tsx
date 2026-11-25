@@ -130,6 +130,20 @@ const Contact = lazy(
   () => import("@/features/contact/contact-page"),
   "ContactPage",
 );
+const Partners = lazy(
+  () => import("@/features/partners/partners-page"),
+  "PartnersPage",
+);
+const Trust = lazy(() => import("@/features/trust/trust-page"), "TrustPage");
+const TrustDocument = lazy(
+  () => import("@/features/trust/document-page"),
+  "DocumentPage",
+);
+const Privacy = lazy(() => import("@/features/trust/document-page"), "PrivacyPage");
+const Impressum = lazy(
+  () => import("@/features/legal/impressum-page"),
+  "ImpressumPage",
+);
 const Vacancy = lazy(
   () => import("@/features/careers/careers-page"),
   "VacancyPage",
@@ -370,6 +384,11 @@ export function AppRouter() {
           so links already in circulation still land somewhere sensible.
         */}
         <Route path={p("/contact")} element={<Contact />} />
+        <Route path={p("/partners")} element={<Partners />} />
+        <Route path={p("/trust")} element={<Trust />} />
+        <Route path={p("/trust/:key")} element={<TrustDocument />} />
+        <Route path={p("/legal/impressum")} element={<Impressum />} />
+        <Route path={p("/legal/privacy")} element={<Privacy />} />
 
         {/* ── the external portal ── */}
         <Route path="/portal/*" element={<PortalApp />} />

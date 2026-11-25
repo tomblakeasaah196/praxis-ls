@@ -169,7 +169,7 @@ export type AboutSections = {
   message?: { leader_id?: string | null; title?: BiText; paragraphs?: BiText[] };
   offices?: {
     title?: BiText;
-    items?: { entity_id: string; label?: BiText; services?: BiText }[];
+    items?: { entity_id: string; heading?: BiText; label?: BiText; services?: BiText }[];
   };
   sectors?: {
     title?: BiText;
@@ -178,7 +178,6 @@ export type AboutSections = {
   };
   standards?: { title?: BiText; text?: BiText };
   closing?: { title?: BiText; text?: BiText };
-  seo?: { title?: BiText; description?: BiText };
 };
 
 export type Leader = {

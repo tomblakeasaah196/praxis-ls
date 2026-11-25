@@ -118,7 +118,9 @@ const titled = z.object({ title: txt(120), text: txt(PARA) }).strict();
  *
  * The headline and lead stay in `site_about.headline_*` / `summary_*`, the
  * founding year and headquarters in their own columns, and the principles in
- * `site_about.principles`: they predate 14660 and other screens read them.
+ * `site_about.principles`: they predate 14660 and other screens read them. The
+ * search snippet is the `about` page's meta title and description (Settings ›
+ * Website › Pages), the one place every page's snippet is written.
  * Everything the rebuilt page adds lives here. Every section is optional, and
  * a section with nothing in it is not drawn: the page is shorter, never broken.
  */
@@ -147,6 +149,9 @@ const aboutSections = z
             z
               .object({
                 entity_id: z.string().guid(),
+                // "Douala, Cameroon": the heading. The address, phone and
+                // email are read from the company, never typed here.
+                heading: txt(80),
                 label: txt(60),
                 services: txt(400),
               })
@@ -171,10 +176,6 @@ const aboutSections = z
       .optional(),
     closing: z
       .object({ title: txt(120), text: txt(400) })
-      .strict()
-      .optional(),
-    seo: z
-      .object({ title: txt(70), description: txt(170) })
       .strict()
       .optional(),
   })

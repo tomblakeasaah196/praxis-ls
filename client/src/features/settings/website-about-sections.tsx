@@ -234,7 +234,7 @@ export function AboutSectionsEditor({
             items={s.offices?.items ?? []}
             max={3}
             addLabel={tr("Add Office")}
-            blank={() => ({ entity_id: entities[0]?.entity_id ?? "", label: { en: "" }, services: { en: "" } })}
+            blank={() => ({ entity_id: entities[0]?.entity_id ?? "", heading: { en: "" }, label: { en: "" }, services: { en: "" } })}
             onChange={(items) => put("offices", { ...s.offices, items })}
             render={(item, set) => (
               <div className="space-y-3">
@@ -254,7 +254,10 @@ export function AboutSectionsEditor({
                     ))}
                   </select>
                 </Field>
-                <BiField label={tr("Label")} about={tr("Head Office, European Office.")} value={item.label} max={60} onChange={(label) => set({ ...item, label })} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <BiField label={tr("Heading")} about={tr("The city and country, such as Douala, Cameroon.")} value={item.heading} max={80} onChange={(heading) => set({ ...item, heading })} />
+                  <BiField label={tr("Label")} about={tr("Head Office, European Office.")} value={item.label} max={60} onChange={(label) => set({ ...item, label })} />
+                </div>
                 <BiField label={tr("What This Office Does")} value={item.services} rows={2} max={400} onChange={(services) => set({ ...item, services })} />
               </div>
             )}
@@ -304,25 +307,6 @@ export function AboutSectionsEditor({
         </div>
       </SettingsCard>
 
-      <SettingsCard title={tr("Search Snippet")}>
-        <div className="space-y-4">
-          <BiField
-            label={tr("Title")}
-            about={tr("What a search engine shows as the page's title. Around 60 characters.")}
-            value={s.seo?.title}
-            max={70}
-            onChange={(title) => put("seo", { ...s.seo, title })}
-          />
-          <BiField
-            label={tr("Description")}
-            about={tr("The two lines under the title in search results. Around 155 characters.")}
-            value={s.seo?.description}
-            rows={2}
-            max={170}
-            onChange={(description) => put("seo", { ...s.seo, description })}
-          />
-        </div>
-      </SettingsCard>
     </LangContext.Provider>
   );
 }

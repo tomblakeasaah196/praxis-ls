@@ -359,6 +359,44 @@ const CASES = {
       "entityCoverAlt", "carriersLead", "markAlt",
     ],
   },
+  // PR 4 (14660): the brand layer.
+  "site.brand": {
+    LABEL: [
+      "memberNumber", "requestQuote", "talkToUs", "forPartners", "downloadPdf",
+      "read", "phone", "email",
+    ],
+    PROSE: ["clientsCaption", "memberOf"],
+  },
+  "site.aboutPage": LABEL,
+  "site.partnersPage": {
+    LABEL: [
+      "title", "eyebrow", "officesTitle", "contactsTitle", "membershipsTitle", "formTitle",
+    ],
+    PROSE: ["sub", "formLead"],
+  },
+  "site.trust": {
+    LABEL: [
+      "title", "eyebrow", "policiesTitle", "legalTitle", "credentialsTitle",
+      "membershipsTitle", "version", "effective", "approvedBy", "published",
+      "allDocuments", "language",
+    ],
+    PROSE: ["sub", "notFound"],
+  },
+  // The `de` strings are the Impressum's German legal wording, the same in both
+  // dictionaries, and are never re-cased.
+  "site.legal": {
+    LABEL: [
+      "impressum", "privacy", "company", "registeredOffice", "representedBy",
+      "register", "registerCourt", "vatId", "contact", "phone", "email", "website",
+      "responsible", "disputes",
+    ],
+    PROSE: [
+      "impressumLead", "disputesText", "pending",
+      "de.impressum", "de.lead", "de.company", "de.registeredOffice", "de.representedBy",
+      "de.register", "de.registerCourt", "de.vatId", "de.contact", "de.phone", "de.email",
+      "de.website", "de.responsible", "de.disputes", "de.disputesText", "de.pending",
+    ],
+  },
   "site.announce": LABEL,
   "site.careers": {
     LABEL: [
