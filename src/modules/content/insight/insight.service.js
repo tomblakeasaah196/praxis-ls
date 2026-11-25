@@ -768,7 +768,7 @@ async function importMarkdown(client, { name, text, actor = {} }) {
   } catch (err) {
     throw new AppError("IMPORT_UNREADABLE", `${name}: ${err.message}`, 422);
   }
-  const { patch, ignored } = importer.toPatch(parsed);
+  const { patch, ignored, cover } = importer.toPatch(parsed);
   if (!patch.slug_en && !patch.slug_fr) {
     throw new AppError("IMPORT_UNREADABLE", `${name}: the front matter has no slug`, 422, {
       slug_en: ["the file needs a slug"],
@@ -786,7 +786,9 @@ async function importMarkdown(client, { name, text, actor = {} }) {
     );
   }
   const row = await create(client, { patch: checked.data, actor });
-  return { article: row, ignored };
+  // `cover` is the image file the front matter names; the import screen
+  // attaches it through the cover endpoint, so an import is one selection.
+  return { article: row, ignored, cover };
 }
 
 /** Required lazily: the validator requires `insight.kinds`, never this file,

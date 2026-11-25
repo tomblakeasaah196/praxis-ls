@@ -248,6 +248,15 @@ describe("the import", () => {
     expect(ignored.sort()).toEqual(["note", "sources"]);
   });
 
+  it("answers with the cover file name, bare, so the screen can attach the image", () => {
+    const withCover = (v) => importer.toPatch(importer.parseFrontMatter(`---\ntitle: X\nslug: x\ncover: ${v}\n---\nBody`));
+    expect(withCover("a01-why.jpg").cover).toBe("a01-why.jpg");
+    expect(withCover("images/a01-why.jpg").cover).toBe("a01-why.jpg");
+    expect(withCover("C:\\covers\\a01-why.jpg").cover).toBe("a01-why.jpg");
+    expect(withCover("a01-why.jpg").ignored).not.toContain("cover");
+    expect(importer.toPatch(importer.parseFrontMatter("---\ntitle: X\nslug: x\n---\nB")).cover).toBeNull();
+  });
+
   it("fills the French half when the file says it is French", () => {
     const { patch } = importer.toPatch(importer.parseFrontMatter("---\nlanguage: fr\ntitle: La douane\nslug: la-douane\n---\nTexte"));
     expect(patch).toMatchObject({ title_fr: "La douane", slug_fr: "la-douane", body_fr: "Texte" });
@@ -268,6 +277,7 @@ describe("the import", () => {
     expect(repo.setPublished).not.toHaveBeenCalled();
     expect(out.article.is_published).toBe(false);
     expect(out.ignored).toContain("sources");
+    expect(out.cover).toBeNull();
   });
 
   it("refuses a file whose slug is already in use, so importing twice is harmless", async () => {

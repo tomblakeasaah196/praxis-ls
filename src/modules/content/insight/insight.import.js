@@ -134,6 +134,9 @@ function parseFrontMatter(text) {
 const KNOWN = new Set([
   "title", "slug", "date", "kind", "language", "lang", "tags", "byline", "role",
   "excerpt", "meta_title", "meta_description", "meta", "standfirst",
+  // The cover is bytes, not a field: the import answers with its file name and
+  // the screen uploads the matching image through the cover endpoint.
+  "cover",
 ]);
 
 /**
@@ -170,7 +173,9 @@ function toPatch({ data, body }) {
   const ignored = Object.keys(data).filter(
     (k) => !KNOWN.has(k) && !k.startsWith("meta_"),
   );
-  return { patch, lang, ignored };
+  // A bare file name only (no path), compared case-insensitively by the screen.
+  const cover = data.cover ? String(data.cover).split(/[\\/]/).pop().trim() || null : null;
+  return { patch, lang, ignored, cover };
 }
 
 module.exports = { parseFrontMatter, toPatch, unquote, inlineList };
