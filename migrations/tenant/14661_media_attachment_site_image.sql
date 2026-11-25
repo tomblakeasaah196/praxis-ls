@@ -1,0 +1,39 @@
+-- ============================================================================
+-- TENANT — 14661 The attachment outbox accepts the website's photograph slots
+-- (doc/smartls-website/ENGINEERING_GUIDE.md, PR 4).
+--
+-- ── DEPENDENCIES ─────────────────────────────────────────────────────────────
+-- 13980  media_attachment (the upload outbox) and its owner_table CHECK
+-- 14660  site_image
+--
+-- ── WHY ─────────────────────────────────────────────────────────────────────
+-- 14660 added `site_image`, a row per photograph slot, and every website upload
+-- books an attempt in `media_attachment` before its first byte is written. The
+-- outbox's owner_table CHECK lists the tables that may own an upload, and
+-- `site_image` was not on it, so the first photograph uploaded on the live
+-- tenant was refused with "A value violates a domain constraint" (25 Nov 2026).
+--
+-- ── THE CHECK MOVES INTO CODE ──────────────────────────────────────────────
+-- Widening a CHECK on a table that existed before this file means re-adding it,
+-- and a constraint added to a pre-existing table above 13791 aborts provisioning
+-- a new tenant (tests/unit/migration-constraint-ordering.test.js; 14040 and
+-- 14310 met the same rule). So the CHECK is dropped and the list of owner
+-- tables is enforced where every row is written:
+-- `OWNER_TABLES` in src/modules/vault/document_vault/attachment_outbox.service.js.
+-- ============================================================================
+
+ALTER TABLE media_attachment DROP CONSTRAINT IF EXISTS media_attachment_owner_table_check;
+
+-- ============================================================================
+-- VERIFY
+--   INSERT INTO media_attachment (kind, owner_table, owner_id)
+--   VALUES ('SITE_MEDIA', 'site_image', gen_random_uuid());          -- ok
+--
+-- DOWN
+--   -- Re-adding the CHECK refuses while any row names site_image, so those
+--   -- outbox rows go first (they are bookkeeping, the photographs stay).
+--   DELETE FROM media_attachment WHERE owner_table = 'site_image';
+--   ALTER TABLE media_attachment ADD CONSTRAINT media_attachment_owner_table_check
+--     CHECK (owner_table IN ('corporate_entity', 'site_leader', 'site_partner', 'site_credential',
+--                            'entity_document', 'client_document', 'supplier_document'));
+-- ============================================================================

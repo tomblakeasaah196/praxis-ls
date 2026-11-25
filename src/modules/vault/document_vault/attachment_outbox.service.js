@@ -88,11 +88,32 @@ const RECONCILE_METRIC = (result, value = 1) => {
   );
 };
 
+/**
+ * The tables that may own an upload. This was the owner_table CHECK of 13980;
+ * 14661 dropped it to admit `site_image`, because re-adding a CHECK to a table
+ * older than 13791 aborts provisioning a new tenant
+ * (tests/unit/migration-constraint-ordering.test.js). Every row is written by
+ * `begin` or `recordScanUpload` below, so the rule holds here instead. A new
+ * owner goes on this list AND into the orphan checks in attachment_outbox.repo
+ * and business-metrics, or the sweep archives its photographs.
+ */
+const OWNER_TABLES = Object.freeze([
+  "corporate_entity", "site_leader", "site_partner", "site_credential", "site_image",
+  "entity_document", "client_document", "supplier_document",
+]);
+
+function assertOwnerTable(ownerTable) {
+  if (!OWNER_TABLES.includes(ownerTable)) {
+    throw new Error(`media outbox: "${ownerTable}" is not a table that may own an upload`);
+  }
+}
+
 /* ── the state machine, as the upload paths drive it ───────────────────────*/
 
 /** Record the intent before anything is stored. The INSERT commits on its
  *  own: if the upload dies at once, the attempt is already named. */
 async function begin(client, { kind, ownerTable, ownerId, slot = null, actor = {} }) {
+  assertOwnerTable(ownerTable);
   return repo.insert(client, {
     kind,
     owner_table: ownerTable,
@@ -161,6 +182,7 @@ async function fail(client, attachmentId, error) {
  *  already exists (the document was created first); the bytes just landed;
  *  the link is the PATCH that has not happened yet. */
 async function recordScanUpload(client, { ownerTable, ownerId, vaultDocId, actor = {} }) {
+  assertOwnerTable(ownerTable);
   return repo.insert(client, {
     kind: "DOCUMENT_SCAN",
     owner_table: ownerTable,
@@ -403,6 +425,7 @@ async function reconcile(client, { ttlMs = DEFAULT_TTL_MS, actor = {} } = {}) {
 
 module.exports = {
   DEFAULT_TTL_MS,
+  OWNER_TABLES,
   STATES: Object.freeze(["INTENT", "BYTES_STORED", "LINKED", "FAILED", "RECONCILED"]),
   begin,
   markBytesStored,

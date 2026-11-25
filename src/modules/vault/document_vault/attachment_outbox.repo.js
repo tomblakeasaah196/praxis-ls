@@ -214,7 +214,7 @@ function unclaimedDocumentScanVaultRows(client, { table, pk, vaultColumn }, ttlI
  *     every request, restated here, because a surviving pointer means the
  *     transaction COMMITTED and these bytes are the live cover.
  *
- * The four owner checks are the OWNERS register from site_settings.media.js
+ * The owner checks are the OWNERS register from site_settings.media.js
  * restated in SQL. They are written out rather than derived because a sweep
  * that guessed the pointer columns would be a second source of truth for
  * them — the exact drift this module exists to prevent.
@@ -230,7 +230,8 @@ async function orphanSiteMedia(client, ttlInterval) {
         AND NOT EXISTS (SELECT 1 FROM corporate_entity o WHERE o.public_cover_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_leader o WHERE o.photo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_partner o WHERE o.logo_vault_id = v.doc_id)
-        AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)`,
+        AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)
+        AND NOT EXISTS (SELECT 1 FROM site_image o WHERE o.vault_id = v.doc_id)`,
     [ttlInterval],
   );
   return rows;
@@ -257,7 +258,7 @@ async function vaultRow(client, docId) {
  * checks in the statement itself, the archive and the claim are one atomic
  * decision: whichever commits first wins, and the loser matches zero rows.
  *
- * The four checks are the OWNERS register from site_settings.media.js,
+ * The checks are the OWNERS register from site_settings.media.js,
  * restated exactly as the orphan SELECT carries them.
  */
 async function archiveOrphanSiteMediaRow(client, docId) {
@@ -271,6 +272,7 @@ async function archiveOrphanSiteMediaRow(client, docId) {
         AND NOT EXISTS (SELECT 1 FROM site_leader o WHERE o.photo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_partner o WHERE o.logo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)
+        AND NOT EXISTS (SELECT 1 FROM site_image o WHERE o.vault_id = v.doc_id)
       RETURNING v.doc_id, v.status`,
     [docId],
   );
