@@ -10,7 +10,7 @@
 
 jest.mock("../../src/modules/site/site_settings/site_switches", () => ({
   load: jest.fn(async () => ({ languages: ["en"] })),
-}), { virtual: true });
+}));
 
 const { siteBrand } = require("@praxis/shared");
 const service = require("../../src/modules/site/site_brand/site_brand.service");
