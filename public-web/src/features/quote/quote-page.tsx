@@ -46,7 +46,7 @@ import { usePublishedServices } from "@/lib/use-services";
  */
 export function QuotePage() {
   const { t } = useTranslation();
-  const { services } = usePublishedServices();
+  const { services, groups } = usePublishedServices();
   const steps = tList<{ t: string; d: string }>("site.quote.steps");
 
   useDocumentMeta({
@@ -83,7 +83,7 @@ export function QuotePage() {
       <Section>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <Card padded>
-            <QuoteWizard services={services} />
+            <QuoteWizard services={services} groups={groups} />
           </Card>
           {/* Sticky, and `self-start` is what makes that work: a grid item
               stretches to the row height by default, so a sticky child inside a

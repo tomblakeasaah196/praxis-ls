@@ -25,7 +25,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_A_MEMBER` | `PERMISSION_DENIED` | 6× |
 | `NOT_YOURS` | `PERMISSION_DENIED` | 2× |
 
-## All codes (736)
+## All codes (742)
 
 | Code | Status | Raised | Alias of |
 |---|---|---|---|
@@ -355,6 +355,9 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `MAIL_SOURCE_UNAVAILABLE` | 404 | 1× | — |
 | `MAINTENANCE_READ_ONLY` | 423 | 1× | — |
 | `MANDATORY_ITEMS_OUTSTANDING` | 422 | 1× | — |
+| `MEMBER_INVALID` | 422 | 1× | — |
+| `MEMBER_IS_SELF` | 422 | 1× | — |
+| `MEMBER_TAKEN` | 422 | 1× | — |
 | `MERGE_SAME_RECORD` | 422 | 1× | — |
 | `METHOD_FIELDS_REQUIRED` | — | 1× | — |
 | `METHOD_NOT_ALLOWED` | — | 1× | — |
@@ -401,7 +404,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `NOT_EDITABLE` | 400 | 1× | — |
 | `NOT_ELIGIBLE` | 403 | 3× | — |
 | `NOT_ENABLED` | 400 | 4× | — |
-| `NOT_FOUND` | 404, 422 | 777× | — |
+| `NOT_FOUND` | 404, 422 | 781× | — |
 | `NOT_LEAF` | 422 | 1× | — |
 | `NOT_LINKED` | 422 | 1× | — |
 | `NOT_ON_THIS_FILE` | 409 | 1× | — |
@@ -582,6 +585,8 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `QUOTATION_PARTY_MISMATCH` | 422 | 1× | — |
 | `QUOTATION_PARTY_REQUIRED` | 422 | 1× | — |
 | `QUOTATION_SUPERSEDED` | 409 | 3× | — |
+| `QUOTE_ANSWERS_INCOMPLETE` | 422 | 1× | — |
+| `QUOTE_ANSWERS_INVALID` | 422 | 1× | — |
 | `QUOTE_REQUEST_NOT_FOUND` | 422 | 1× | — |
 | `QUOTE_REQUEST_OTHER_CLIENT` | 422 | 1× | — |
 | `RATE_LIMITED` | 429 | 1× | — |
@@ -625,6 +630,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `ROLE_NOT_FOUND` | 404 | 2× | — |
 | `ROOT_LOCKED` | 409 | 1× | — |
 | `ROTATION_REJECTED` | 404 | 1× | — |
+| `ROUTING_INVALID` | 422 | 2× | — |
 | `RUN_EXISTS` | 409 | 1× | — |
 | `RUN_LOCKED` | 422 | 1× | — |
 | `SAME_LANGUAGE` | 422 | 1× | — |
@@ -649,7 +655,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `SELF_SETTLE` | 422 | 1× | — |
 | `SENDER_NOT_AUTHORIZED` | 422 | 2× | — |
 | `SEND_RATE_LIMIT` | — | 2× | — |
-| `SERVICE_TYPE_INVALID` | 422 | 1× | — |
+| `SERVICE_TYPE_INVALID` | 422 | 2× | — |
 | `SERVICE_TYPE_NOT_FOUND` | 422 | 1× | — |
 | `SESSION_EXPIRED` | 401 | 3× | — |
 | `SESSION_REVOKED` | 401 | 8× | — |

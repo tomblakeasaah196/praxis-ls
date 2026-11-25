@@ -24,6 +24,29 @@ const service = require("./service_type.service");
 const dossier360 = require("./service_type_360.service");
 const commercial = require("./service_type_commercial.service");
 const { serviceScope } = require("@praxis/shared");
+const webRepo = require("../service_type_web/service_type_web.repo");
+const websiteService = require("../service_type_web/website-service");
+
+/**
+ * The website services (14640): each published profile with the ERP types it
+ * quotes for and its own routing rules, plus the generic rules. Read-only for
+ * the same reason as the rest of this manifest: where a quote lands is set by a
+ * person in Master Data, with the preview in front of them.
+ */
+async function websiteServices(c) {
+  const list = await webRepo.publicList(c);
+  const { descriptors, rules } = await websiteService.descriptorsFor(c, list);
+  return {
+    services: list.map((row) => ({
+      website_service_id: row.service_type_id,
+      name: row.web_name_en || row.name_en || row.web_name_fr || row.name_fr,
+      is_featured: row.is_featured === true,
+      ...descriptors.get(String(row.service_type_id)),
+      rules: rules.filter((r) => r.website_service_id && String(r.website_service_id) === String(row.service_type_id)),
+    })),
+    generic_rules: rules.filter((r) => !r.website_service_id),
+  };
+}
 
 /**
  * The Commercial tab reads are declared on MOD-09 `view`, not MOD-29.
@@ -76,6 +99,20 @@ module.exports = {
       key: "list_service_quote_cards",
       service: (c) => quoteCards(c), permission: { module: "MOD-29", action: "view" },
       describe: "Where each active service type lands on the quote request wizard (website, client portal, desk): its card (mode), its flow (IMPORT / EXPORT / END_TO_END / INLAND / HINTERLAND, from territory; null shows the service by name), the Incoterms it offers, and any pair of services sharing one card and one flow (collisions) that Service types warns about.",
+    },
+    {
+      key: "list_website_services",
+      service: (c) => websiteServices(c), permission: { module: "MOD-29", action: "view" },
+      describe: "The website services a visitor can ask a quote for (Sea Freight, Air Freight, ...): each with the ERP service types it quotes for (members: id, name, flow, Incoterms), its own quote routing rules, and the generic routing rules (direction IMPORT/EXPORT by span O/M/D/OM/MD/OMD of the work, to END_TO_END, IMPORT, EXPORT, a named TYPE or DESK review).",
+    },
+    {
+      key: "preview_quote_route",
+      service: async (c, p) => {
+        const found = await websiteService.evaluateFor(c, p && p.website_service_id, (p && p.answers) || {});
+        return found ? { website_service: found.name, ...found.result } : { error: "not a published website service" };
+      },
+      permission: { module: "MOD-29", action: "view" },
+      describe: "Run the quote engine without filing anything: give website_service_id and answers { direction IMPORT|EXPORT, knows YES|NO, incoterm (when knows YES), party BUYER|SELLER, start SUPPLIER_PREMISES|ORIGIN_PORT|DESTINATION_PORT, end ORIGIN_PORT|DESTINATION_PORT|PREMISES|PREMISES_DUTY_PAID, insured YES|NO (C terms), member (when two types tie) }, any of them NOT_SURE. Returns the next question when incomplete; else the outcome (RESOLVED with service_type_id, or DESK with a reason), the Incoterm and how it was reached, the scope of work and the sentence a visitor reads.",
     },
     {
       key: "get_service_type",

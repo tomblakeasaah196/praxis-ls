@@ -10,6 +10,11 @@ import { Hero } from "@/components/site/hero";
 import { AnnouncementsBand } from "@/components/site/announcements-band";
 import { StageSequence } from "@/components/site/stage-sequence";
 import { MediaCard, MoreLink, Section } from "@/components/site/section";
+/* The featured band (website v2, PR 3) waits for the services request anyway,
+   so it is a chunk of its own rather than weight on the first paint. */
+const FeaturedServicesBand = React.lazy(() =>
+  import("@/components/site/featured-services").then((m) => ({ default: m.FeaturedServicesBand })),
+);
 import { CorridorPanel } from "@/components/site/corridor-panel";
 import { PortalPreview, RouteGraphic } from "@/components/site/graphics";
 import { ProofStrip } from "@/components/site/proof-strip";
@@ -253,6 +258,11 @@ function ServicesBand() {
     [light, near],
   );
 
+  // A tenant that features services gets the dark featured band (website v2,
+  // PR 3): those services, one line each, white text, the closing line in
+  // orange. Everyone else keeps this band exactly as it was.
+  const featured = services.filter((s) => s.is_featured === true);
+
   const items = services.length
     ? services.map((s) => ({
         key: s.service_type_id,
@@ -286,6 +296,14 @@ function ServicesBand() {
         claim: null as string | null,
         to: p("/quote"),
       }));
+
+  if (featured.length) {
+    return (
+      <React.Suspense fallback={null}>
+        <FeaturedServicesBand services={featured} />
+      </React.Suspense>
+    );
+  }
 
   return (
     <Section

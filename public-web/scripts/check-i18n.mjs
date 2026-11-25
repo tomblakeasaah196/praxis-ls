@@ -80,6 +80,11 @@ const FEATURE_DICTS = [
     mount: "site.quoteSteps",
   },
   {
+    // The quote engine's questions (website v2, PR 3), the Terms step's chunk.
+    file: path.join(SRC, "components/quote/quote-engine-copy.ts"),
+    mount: "site.quoteEngine",
+  },
+  {
     // The verification portal — ~46 keys only a stranger holding a signed
     // document can reach, split out of the entry dictionary on a bundle budget.
     file: path.join(SRC, "features/verify/verify-copy.ts"),

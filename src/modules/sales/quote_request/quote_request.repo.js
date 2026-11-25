@@ -83,6 +83,15 @@ function insert(client, data) {
     attachment_doc_id: blankToNull(data.attachment_doc_id),
     // Nullable since 14511: a phone request may not know one yet.
     incoterm: blankToNull(data.incoterm),
+    // 14640 — why a website request landed on its type: the website service,
+    // the direction, how the term was reached, the scope and the engine's
+    // answer. Written by the public intake only; never in WRITABLE, because
+    // they are a record of what the visitor answered, not a field to edit.
+    website_service_id: blankToNull(data.website_service_id),
+    trade_direction: blankToNull(data.trade_direction),
+    incoterm_source: blankToNull(data.incoterm_source),
+    service_scope: data.service_scope ? JSON.stringify(data.service_scope) : null,
+    quote_routing: data.quote_routing ? JSON.stringify(data.quote_routing) : null,
     stage: "NEW",
     title: blankToNull(data.title),
     estimated_value: data.estimated_value ?? null,

@@ -2329,6 +2329,11 @@ export type ServiceTypeWebProfile = {
   claim_fr?: string | null;
   claim_en?: string | null;
   accent?: ServiceTypeWebAccent;
+  /** 14640: the website's name for the service; blank uses the type's own. */
+  web_name_en?: string | null;
+  web_name_fr?: string | null;
+  /** 14640: drawn on the homepage services band. */
+  is_featured?: boolean;
 };
 
 /**
@@ -2379,6 +2384,48 @@ export type ServiceTypeWebRelated = {
   key?: string | null;
 };
 
+/* ── Website services and quote routing (14640) ──────────────────────────
+   A published profile is a WEBSITE SERVICE: it quotes for its own type plus
+   its members, and the quote engine (@praxis/shared rules/quote-engine.js)
+   picks one from the visitor's answers through the routing rules. */
+export type ServiceTypeWebMember = {
+  service_type_id: string;
+  key?: string | null;
+  name_en?: string | null;
+  name_fr?: string | null;
+  territory?: string | null;
+  transport_mode?: string | null;
+  is_active?: boolean;
+  sort_order?: number;
+};
+
+export type QuoteRouteRule = {
+  rule_id?: string;
+  website_service_id?: string | null;
+  direction: string;
+  span: string;
+  outcome: string;
+  service_type_id?: string | null;
+  note?: string | null;
+};
+
+export type QuoteRoutePreview = {
+  direction: string;
+  incoterm: string;
+  span: string | null;
+  /** RESOLVED, DESK, or CHOOSE when the visitor picks between two types by name. */
+  outcome: "RESOLVED" | "DESK" | "CHOOSE" | null;
+  reason: string | null;
+  service_type_id: string | null;
+};
+
+export type ServiceTypeWebRouting = {
+  kind: "FREIGHT" | "CUSTOMS" | "SIMPLE";
+  own: QuoteRouteRule[];
+  generic: QuoteRouteRule[];
+  preview: QuoteRoutePreview[];
+};
+
 export type ServiceTypeWebTab = {
   /** Null before the first upsert — the empty state. */
   profile: ServiceTypeWebProfile | null;
@@ -2390,7 +2437,32 @@ export type ServiceTypeWebTab = {
     name_fr?: string | null;
     name_en?: string | null;
   };
+  /** 14640 — absent on a payload from before the website service layer. */
+  members?: ServiceTypeWebMember[];
+  routing?: ServiceTypeWebRouting;
+  engine_warnings?: { code: string; message: string }[];
 };
+
+export const replaceServiceTypeWebMembers = (serviceTypeId: string, memberIds: string[]) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/members`, {
+    method: "PUT",
+    body: { member_service_type_ids: memberIds },
+  });
+
+export const replaceServiceTypeWebRouting = (serviceTypeId: string, rows: QuoteRouteRule[]) =>
+  tenant<ServiceTypeWebTab>(`/service-types/${serviceTypeId}/web/routing`, {
+    method: "PUT",
+    body: { rows: rows.map(({ direction, span, outcome, service_type_id, note }) => ({ direction, span, outcome, service_type_id: service_type_id || null, note: note || null })) },
+  });
+
+export const getQuoteRoutingGeneric = () =>
+  tenant<{ generic: QuoteRouteRule[]; defaults: QuoteRouteRule[] }>(`/service-types/web/routing`);
+
+export const replaceQuoteRoutingGeneric = (rows: QuoteRouteRule[]) =>
+  tenant<{ generic: QuoteRouteRule[]; defaults: QuoteRouteRule[] }>(`/service-types/web/routing`, {
+    method: "PUT",
+    body: { rows: rows.map(({ direction, span, outcome, note }) => ({ direction, span, outcome, note: note || null })) },
+  });
 
 /** Caps mirror `service_type_web.validator.js` LIMITS — client-side only. */
 export const SERVICE_TYPE_WEB_LIMITS = {
@@ -2408,6 +2480,7 @@ export const SERVICE_TYPE_WEB_LIMITS = {
   /** One sentence, not a paragraph — the card closes on it (12755). */
   CLAIM_MAX: 200,
   GROUP_NAME_MAX: 80,
+  WEB_NAME_MAX: 80,
 } as const;
 
 /**
@@ -2438,6 +2511,9 @@ export type ServiceTypeWebProfilePatch = {
   claim_fr?: string | null;
   claim_en?: string | null;
   accent?: ServiceTypeWebAccent;
+  web_name_en?: string | null;
+  web_name_fr?: string | null;
+  is_featured?: boolean;
 };
 
 /* ── Pillars (12755) ───────────────────────────────────────────────────────

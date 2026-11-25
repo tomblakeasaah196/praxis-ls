@@ -28,4 +28,7 @@ module.exports = {
   GROUP_CREATED: "service_type_web.group_created",
   GROUP_UPDATED: "service_type_web.group_updated",
   GROUP_DELETED: "service_type_web.group_deleted",
+  // 14640 — a website service's member types and the quote routing rules.
+  MEMBERS_UPDATED: "service_type_web.members_updated",
+  ROUTING_UPDATED: "service_type_web.routing_updated",
 };

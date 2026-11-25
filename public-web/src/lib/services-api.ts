@@ -40,6 +40,36 @@ export type ServiceMode =
   | "CUSTOMS"
   | "OTHER";
 
+/**
+ * What the quote engine needs to know about a WEBSITE SERVICE (14640): the ERP
+ * service types it quotes for and its own routing rules. The website runs
+ * `@praxis/shared/rules/quote-engine` over this to draw the questions and the
+ * plain-words result; the intake runs it again on the server and stores what
+ * it says, so nothing here is trusted for the outcome.
+ */
+export type QuoteMember = {
+  service_type_id: string;
+  name_en: string | null;
+  name_fr: string | null;
+  flow: QuoteFlow | null;
+  incoterms: string[];
+};
+export type QuoteRule = {
+  website_service_id: string | null;
+  direction: string;
+  span: string;
+  outcome: string;
+  service_type_id: string | null;
+};
+export type WebsiteQuote = {
+  card: QuoteCard;
+  /** False when the service puts no question (one type, no direction, no term). */
+  asks: boolean;
+  members: QuoteMember[];
+  /** The generic rules and this service's own, as the server sends them. */
+  rules: QuoteRule[];
+};
+
 export type ServiceCard = {
   service_type_id: string;
   slug_fr: string;
@@ -94,6 +124,10 @@ export type ServiceCard = {
   /** A brand TOKEN NAME, never a hex: the palette is tenant config, so a stored
    *  colour would hardcode one tenant's brand into another's data. */
   accent: ServiceAccent;
+  /** Drawn on the homepage band (14640). Absent on an older payload. */
+  is_featured?: boolean;
+  /** The quote engine's view of this website service (14640). */
+  quote?: WebsiteQuote;
   cover_url: string | null;
   icon_url: string | null;
   has_video: boolean;
@@ -216,7 +250,11 @@ export type ServiceGroup = {
  * and thrown away on every load. The type is the fix; the guard was doing
  * exactly what it was written to do.
  */
-export type ServicesIndex = { groups: ServiceGroup[] };
+export type ServicesIndex = {
+  groups: ServiceGroup[];
+  /** The generic quote routing rules every website service falls back to (14640). */
+  routing_rules?: QuoteRule[];
+};
 
 export const listServices = () =>
   publicGet<ServicesIndex>("/public/services");

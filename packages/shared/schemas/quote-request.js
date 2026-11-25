@@ -251,6 +251,25 @@ const publicDocument = z.object({
   document_kind: z.enum(DOCUMENT_KINDS).optional(),
 }).strict();
 
+/**
+ * What the visitor answered in the quote engine's questions (14640). Codes
+ * only; the server runs `rules/quote-engine.js` over them and refuses any
+ * answer that is not one of the choices it offers. Nothing the browser says
+ * about the OUTCOME is read: the type, the term and the scope are the
+ * server's own evaluation.
+ */
+const answerCode = z.string().trim().max(64).optional();
+const quoteAnswers = z.object({
+  direction: answerCode,
+  knows: answerCode,
+  incoterm: answerCode,
+  party: answerCode,
+  start: answerCode,
+  end: answerCode,
+  insured: answerCode,
+  member: answerCode,
+}).strict();
+
 const publicQuote = z.object({
   // The spam trap, read and stripped by the intake middleware.
   website_url: z.string().max(0).optional(),
@@ -263,11 +282,18 @@ const publicQuote = z.object({
   // ACTIVE, PUBLISHED service — anything else is a 422 naming this field.
   service_type_id: z.string().guid().optional(),
   hinterland_direction: hinterlandDirection.optional(),
+  // The website service the visitor picked (14640) and their answers. When
+  // present, the server resolves the service type, the Incoterm and the
+  // scope from them, and `service_type_id` / `incoterm` are not read.
+  website_service_id: z.string().guid().optional(),
+  quote_answers: quoteAnswers.optional(),
   service_category: z.string().max(255).optional(),
   origin_location: z.string().max(255).optional(),
   destination_location: z.string().max(255).optional(),
   cargo_description: z.string().max(5000).optional(),
-  incoterm: z.string().min(1).max(30),
+  // Required on the older path; the engine supplies it when a website service
+  // is named (refined below).
+  incoterm: z.string().min(1).max(30).optional(),
   entity_id: z.string().guid().optional(),
   estimated_weight: z.coerce.number().nonnegative().max(1e9).optional(),
   project_cargo_flag: z.boolean().optional(),
@@ -281,7 +307,11 @@ const publicQuote = z.object({
   // running the old bundle keeps working until it reloads.
   attachment_data_url: z.string().max(12_000_000).optional(),
   attachment_filename: z.string().max(200).optional(),
-}).strict();
+}).strict().superRefine((v, ctx) => {
+  if (!v.website_service_id && !v.incoterm) {
+    ctx.addIssue({ code: "custom", path: ["incoterm"], message: "Required" });
+  }
+});
 
 /* ── the client portal ────────────────────────────────────────────────────── */
 
@@ -380,6 +410,7 @@ module.exports = {
   aiLinkClient,
   aiFileFromChat,
   publicQuote,
+  quoteAnswers,
   portalCreate,
   portalDocumentUpload,
 };

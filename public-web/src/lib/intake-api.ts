@@ -60,6 +60,13 @@ export type QuoteRequest = Trap & {
   service_type_id?: string;
   /** For a hinterland transit: into it (import) or out of it (export). */
   hinterland_direction?: HinterlandDirection;
+  /**
+   * The website service the visitor picked and their answers to the quote
+   * engine's questions (14640). The server runs the engine itself and decides
+   * the service type, the Incoterm and the scope; nothing else is read for them.
+   */
+  website_service_id?: string;
+  quote_answers?: Partial<Record<"direction" | "knows" | "incoterm" | "party" | "start" | "end" | "insured" | "member", string>>;
   origin_location?: string;
   destination_location?: string;
   cargo_description?: string;
