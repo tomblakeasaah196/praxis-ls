@@ -20,7 +20,7 @@ import { StagedLines } from "@/components/ui/type";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { BgMap } from "@/components/ui/bg-map";
 import { SearchIcon, BoxIcon, ShieldIcon, DocumentIcon } from "@/components/ui/icons";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { TrackingView } from "./track-result";
 import { PageHero } from "@/components/site/page-hero";
 
@@ -94,11 +94,7 @@ export function TrackPage() {
   const [nonce, setNonce] = React.useState(0);
   const [state, setState] = React.useState<State>({ kind: "idle" });
 
-  useDocumentMeta({
-    // A hidden eyebrow (website v2) leaves the title alone, not "Track · ".
-    title: [t("site.trackPage.title"), t("site.hero.eyebrow")].filter(Boolean).join(" · "),
-    description: t("site.trackPage.sub"),
-  });
+  useShareMeta("track");
 
   React.useEffect(() => {
     if (!ref) {

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { SectionHead } from "@/components/site/section-head";
 import { PhotoBand } from "@/components/site/photo-band";
@@ -133,7 +133,7 @@ export function PartnersPage() {
 
   const title = (hero && pickBilingual(hero.title, lang)) || t("site.partnersPage.title");
   const lead = (hero && hero.lead && pickBilingual(hero.lead, lang)) || t("site.partnersPage.sub");
-  useDocumentMeta({ title, description: lead });
+  useShareMeta("partners");
 
   // Named contacts: the group's people and each company's people who have been
   // made a contact for partners. The server publishes an email and a phone only

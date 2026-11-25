@@ -65,8 +65,7 @@ import { useTranslation } from "react-i18next";
    the entry dictionary — see verify-copy.ts for what that costs everyone else. */
 import "./verify-i18n";
 import { PublicApiError, publicGet } from "@/lib/api";
-import { useBranding } from "@/app/branding";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useRecordMeta } from "@/lib/use-share-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { PageHero } from "@/components/site/page-hero";
 import { SectionHead } from "@/components/site/section-head";
@@ -437,9 +436,8 @@ export function VerifyPage() {
   const [data, setData] = React.useState<Payload | null>(null);
   const [missing, setMissing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  const { branding } = useBranding();
 
-  useDocumentMeta({ title: `${c("title")} · ${branding.name || ""}`.trim(), description: c("lead") });
+  useRecordMeta(c("title"), c("lead"));
 
   React.useEffect(() => {
     setCode(routeCode || "");

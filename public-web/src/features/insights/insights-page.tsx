@@ -16,7 +16,7 @@ import { getLang, tStatic } from "@/lib/i18n";
 import { dateFmt } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { p } from "@/lib/base-path";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { StagedLines } from "@/components/ui/type";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { Section } from "@/components/site/section";
@@ -87,10 +87,7 @@ export function InsightsPage() {
     | { kind: "error"; message: string; requestId: string | null }
   >({ kind: "loading" });
 
-  useDocumentMeta({
-    title: t("site.insights.title"),
-    description: t("site.insights.sub"),
-  });
+  useShareMeta("insights");
 
   React.useEffect(() => {
     const ctl = new AbortController();

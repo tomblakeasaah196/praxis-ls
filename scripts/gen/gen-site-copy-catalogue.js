@@ -143,6 +143,12 @@ const FEATURE_DICTS = [
     file: path.join(WEB_SRC, "features", "quotation", "quotation-copy.ts"),
     mount: "quotation",
   },
+  {
+    // Link previews (share cards): each page's tab title and shared sentence,
+    // registered by the shared `use-share-meta` chunk.
+    file: path.join(WEB_SRC, "lib", "share-copy.ts"),
+    mount: "share",
+  },
 ];
 const ROUTER = path.join(WEB_SRC, "app", "router.tsx");
 const OUT = path.join(ROOT, "packages", "shared", "data", "site-copy.generated.js");

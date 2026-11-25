@@ -136,6 +136,12 @@ const FEATURE_DICTS = [
     file: path.join(SRC, "features/legal/legal-copy.ts"),
     mount: "site.legal",
   },
+  {
+    // Link previews (share cards): every page's tab title and shared
+    // sentence, registered by the shared use-share-meta chunk.
+    file: path.join(SRC, "lib/share-copy.ts"),
+    mount: "site.share",
+  },
 ];
 
 /** True for any file that IS copy rather than a component that contains copy.

@@ -34,6 +34,7 @@ import { StagedLines } from "@/components/ui/type";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Reveal } from "@/components/ui/reveal";
 import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useRecordMeta, useShareMeta } from "@/lib/use-share-meta";
 import { useSitePage } from "@/lib/use-site-page";
 import { CAREERS_PAGE_KEY, featureList, pickBilingual } from "@/lib/site-api";
 import { LazyCandidateForm } from "./candidate-form-lazy";
@@ -123,10 +124,7 @@ export function CareersPage() {
   const { page: careersPage } = useSitePage(CAREERS_PAGE_KEY);
   const features = featureList(careersPage);
 
-  useDocumentMeta({
-    title: t("site.careers.title"),
-    description: t("site.careers.sub"),
-  });
+  useShareMeta("careers");
 
   return (
     <PageShell overlayHeader label={t("site.careers.title")} footer>
@@ -483,9 +481,7 @@ export function VacancyPage() {
     };
   }, [token]);
 
-  useDocumentMeta({
-    title: v ? `${v.title} · ${t("site.careers.title")}` : undefined,
-  });
+  useRecordMeta(v ? v.title : null);
 
   if (error) {
     return (

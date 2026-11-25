@@ -48,6 +48,10 @@ import {
   en as legalEn,
   fr as legalFr,
 } from "@/features/legal/legal-copy";
+import {
+  en as shareEn,
+  fr as shareFr,
+} from "@/lib/share-copy";
 
 /**
  * The whole translation tree as it exists AT RUNTIME — for tests only.
@@ -80,12 +84,12 @@ import {
  */
 export const en = {
   ...baseEn,
-  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, quoteEngine: quoteEngineEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn, brand: brandEn, aboutPage: aboutPageEn, partnersPage: partnersPageEn, trust: trustEn, legal: legalEn },
+  site: { ...baseEn.site, careers: careersEn, quoteSteps: quoteStepsEn, quoteEngine: quoteEngineEn, profile: profileEn, quotation: quotationEn, trackPage: trackPageEn, corridor: corridorEn, brand: brandEn, aboutPage: aboutPageEn, partnersPage: partnersPageEn, trust: trustEn, legal: legalEn, share: shareEn },
   portal: { ...baseEn.portal, ...portalEn },
 };
 
 export const fr = {
   ...baseFr,
-  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, quoteEngine: quoteEngineFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr, brand: brandFr, aboutPage: aboutPageFr, partnersPage: partnersPageFr, trust: trustFr, legal: legalFr },
+  site: { ...baseFr.site, careers: careersFr, quoteSteps: quoteStepsFr, quoteEngine: quoteEngineFr, profile: profileFr, quotation: quotationFr, trackPage: trackPageFr, corridor: corridorFr, brand: brandFr, aboutPage: aboutPageFr, partnersPage: partnersPageFr, trust: trustFr, legal: legalFr, share: shareFr },
   portal: { ...baseFr.portal, ...portalFr },
 };

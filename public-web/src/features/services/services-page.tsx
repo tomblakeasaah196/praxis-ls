@@ -47,6 +47,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { LongCopy } from "./long-copy";
 import { QuoteBand } from "@/components/site/quote-band";
 import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta, useSiteName, withSiteName } from "@/lib/use-share-meta";
 import { p } from "@/lib/base-path";
 import { PageHero } from "@/components/site/page-hero";
 
@@ -156,11 +157,7 @@ export function ServicesIndexPage() {
   const { groups, services, loading } = usePublishedServices();
   const esg = useEsg();
 
-  useDocumentMeta({
-    // A hidden eyebrow (website v2) leaves the title alone, not "Services · ".
-    title: [t("site.servicesPage.title"), t("site.hero.eyebrow")].filter(Boolean).join(" · "),
-    description: t("site.servicesPage.sub"),
-  });
+  useShareMeta("services");
 
   return (
     <PageShell overlayHeader label={t("site.servicesPage.title")} footer>
@@ -396,6 +393,7 @@ type DetailState =
  *  on the page, in the reader's language. */
 export function ServiceDetailPage() {
   const { t } = useTranslation();
+  const siteName = useSiteName();
   const { slug = "" } = useParams();
   const lang = getLang();
   // No language switch on a site that offers one language (website v2).
@@ -442,8 +440,7 @@ export function ServiceDetailPage() {
     profile
       ? {
           title:
-            pickText(profile, "meta_title", lang) ||
-            `${pickText(profile, "name", lang)} · ${t("site.services.eyebrow")}`,
+            withSiteName(pickText(profile, "meta_title", lang) || pickText(profile, "name", lang), siteName),
           description: pickText(profile, "meta_description", lang) || undefined,
           alternates: {
             en: p(`/services/${encodeURIComponent(profile.slug_en)}?lang=en`),

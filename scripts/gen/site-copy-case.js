@@ -475,6 +475,22 @@ const CASES = {
       "hint",
     ],
   },
+  // Link previews. A page's share title names the page (LABEL); its sentence
+  // is a statement (PROSE). The site name is PROSE so it prints exactly as the
+  // tenant spells their brand, capitals and all.
+  "site.share": {
+    LABEL: [
+      "homeTitle", "aboutTitle", "servicesTitle", "insightsTitle", "trackTitle",
+      "quoteTitle", "contactTitle", "careersTitle", "partnersTitle", "trustTitle",
+      "portfolioTitle", "verifyTitle",
+    ],
+    PROSE: [
+      "siteName",
+      "homeDescription", "aboutDescription", "servicesDescription", "insightsDescription",
+      "trackDescription", "quoteDescription", "contactDescription", "careersDescription",
+      "partnersDescription", "trustDescription", "portfolioDescription", "verifyDescription",
+    ],
+  },
   "site.esg": {
     LABEL: [
       "kicker", "title", "titleAccent", "environment", "social", "governance",

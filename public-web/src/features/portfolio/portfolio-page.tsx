@@ -18,7 +18,7 @@ import { Panel } from "@/components/ui/panel";
 import { EmptyState, ErrorState } from "@/components/state";
 import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Chip } from "@/components/ui/pill";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useRecordMeta, useShareMeta } from "@/lib/use-share-meta";
 import { p } from "@/lib/base-path";
 import { ButtonLink } from "@/components/ui/button";
 import { BoltIcon, DocumentIcon } from "@/components/ui/icons";
@@ -86,10 +86,7 @@ export function PortfolioIndexPage() {
     };
   }, []);
 
-  useDocumentMeta({
-    title: t("site.portfolioPage.title"),
-    description: t("site.portfolioPage.sub"),
-  });
+  useShareMeta("portfolio");
 
   return (
     <PageShell overlayHeader label={t("site.portfolioPage.title")} footer>
@@ -225,12 +222,7 @@ export function PortfolioStoryPage() {
 
   const story = state.kind === "found" ? state.story : null;
 
-  useDocumentMeta({
-    title: story
-      ? `${story.title} · ${t("site.portfolioPage.title")}`
-      : undefined,
-    description: story?.headline || undefined,
-  });
+  useRecordMeta(story ? story.title : null, story?.headline || null);
 
   if (state.kind === "loading") {
     return (

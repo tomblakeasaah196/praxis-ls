@@ -17,6 +17,7 @@ import { caseLabel } from "@/lib/label-case";
 import { dateFmt } from "@/lib/format";
 import { p } from "@/lib/base-path";
 import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useSiteName, withSiteName } from "@/lib/use-share-meta";
 import { PageShell } from "@/components/site/page-shell";
 import { useScrollScrub } from "@/lib/motion";
 import { Section } from "@/components/site/section";
@@ -48,6 +49,7 @@ import { Byline, ReadingTime, ShareLinks } from "./insight-parts";
  */
 export function InsightPage() {
   const { t } = useTranslation();
+  const siteName = useSiteName();
   const lang = getLang();
   const { slug = "" } = useParams();
   const [nonce, setNonce] = React.useState(0);
@@ -82,9 +84,12 @@ export function InsightPage() {
   const title = article ? insightTitle(article, lang) : "";
 
   useDocumentMeta({
-    title: article
-      ? (lang === "fr" ? article.meta_title_fr : article.meta_title_en) || title
-      : t("site.insights.title"),
+    title: withSiteName(
+      article
+        ? (lang === "fr" ? article.meta_title_fr : article.meta_title_en) || title
+        : t("site.share.insightsTitle"),
+      siteName,
+    ),
     description: article
       ? (lang === "fr" ? article.meta_description_fr : article.meta_description_en) ||
         insightExcerpt(article, lang) ||

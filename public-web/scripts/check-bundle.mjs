@@ -237,8 +237,18 @@ const DEFERRED_BUDGET_KB = 220;
  * wizard statically for a form two screens below the fold — so this budget
  * fails on the bug it was written for, and passes at 10.0 kB once
  * `quote-band.tsx` defers it.
+ *
+ * ── RAISED ONCE, 16 → 16.5, FOR EVERY PAGE'S OWN TITLE ───────────────────
+ *
+ * The share cards (25 Nov 2026) gave every page a tab title and description
+ * from the same Link Previews wording as its WhatsApp card, through one hook,
+ * `lib/use-share-meta.ts`: a 0.6 kB chunk every route imports. Its words are
+ * NOT in it (a dynamic import fetches them after the page has mounted), and it
+ * is not in the entry, which had 0.3 kB of headroom. `quote-page` was already
+ * at 15.5 kB, so it alone went 0.1 kB over. Half a kilobyte, so the headroom
+ * stays thin and the next route that grows is refused by its own cost.
  */
-const ROUTE_OWN_BUDGET_KB = 16;
+const ROUTE_OWN_BUDGET_KB = 16.5;
 
 /**
  * Static `import`/`export ... from` specifiers only. A DYNAMIC import() is not an

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useShareMeta } from "@/lib/use-share-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { Section } from "@/components/site/section";
 import { SectionHead } from "@/components/site/section-head";
@@ -153,10 +153,7 @@ export function AboutPage() {
   const images = useSiteImages();
   const s = aboutSections(about.sections, lang);
 
-  useDocumentMeta({
-    title: t("site.about.title"),
-    description: about.summary || t("site.about.sub"),
-  });
+  useShareMeta("about");
 
   /* The leader who signs the message, when the tenant has chosen one. A
      tenant on the older page had its FIRST group leader as the anchor; that

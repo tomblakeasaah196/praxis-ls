@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useDocumentMeta } from "@/lib/use-document-meta";
+import { useRecordMeta } from "@/lib/use-share-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { Markdown } from "@/components/ui/markdown";
 import { ButtonLink } from "@/components/ui/button";
@@ -56,10 +56,7 @@ export function DocumentPage({ docKey }: { docKey?: string }) {
     };
   }, [key, lang]);
 
-  useDocumentMeta({
-    title: doc ? doc.title : t("site.trust.title"),
-    description: doc && doc.summary ? doc.summary : undefined,
-  });
+  useRecordMeta(doc ? doc.title : null, doc && doc.summary ? doc.summary : null);
 
   if (doc === null) return <NotFoundPage />;
 
