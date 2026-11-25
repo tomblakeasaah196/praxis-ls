@@ -17,7 +17,7 @@ export const LABEL_KEYS: Readonly<Record<string, true | readonly string[]>> = {
   "site.corridor": ["eyebrow","title"],
   "site.crash": ["home","reload","title"],
   "site.esg": ["environment","governance","kicker","social","title","titleAccent"],
-  "site.footer": ["about","careers","clients","company","contact","legal","portal","portfolio","powered","privacy","quote","services","social","terms","track","verify"],
+  "site.footer": ["about","careers","clients","company","contact","impressum","legal","partners","portal","portfolio","powered","privacy","quote","services","social","terms","track","trust","verify"],
   "site.hero": ["contact","cta","cta2","eyebrow","scrollCue","title","titleAccent","titleMain"],
   "site.how": ["eyebrow","steps.*.t","title"],
   "site.insights": ["all","allYears","backToIndex","by","filterLabel","gallery","gone","kicker","kindAll","kindAnnouncement","kindArticle","kindLabel","lead","minutes","next","none","noneForTag","noneForYear","pageOf","pagination","previous","readArticle","related","share","shareEmail","shareLinkedIn","shareWhatsApp","showAll","title","titleAccent","titleMain","yearLabel"],

@@ -20,9 +20,9 @@ import { useSiteSwitches } from "@/lib/site-switches";
  */
 export const FOOTER_LEGAL_LINKS: { to: string; labelKey: string }[] = [
   // PR 4: base-relative, joined to the host's base where they are drawn.
-  { to: "/trust", labelKey: "site.trust.title" },
-  { to: "/legal/impressum", labelKey: "site.legal.impressum" },
-  { to: "/legal/privacy", labelKey: "site.legal.privacy" },
+  { to: "/trust", labelKey: "site.footer.trust" },
+  { to: "/legal/impressum", labelKey: "site.footer.impressum" },
+  { to: "/legal/privacy", labelKey: "site.footer.privacy" },
 ];
 
 /**
@@ -100,7 +100,7 @@ export function SiteFooter() {
       // `site.footer.about` has been in the dictionary unused since PR 1.
       { to: p("/about"), label: t("site.footer.about") },
       // PR 4: the page an overseas agent opens before nominating a shipment.
-      { to: p("/partners"), label: t("site.partnersPage.title") },
+      { to: p("/partners"), label: t("site.footer.partners") },
       // The verification portal, and the footer is the RIGHT place for it
       // rather than the nav: nobody browses here. A reader arrives holding a
       // document, and the footer is where you look for the thing a company

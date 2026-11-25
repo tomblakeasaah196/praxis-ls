@@ -106,6 +106,31 @@ const FEATURE_DICTS = [
     file: path.join(SRC, "features/quotation/quotation-copy.ts"),
     mount: "site.quotation",
   },
+  {
+    // The brand layer's shared furniture (PR 4): lazy routes only.
+    file: path.join(SRC, "components/site/brand-copy.ts"),
+    mount: "site.brand",
+  },
+  {
+    // The rebuilt About page's headings (PR 4).
+    file: path.join(SRC, "features/about/about-copy.ts"),
+    mount: "site.aboutPage",
+  },
+  {
+    // For Partners (PR 4).
+    file: path.join(SRC, "features/partners/partners-copy.ts"),
+    mount: "site.partnersPage",
+  },
+  {
+    // Trust and Compliance and the documents (PR 4).
+    file: path.join(SRC, "features/trust/trust-copy.ts"),
+    mount: "site.trust",
+  },
+  {
+    // The Impressum, English and German (PR 4).
+    file: path.join(SRC, "features/legal/legal-copy.ts"),
+    mount: "site.legal",
+  },
 ];
 
 /** True for any file that IS copy rather than a component that contains copy.

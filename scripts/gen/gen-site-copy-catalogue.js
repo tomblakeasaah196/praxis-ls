@@ -101,6 +101,31 @@ const FEATURE_DICTS = [
     mount: "corridor",
   },
   {
+    // The brand layer's shared furniture (PR 4): lazy routes only.
+    file: path.join(WEB_SRC, "components", "site", "brand-copy.ts"),
+    mount: "brand",
+  },
+  {
+    // The rebuilt About page's headings (PR 4).
+    file: path.join(WEB_SRC, "features", "about", "about-copy.ts"),
+    mount: "aboutPage",
+  },
+  {
+    // For Partners (PR 4).
+    file: path.join(WEB_SRC, "features", "partners", "partners-copy.ts"),
+    mount: "partnersPage",
+  },
+  {
+    // Trust and Compliance and the documents (PR 4).
+    file: path.join(WEB_SRC, "features", "trust", "trust-copy.ts"),
+    mount: "trust",
+  },
+  {
+    // The Impressum, English and German (PR 4).
+    file: path.join(WEB_SRC, "features", "legal", "legal-copy.ts"),
+    mount: "legal",
+  },
+  {
     // The shared Company Profile page (Sales lean revamp, PR 5): a few keys
     // of page furniture only a link holder reads.
     file: path.join(WEB_SRC, "features", "profile", "profile-copy.ts"),

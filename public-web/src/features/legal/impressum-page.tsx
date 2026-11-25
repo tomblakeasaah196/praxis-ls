@@ -4,6 +4,7 @@ import { useDocumentMeta } from "@/lib/use-document-meta";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { getLegalEntities, type LegalEntity } from "@/lib/brand-api";
 import "@/components/site/brand.css";
+import "./legal-i18n";
 
 /**
  * `/legal/impressum` (PR 4, item 8): who operates this website, in English and

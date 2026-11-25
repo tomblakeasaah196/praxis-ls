@@ -16,6 +16,8 @@ import {
 } from "@/lib/brand-api";
 import { NotFoundPage } from "@/features/not-found/not-found-page";
 import "@/components/site/brand.css";
+import "@/components/site/brand-i18n";
+import "./trust-i18n";
 
 /**
  * One published trust document (`/trust/:key`), or the privacy policy

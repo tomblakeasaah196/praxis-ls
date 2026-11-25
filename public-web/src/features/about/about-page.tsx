@@ -8,9 +8,7 @@ import { SectionHead } from "@/components/site/section-head";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { StagedLines, PullQuote } from "@/components/ui/type";
 import { ButtonLink } from "@/components/ui/button";
-import { EsgTriptych } from "@/components/site/esg-triptych";
 import { LeaderCard, LeaderGrid, monogram } from "@/components/site/leader-card";
-import { EntityNetwork } from "@/components/site/entity-network";
 import { PhotoBand } from "@/components/site/photo-band";
 import { SitePhoto } from "@/components/site/site-photo";
 import { useSiteSwitches } from "@/lib/site-switches";
@@ -21,7 +19,6 @@ import {
   CredentialStrip,
   MembershipList,
 } from "@/components/site/proof-bands";
-import { Timeline } from "@/components/site/timeline";
 import { GlobeIcon, ShieldIcon } from "@/components/ui/icons";
 import { getLang } from "@/lib/i18n";
 import { p } from "@/lib/base-path";
@@ -50,6 +47,8 @@ import {
   type PublicLeader,
   type PublicProof,
 } from "@/lib/site-api";
+import "@/components/site/brand-i18n";
+import "./about-i18n";
 
 /**
  * `/about`, rebuilt for website v2 (doc/smartls-website/ENGINEERING_GUIDE.md
@@ -80,6 +79,19 @@ import {
  * one), and a leader without one is drawn as a monogram. The scene
  * photographs in the bands picture places and cargo, never staff.
  */
+
+/* The older page's set pieces, drawn only for a tenant who has written them
+   (and the network only with the corridors switch on): their own chunks, so
+   the rebuilt page's first paint does not carry them for everybody else. */
+const EsgTriptych = React.lazy(() =>
+  import("@/components/site/esg-triptych").then((m) => ({ default: m.EsgTriptych })),
+);
+const EntityNetwork = React.lazy(() =>
+  import("@/components/site/entity-network").then((m) => ({ default: m.EntityNetwork })),
+);
+const Timeline = React.lazy(() =>
+  import("@/components/site/timeline").then((m) => ({ default: m.Timeline })),
+);
 
 type AboutData = {
   about: PublicAbout;
@@ -233,7 +245,9 @@ export function AboutPage() {
 
       {about.timeline.length ? (
         <Section divided eyebrow={t("site.about.timelineKicker")} title={t("site.about.timelineTitle")}>
-          <Timeline entries={about.timeline} />
+          <React.Suspense fallback={null}>
+            <Timeline entries={about.timeline} />
+          </React.Suspense>
         </Section>
       ) : null}
 
@@ -253,7 +267,9 @@ export function AboutPage() {
           title={t("site.about.networkTitle")}
           lead={t("site.about.networkLead")}
         >
-          <EntityNetwork entities={entities} />
+          <React.Suspense fallback={null}>
+            <EntityNetwork entities={entities} />
+          </React.Suspense>
         </Section>
       ) : null}
 
@@ -279,7 +295,9 @@ export function AboutPage() {
 
       {hasEsg(about.esg) ? (
         <Section divided eyebrow={t("site.esg.kicker")} title={t("site.esg.title")} accent={t("site.esg.titleAccent")}>
-          <EsgTriptych esg={about.esg} />
+          <React.Suspense fallback={null}>
+            <EsgTriptych esg={about.esg} />
+          </React.Suspense>
         </Section>
       ) : null}
 

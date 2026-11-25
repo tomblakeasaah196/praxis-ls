@@ -31,6 +31,8 @@ import {
   type SitePage,
 } from "@/lib/site-api";
 import { getLegalEntities, useSiteImages, type LegalEntity } from "@/lib/brand-api";
+import "@/components/site/brand-i18n";
+import "./partners-i18n";
 
 /**
  * `/partners`: For Partners (PR 4, item 7). Written for the overseas agent or

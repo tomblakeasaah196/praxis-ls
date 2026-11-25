@@ -11,6 +11,7 @@ import {
 import { dateFmt } from "@/lib/format";
 import { useInView } from "@/components/ui/reveal";
 import "./brand.css";
+import "./brand-i18n";
 
 /**
  * Partners, clients and credentials — guide §9.4.

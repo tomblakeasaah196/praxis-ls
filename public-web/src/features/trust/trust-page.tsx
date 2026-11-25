@@ -22,6 +22,7 @@ import {
   type PublicProof,
 } from "@/lib/site-api";
 import { listPublicDocuments, useSiteImages, type PublicDocumentCard } from "@/lib/brand-api";
+import "./trust-i18n";
 
 /**
  * `/trust`: Trust and Compliance (PR 4, item 6). The page an NGO's or a UN
@@ -132,10 +133,10 @@ export function TrustPage() {
           <SectionHead as="h2" title={t("site.trust.legalTitle")} />
           <ul className="about-policies mt-6 max-w-prose">
             <li>
-              <Link to={p("/legal/impressum")}>{t("site.legal.impressum")}</Link>
+              <Link to={p("/legal/impressum")}>{t("site.footer.impressum")}</Link>
             </li>
             <li>
-              <Link to={p("/legal/privacy")}>{t("site.legal.privacy")}</Link>
+              <Link to={p("/legal/privacy")}>{t("site.footer.privacy")}</Link>
             </li>
           </ul>
         </PageContainer>

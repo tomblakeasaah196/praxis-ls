@@ -119,7 +119,9 @@ describe("the About page (§9.1)", () => {
     // The anchor's message is shown outright, not behind a disclosure.
     expect(screen.getByText("Twenty years in freight.")).toBeInTheDocument();
     expect(screen.getByText("Douala, Cameroon")).toBeInTheDocument();
-    expect(screen.getByText("First licence")).toBeInTheDocument();
+    // The timeline is its own chunk since PR 4 (drawn only for a tenant who
+    // wrote one), so it arrives a tick after the rest of the page.
+    await waitFor(() => expect(screen.getByText("First licence")).toBeInTheDocument());
     expect(screen.getByText("Rigour")).toBeInTheDocument();
 
     /* "Founded" is deliberately asserted through the TIMELINE rather than by

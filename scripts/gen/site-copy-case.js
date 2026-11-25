@@ -503,7 +503,7 @@ const CASES = {
     LABEL: [
       "company", "services", "clients", "legal", "powered", "about", "contact",
       "portfolio", "careers", "track", "portal", "quote", "privacy", "terms",
-      "social", "verify",
+      "social", "verify", "partners", "trust", "impressum",
     ],
     PROSE: [
       "rights", "socialOn", "credentials", "legalEntity",
