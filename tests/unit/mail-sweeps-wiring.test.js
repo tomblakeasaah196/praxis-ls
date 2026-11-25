@@ -169,22 +169,31 @@ describe("the SLA sweep writes due dates and raises breaches once", () => {
     expect(derive.text).toMatch(/min\(received_at\)/);
   });
 
-  test("a breach notifies the mailbox MANAGERs and the assignee, once", async () => {
+  /* 25 Nov 2026: connecting info@ imported its history and the sweep sent 100+
+     alerts, one per old or automated conversation. Breaches are now stamped
+     without a notification each, only mail from people that arrived after the
+     mailbox was connected is clocked, and people hear once a day at 08:00. */
+  test("a breach is stamped, and notifies nobody on its own", async () => {
+    notify.notify.mockClear();
     const c = fakeClient([
       POLICY,
       { match: /FROM business_hours/, rows: HOURS },
-      {
-        match: /SET sla_breached_at/,
-        rows: [{ email_thread_id: "t9", email_connection_id: "c1", subject: "BL for SLAS-2026-0042", assigned_user_id: "u-agent" }],
-      },
+      { match: /SET sla_breached_at/, rows: [{ email_thread_id: "t9" }] },
       { match: /FROM email_connection_member/, rows: [{ user_id: "u-lead" }] },
     ]);
-    const out = await sla.sweep(c);
+    const out = await sla.sweep(c, { now: new Date("2026-11-25T05:00:00Z") }); // 06:00 in Douala
     expect(out.breached).toBe(1);
-    expect(notify.notify).toHaveBeenCalledTimes(2);
-    const recipients = notify.notify.mock.calls.map((call) => call[1].userId).sort();
-    expect(recipients).toEqual(["u-agent", "u-lead"]);
-    expect(notify.notify.mock.calls[0][1].dedupeKey).toMatch(/^SLA_BREACH:email_thread:t9:/);
+    expect(notify.notify).not.toHaveBeenCalled();
+  });
+
+  test("history and automated mail are never on the clock", async () => {
+    const c = fakeClient([POLICY, { match: /FROM business_hours/, rows: HOURS }]);
+    await sla.sweep(c, { now: new Date("2026-11-25T05:00:00Z") });
+    for (const re of [/t\.first_response_due_at IS NULL/, /SET sla_breached_at/, /SET resolution_breached_at/]) {
+      const q = c.written(re)[0].text;
+      expect(q).toContain("t.stream IS DISTINCT FROM 'SYSTEM'");
+      expect(q).toContain("t.first_message_at >= c.created_at");
+    }
   });
 
   test("the breach UPDATE only fires for threads not already breached", async () => {
@@ -203,24 +212,14 @@ describe("the SLA sweep writes due dates and raises breaches once", () => {
     expect(q.text).toMatch(/LIMIT 500/);
   });
 
-  test("P5-1: a resolution-due breach notifies independently of first-response", async () => {
-    notify.notify.mockClear();
+  test("P5-1: the resolution clock is stamped on its own, once", async () => {
     const c = fakeClient([
       POLICY,
       { match: /FROM business_hours/, rows: HOURS },
-      {
-        match: /SET resolution_breached_at/,
-        rows: [{ email_thread_id: "t-res", email_connection_id: "c1", subject: "Still open", assigned_user_id: "u-agent" }],
-      },
-      { match: /FROM email_connection_member/, rows: [{ user_id: "u-lead" }] },
+      { match: /SET resolution_breached_at/, rows: [{ email_thread_id: "t-res" }] },
     ]);
-    const out = await sla.sweep(c);
+    const out = await sla.sweep(c, { now: new Date("2026-11-25T05:00:00Z") });
     expect(out.resolution_breached).toBe(1);
-    expect(notify.notify).toHaveBeenCalled();
-    const titles = notify.notify.mock.calls.map((call) => call[1].title);
-    expect(titles).toContain("Resolution SLA missed");
-    const keys = notify.notify.mock.calls.map((call) => call[1].dedupeKey);
-    expect(keys.some((k) => /^SLA_RESOLUTION:email_thread:t-res:/.test(k))).toBe(true);
     expect(c.written(/SET resolution_breached_at/)[0].text).toMatch(/resolution_breached_at IS NULL/);
   });
 

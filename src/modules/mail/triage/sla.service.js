@@ -19,6 +19,25 @@
  * — a worker outage costs lateness in the ALERT, never a lost clock.
  *
  * Everything here is written to survive being run twice.
+ *
+ * ── WHAT IS ON THE CLOCK, AND HOW ANYONE HEARS ABOUT IT (25 Nov 2026) ───────
+ *
+ * Connecting info@smartlsgroup.com as a shared mailbox imported its 2025
+ * history, and the sweep sent its owner 100+ "First-response SLA missed"
+ * notifications within minutes: every imported conversation got a due date in
+ * the past and breached at once, carrier notices and job-board mail included,
+ * one notification per thread per Manager, up to 500 threads a tick. The
+ * owner's decisions, the same day:
+ *
+ *   1. ONLY MAIL FROM PEOPLE THAT ARRIVED AFTER THE MAILBOX WAS CONNECTED is on
+ *      the clock (`ON_THE_CLOCK`). History brought in by the first sync is not
+ *      a promise anybody made, and the SYSTEM stream (no-reply, carrier
+ *      notices, monitoring: the Notices folder, 10734) is nobody waiting.
+ *   2. ONE SUMMARY A DAY, AT 08:00 in the office's timezone, on a day the
+ *      office is open (`digest`): each mailbox Manager hears how many of their
+ *      mailbox's conversations are waiting, and each assignee hears about the
+ *      ones they hold. Breaches are still stamped per thread, as the record,
+ *      but no longer notify one by one.
  */
 "use strict";
 
@@ -26,6 +45,18 @@ const clock = require("./sla-clock");
 const notify = require("../../notification/notification.service");
 const { emitEvent } = require("../../../shared/events/emit");
 const { logger } = require("../../../config/logger");
+const { getSetting, putSetting } = require("../../../shared/config/settings");
+
+/**
+ * Which threads a promise applies to. `t` is the thread, `c` its mailbox:
+ * mail from people (not the SYSTEM stream) whose conversation began after the
+ * mailbox was connected. See the header, decision 1.
+ */
+const ON_THE_CLOCK = "t.stream IS DISTINCT FROM 'SYSTEM' AND t.first_message_at >= c.created_at";
+
+/** The hour the daily summary goes out, in the office's timezone. */
+const DIGEST_HOUR = 8;
+const DEFAULT_TZ = "Africa/Douala";
 
 async function calendar(client) {
   const [hours, holidays] = await Promise.all([
@@ -97,6 +128,7 @@ async function sweep(client, { now = new Date() } = {}) {
       WHERE t.work_status = 'OPEN'
         AND t.first_response_due_at IS NULL
         AND c.kind IN ('SHARED','DELEGATED')
+        AND ${ON_THE_CLOCK}
       ORDER BY t.first_message_at ASC NULLS LAST
       LIMIT 500`,
   );
@@ -115,103 +147,180 @@ async function sweep(client, { now = new Date() } = {}) {
     dated += 1;
   }
 
-  // Breaches. `sla_breached_at IS NULL` makes this fire once per thread, so a
-  // worker that runs every five minutes does not notify a team lead every five
-  // minutes about the same overdue thread — which is how an alert gets muted
-  // and then ignored.
+  // Breaches are STAMPED here, once per thread (`… IS NULL`), as the record a
+  // screen can show. They no longer notify one by one: the people who can act
+  // hear about them in the daily summary (header, decision 2).
   const { rows: breaches } = await client.query(
     `UPDATE email_thread t SET sla_breached_at = $1
-      WHERE t.sla_breached_at IS NULL
+       FROM email_connection c
+      WHERE c.email_connection_id = t.email_connection_id
+        AND ${ON_THE_CLOCK}
+        AND t.sla_breached_at IS NULL
         AND t.work_status = 'OPEN'
         AND t.first_responded_at IS NULL
         AND t.first_response_due_at IS NOT NULL
         AND t.first_response_due_at <= $1
-      RETURNING t.email_thread_id, t.email_connection_id, t.subject, t.assigned_user_id`,
+      RETURNING t.email_thread_id`,
     [now],
   );
 
-  for (const b of breaches) {
-    try {
-      await announce(client, b, "first_response");
-    } catch (err) {
-      logger.warn({ err, thread: b.email_thread_id }, "[mail] SLA breach notification failed");
-    }
-  }
-
-  // P5-1. `resolution_due_at` was computed and stored and then never read.
-  // First-response is the only clock that notified, so a team could miss every
-  // resolution promise with a green queue. Own stamp (`resolution_breached_at`)
-  // so a first-response breach does not swallow the later resolution one, and
-  // so this also fires once.
+  // P5-1: the resolution clock has its own stamp, so a first-response breach
+  // does not swallow the later resolution one.
   const { rows: resolutionBreaches } = await client.query(
     `UPDATE email_thread t SET resolution_breached_at = $1
-      WHERE t.resolution_breached_at IS NULL
+       FROM email_connection c
+      WHERE c.email_connection_id = t.email_connection_id
+        AND ${ON_THE_CLOCK}
+        AND t.resolution_breached_at IS NULL
         AND t.work_status = 'OPEN'
         AND t.resolved_at IS NULL
         AND t.resolution_due_at IS NOT NULL
         AND t.resolution_due_at <= $1
-      RETURNING t.email_thread_id, t.email_connection_id, t.subject, t.assigned_user_id`,
+      RETURNING t.email_thread_id`,
     [now],
   );
 
-  for (const b of resolutionBreaches) {
-    try {
-      await announce(client, b, "resolution");
-    } catch (err) {
-      logger.warn({ err, thread: b.email_thread_id }, "[mail] resolution SLA notification failed");
-    }
+  let digested = 0;
+  try {
+    digested = (await digest(client, { now, ctx })).notified;
+  } catch (err) {
+    logger.warn({ err }, "[mail] SLA daily summary failed; the next sweep tries again");
   }
   return {
     policies: rows.length,
     dated,
     breached: breaches.length,
     resolution_breached: resolutionBreaches.length,
+    digested,
   };
 }
 
-/**
- * Tell the people who can do something about it.
- *
- * MANAGERs on the mailbox, plus whoever holds the thread. §9.2 says "the team
- * lead"; MANAGER is that role in the PR-0 access model (P3), so this does not
- * need its own notion of who leads a team.
- */
-async function announce(client, thread, clock = "first_response") {
-  const { rows: managers } = await client.query(
-    `SELECT user_id FROM email_connection_member
-      WHERE email_connection_id = $1 AND member_role = 'MANAGER' AND revoked_at IS NULL`,
-    [thread.email_connection_id],
-  );
-  const targets = [...new Set([...managers.map((m) => m.user_id), thread.assigned_user_id].filter(Boolean))];
-  const resolution = clock === "resolution";
+/* ── The daily summary ───────────────────────────────────────────────────── */
 
-  for (const userId of targets) {
+const FMT_OPTS = { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", weekday: "short", hourCycle: "h23" };
+
+/**
+ * The office's local date (`YYYY-MM-DD`), hour and ISO weekday (1 = Monday).
+ * @date-format:parts built only to call formatToParts(); nothing here is
+ * rendered for a person to read.
+ */
+function localClock(now, timeZone) {
+  let parts;
+  try {
+    parts = new Intl.DateTimeFormat("en-GB", { ...FMT_OPTS, timeZone: timeZone || DEFAULT_TZ }).formatToParts(now);
+  } catch {
+    // @silent:parse an unknown zone name in business_hours falls back to the office default
+    parts = new Intl.DateTimeFormat("en-GB", { ...FMT_OPTS, timeZone: DEFAULT_TZ }).formatToParts(now);
+  }
+  const get = (type) => (parts.find((p) => p.type === type) || {}).value;
+  const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(get("weekday")) + 1;
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: Number(get("hour")), weekday };
+}
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** "3 conversations wait for a first reply, 1 is past the time to resolve" */
+function counts(first, resolution) {
+  const parts = [];
+  if (first) parts.push(`${plural(first, "conversation waits", "conversations wait")} for a first reply`);
+  if (resolution) parts.push(`${plural(resolution, "is", "are")} past the time to resolve`);
+  return parts.join(", ");
+}
+
+/**
+ * Once a day, at 08:00 in the office's timezone, on a day the office is open:
+ * one notification per person, saying what is waiting.
+ *
+ *   · a mailbox MANAGER hears the totals for each mailbox they manage;
+ *   · an ASSIGNEE hears about the conversations assigned to them.
+ *
+ * Someone who is both gets ONE notification with both. "Once" is held by the
+ * `mail.sla_digest` setting (the local date it last went out), so the
+ * five-minute sweep, a restart or a second worker cannot send it twice; the
+ * notification's dedupe key carries the date as the second guard.
+ */
+async function digest(client, { now = new Date(), ctx = null } = {}) {
+  const cal = ctx || (await calendar(client));
+  const tz = (cal.hours[0] && cal.hours[0].timezone) || DEFAULT_TZ;
+  const local = localClock(now, tz);
+  if (local.hour < DIGEST_HOUR) return { notified: 0, skipped: "before 08:00" };
+  if (cal.hours.length && !cal.hours.some((h) => Number(h.day_of_week) === local.weekday)) {
+    return { notified: 0, skipped: "office closed" };
+  }
+  const last = (await getSetting(client, "mail", "sla_digest", {})) || {};
+  if (last.last_sent_on === local.date) return { notified: 0, skipped: "already sent today" };
+
+  const { rows } = await client.query(
+    `SELECT t.email_thread_id, t.email_connection_id, t.assigned_user_id, c.email_address,
+            (t.first_responded_at IS NULL AND t.first_response_due_at <= $1) AS first_late,
+            (t.resolved_at IS NULL AND t.resolution_due_at <= $1) AS resolution_late
+       FROM email_thread t
+       JOIN email_connection c ON c.email_connection_id = t.email_connection_id
+      WHERE t.work_status = 'OPEN'
+        AND c.kind IN ('SHARED','DELEGATED')
+        AND ${ON_THE_CLOCK}
+        AND ((t.first_responded_at IS NULL AND t.first_response_due_at <= $1)
+          OR (t.resolved_at IS NULL AND t.resolution_due_at <= $1))`,
+    [now],
+  );
+
+  const byMailbox = new Map();
+  const byAssignee = new Map();
+  for (const r of rows) {
+    const box = byMailbox.get(r.email_connection_id) || { address: r.email_address, first: 0, resolution: 0 };
+    if (r.first_late) box.first += 1;
+    if (r.resolution_late) box.resolution += 1;
+    byMailbox.set(r.email_connection_id, box);
+    if (r.assigned_user_id) {
+      const mine = byAssignee.get(r.assigned_user_id) || { first: 0, resolution: 0 };
+      if (r.first_late) mine.first += 1;
+      if (r.resolution_late) mine.resolution += 1;
+      byAssignee.set(r.assigned_user_id, mine);
+    }
+  }
+
+  const lines = new Map();
+  const add = (userId, line) => {
+    if (!lines.has(userId)) lines.set(userId, []);
+    lines.get(userId).push(line);
+  };
+  if (byMailbox.size) {
+    const { rows: managers } = await client.query(
+      `SELECT email_connection_id, user_id FROM email_connection_member
+        WHERE email_connection_id = ANY($1::uuid[]) AND member_role = 'MANAGER' AND revoked_at IS NULL`,
+      [[...byMailbox.keys()]],
+    );
+    for (const m of managers) {
+      const box = byMailbox.get(m.email_connection_id);
+      add(m.user_id, `${box.address}: ${counts(box.first, box.resolution)}.`);
+    }
+  }
+  for (const [userId, mine] of byAssignee) add(userId, `Assigned to you: ${counts(mine.first, mine.resolution)}.`);
+
+  let notified = 0;
+  for (const [userId, body] of lines) {
     await notify.notify(client, {
       userId,
       eventTypeKey: "mail.sla.breached",
-      title: resolution ? "Resolution SLA missed" : "First-response SLA missed",
-      body: resolution
-        ? (thread.subject ? `Still open past its resolution time: «${thread.subject}»` : "A conversation is past its resolution time.")
-        : (thread.subject ? `No reply yet on «${thread.subject}»` : "A conversation is past its first-response time."),
-      entityRef: `email_thread:${thread.email_thread_id}`,
-      priority: "HIGH",
-      // One breach, one notification per person, forever — the sweep's own
-      // stamp (`sla_breached_at` / `resolution_breached_at`) already fires
-      // once, and this is the belt to that pair of braces. Distinct keys so
-      // the two clocks cannot suppress each other inside the 60s window.
-      dedupeKey: resolution
-        ? `SLA_RESOLUTION:email_thread:${thread.email_thread_id}:${userId}`
-        : `SLA_BREACH:email_thread:${thread.email_thread_id}:${userId}`,
+      title: "Conversations waiting for a reply",
+      body: body.join(" "),
+      entityRef: null,
+      priority: "NORMAL",
+      dedupeKey: `SLA_DIGEST:${local.date}:${userId}`,
     });
+    notified += 1;
   }
-  await emitEvent(client, {
-    eventTypeKey: "mail.sla.breached",
-    moduleKey: "MOD-72",
-    entityRef: `email_thread:${thread.email_thread_id}`,
-    actorUserId: null,
-    payload: { connection: thread.email_connection_id, notified: targets.length, clock },
-  }).catch(() => { /* @silent:storage the sla_breached_at stamp is the record */ });
-  return targets.length;
+  await putSetting(client, { section: "mail", key: "sla_digest", value: { last_sent_on: local.date, notified } });
+  if (notified) {
+    await emitEvent(client, {
+      eventTypeKey: "mail.sla.breached",
+      moduleKey: "MOD-72",
+      entityRef: null,
+      actorUserId: null,
+      payload: { digest: local.date, notified, threads: rows.length },
+    }).catch(() => { /* @silent:storage the setting row is the record that it went out */ });
+  }
+  return { notified };
 }
 
 /**
@@ -227,4 +336,4 @@ const resetComputed = (client) =>
       WHERE work_status = 'OPEN' AND first_responded_at IS NULL`,
   ).then((r) => ({ reset: r.rowCount }));
 
-module.exports = { sweep, announce, policyFor, calendar, policies, resetComputed };
+module.exports = { sweep, digest, localClock, policyFor, calendar, policies, resetComputed, ON_THE_CLOCK, DIGEST_HOUR };
