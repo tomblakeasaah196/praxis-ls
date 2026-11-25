@@ -75,7 +75,7 @@ async function clearSocial(client, platform) {
 
 /* ── partners ───────────────────────────────────────────────────────────────*/
 
-const PARTNER_COLUMNS = ["name", "kind", "url", "permission_note", "sort_order", "is_active", "logo_vault_id"];
+const PARTNER_COLUMNS = ["name", "kind", "url", "permission_note", "member_number", "sort_order", "is_active", "logo_vault_id"];
 
 const listPartners = async (client) => (
   await client.query("SELECT * FROM site_partner ORDER BY kind, sort_order, name")
@@ -160,9 +160,9 @@ const deleteCredential = async (client, id) =>
 const ABOUT_COLUMNS = [
   "headline_fr", "headline_en", "summary_fr", "summary_en",
   "mission_fr", "mission_en", "vision_fr", "vision_en",
-  "principles", "esg", "timeline", "founded_year", "headquarters",
+  "principles", "esg", "timeline", "founded_year", "headquarters", "sections",
 ];
-const ABOUT_JSON = new Set(["principles", "esg", "timeline"]);
+const ABOUT_JSON = new Set(["principles", "esg", "timeline", "sections"]);
 
 const getAbout = async (client) =>
   (await client.query("SELECT * FROM site_about LIMIT 1")).rows[0] || null;
@@ -186,7 +186,7 @@ async function updateAbout(client, patch, actorId) {
 
 /* ── leadership ─────────────────────────────────────────────────────────────*/
 
-const LEADER_COLUMNS = ["entity_id", "full_name", "role_fr", "role_en", "bio_fr", "bio_en", "linkedin_url", "sort_order", "is_active", "photo_vault_id"];
+const LEADER_COLUMNS = ["entity_id", "full_name", "role_fr", "role_en", "bio_fr", "bio_en", "linkedin_url", "sort_order", "is_active", "photo_vault_id", "email", "phone", "partner_desk"];
 
 /** `entity_id IS NULL` is group leadership — the whole two-tier mechanism.
  *  `undefined` here means "every tier"; `null` means "the group's". */

@@ -30,6 +30,7 @@ const { z } = require("zod");
 const { SOCIAL_IDS, isValidSocialUrl } = require("../design/social");
 const coverage = require("../rules/coverage");
 const siteLanguagesRule = require("../rules/site-languages");
+const siteBrand = require("./site-brand");
 
 /* ── primitives ─────────────────────────────────────────────────────────────*/
 
@@ -116,6 +117,9 @@ const partner = z
     kind: z.enum(["carrier", "client", "network"]),
     url: httpsUrl,
     permission_note: text(LINE),
+    /** 14660: for a network (kind = network), the membership number a
+     *  forwarder checks in the network's own directory. */
+    member_number: text(60),
     sort_order: z.coerce.number().int().min(0).max(9999).optional(),
     is_active: z.boolean().optional(),
   })
@@ -209,6 +213,10 @@ const about = z.object({
     .optional(),
   founded_year: z.coerce.number().int().min(1800).max(2200).nullable().optional(),
   headquarters: text(TITLE),
+  // 14660: the rebuilt About page's sections (credentials row, story, the
+  // leader's message, offices, sectors, standards, closing band, search
+  // snippet). Defined once in `site-brand.js`, beside the other brand shapes.
+  sections: siteBrand.aboutSections.optional(),
 });
 
 /* ── leadership ─────────────────────────────────────────────────────────────*/
@@ -235,6 +243,18 @@ const leader = z.object({
     .optional(),
   sort_order: z.coerce.number().int().min(0).max(9999).optional(),
   is_active: z.boolean().optional(),
+  // 14660: a named contact on the For Partners page. The email and phone are
+  // published ONLY while `partner_desk` is on.
+  email: z
+    .string()
+    .trim()
+    .email("Use a full email address.")
+    .max(255)
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
+  phone: text(60),
+  partner_desk: z.boolean().optional(),
 });
 
 /* ── an entity's public story ───────────────────────────────────────────────*/

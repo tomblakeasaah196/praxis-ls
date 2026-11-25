@@ -361,7 +361,42 @@ async function updateSwitches(client, { patch, actor = {} }) {
 
 const getAbout = (client) => repo.getAbout(client);
 
-async function updateAbout(client, { patch, actor = {} }) {
+/**
+ * A bilingual value with nothing in either language is "not written", and is
+ * stored as null: the editor sends every field it draws, and a heading left
+ * blank must not read as a heading missing its English.
+ */
+function pruneBlankBilingual(node) {
+  if (Array.isArray(node)) return node.map(pruneBlankBilingual);
+  if (!node || typeof node !== "object") return node;
+  const keys = Object.keys(node);
+  if (keys.length && keys.every((k) => k === "en" || k === "fr")) {
+    return keys.some((k) => String(node[k] ?? "").trim() !== "") ? node : null;
+  }
+  return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, pruneBlankBilingual(v)]));
+}
+
+/**
+ * English first (website v2), for the About page's sections (14660): every
+ * heading and paragraph that is written must be written in the tenant's
+ * required language. The same rule `assertStoryLanguage` applies to a story.
+ */
+function assertAboutLanguage(row, site) {
+  const errors = {};
+  for (const gap of siteLanguages.pairGaps(row, ["headline", "summary"], site)) {
+    errors[gap] = [siteLanguages.gapMessage(site)];
+  }
+  for (const gap of siteLanguages.bilingualGaps(row.sections || {}, site, ["sections"])) {
+    errors[gap] = [siteLanguages.gapMessage(site)];
+  }
+  if (Object.keys(errors).length) {
+    throw new AppError("VALIDATION_ERROR", siteLanguages.gapMessage(site), 422, errors);
+  }
+}
+
+async function updateAbout(client, { patch: raw, actor = {} }) {
+  const patch = raw.sections !== undefined ? { ...raw, sections: pruneBlankBilingual(raw.sections) } : raw;
+  assertAboutLanguage({ ...((await repo.getAbout(client)) || {}), ...patch }, await switches.load(client));
   return atomically(client, async () => {
     const before = await repo.getAbout(client);
     const row = await repo.updateAbout(client, patch, actor.user_id);
@@ -641,6 +676,9 @@ async function publicPartners(client) {
       kind: p.kind,
       logo_id: p.logo_vault_id || null,
       url: p.url || null,
+      // 14660: a network membership's number, so an agent can look us up in
+      // the network's own directory. Only a network carries one.
+      member_number: p.kind === "network" && p.member_number ? p.member_number : null,
     }));
 
   const today = new Date().toISOString().slice(0, 10);
@@ -687,6 +725,11 @@ const publicLeader = (l, variants = {}) => ({
   photo_id: l.photo_vault_id || null,
   photo_variants: variants[l.photo_vault_id] || null,
   linkedin_url: l.linkedin_url || null,
+  // 14660: a person's email and phone are published only when somebody has
+  // made them a named contact for partners. Otherwise neither leaves the row.
+  partner_desk: l.partner_desk === true,
+  email: l.partner_desk === true ? l.email || null : null,
+  phone: l.partner_desk === true ? l.phone || null : null,
 });
 
 /** The group story plus group-level leadership (entity_id IS NULL). */
@@ -716,6 +759,10 @@ async function aboutPayload(client) {
     timeline: about.timeline || [],
     founded_year: about.founded_year ?? null,
     headquarters: about.headquarters ?? null,
+    // 14660: the rebuilt page's sections, already in the shared shape. The
+    // leader the message is signed by is resolved by id against `leaders`
+    // below, so a deactivated person's message disappears with them.
+    sections: about.sections && typeof about.sections === "object" ? about.sections : {},
     leaders: leaders.map((l) => publicLeader(l, variants)),
   };
 }
