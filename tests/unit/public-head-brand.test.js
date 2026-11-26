@@ -67,6 +67,16 @@ describe("the brand page heads", () => {
     expect(shaped.image).toBe("/api/tenant/public/site/media/doc-1");
   });
 
+  test("a service card prints the website's name for the service, not the operations name", () => {
+    const r = brand.ROUTES.find((x) => x.test.test("/services/sea-freight"));
+    const shaped = r.shape({
+      row: { name_en: "Sea Freight Import", web_name_en: "Sea Freight", meta_title_en: "Sea Freight to Douala and Kribi" },
+      mediaByRole: new Map(),
+    });
+    expect(shaped).toMatchObject({ headline: "Sea Freight", title: "Sea Freight to Douala and Kribi", fullTitle: true });
+    expect(shaped.trail[1].name).toBe("Sea Freight");
+  });
+
   test("an unpublished document describes nothing", async () => {
     const { r, m } = route("/trust/not-here");
     await expect(r.load(stub({}), m[1])).rejects.toMatchObject({ status: 404 });

@@ -161,7 +161,9 @@ const ROUTES = [
       if (!detail || !detail.row) return null;
       const r = detail.row;
       const written = pick(r.meta_title_en, r.meta_title_fr);
-      const name = pick(r.name_en, r.name_fr);
+      // The name the WEBSITE prints ("Sea Freight"), which a profile may set
+      // over the operations name ("Sea Freight Import"), as the public route does.
+      const name = pick(r.web_name_en, r.name_en, r.web_name_fr, r.name_fr);
       const cover = r.cover_vault_id && detail.mediaByRole.get(r.cover_vault_id) === "COVER"
         ? "/api/tenant/public/services/media/" + r.cover_vault_id
         : null;
