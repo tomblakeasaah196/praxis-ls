@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AboutPage } from "@/features/about/about-page";
 import { DocumentPage } from "@/features/trust/document-page";
@@ -152,7 +152,13 @@ describe("the rebuilt About page (PR 4)", () => {
     await waitFor(() => expect(screen.getByText("1030, Avenue Douala Manga Bell")).toBeInTheDocument());
     expect(screen.getByText("+237 233 420 281")).toBeInTheDocument();
     expect(screen.getByText("Transformers and towers.")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("link", { name: "Quality Policy" })).toBeInTheDocument());
+    // Inside the page, not the whole document: the footer lists the published
+    // policies too, after paint, so whether it had arrived decided whether this
+    // found one link or two. It failed main's CI on 26 Nov 2026 and passed the
+    // same code in the pull request.
+    await waitFor(() =>
+      expect(within(screen.getByRole("main")).getByRole("link", { name: "Quality Policy" })).toBeInTheDocument(),
+    );
     expect(screen.getByText("Tell us where it starts.")).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
