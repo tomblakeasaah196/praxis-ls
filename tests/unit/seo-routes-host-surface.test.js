@@ -124,3 +124,40 @@ describe("a workspace host", () => {
     expect(sitemap.fellThrough).toBe(true);
   });
 });
+
+describe("/llms.txt and /llms-full.txt", () => {
+  const llms = require("../../src/shared/http/llms-txt");
+
+  async function askLlms(full, host) {
+    const seo = seoRoutes({ servePublicWeb: false });
+    const req = { protocol: "https", headers: { host }, path: full ? "/llms-full.txt" : "/llms.txt" };
+    const res = fakeRes();
+    res.statusCode = 200;
+    res.status = (c) => ((res.statusCode = c), res);
+    let fellThrough = false;
+    await (full ? seo.llmsFullTxt : seo.llmsTxt)(req, res, () => { fellThrough = true; });
+    return { res, fellThrough };
+  }
+
+  test("serves the profile as Markdown on the public domain, at its base", async () => {
+    jest.spyOn(llms, "build").mockResolvedValue("# Example\n\n> Summary.\n");
+    const { res } = await askLlms(true, "smartlsgroup.com");
+    expect(res.statusCode).toBe(200);
+    expect(res.contentType).toBe("text/markdown");
+    expect(res.body).toBe("# Example\n\n> Summary.\n");
+    expect(llms.build).toHaveBeenCalledWith("smartlsgroup.com", "https://smartlsgroup.com", "/", { full: true });
+  });
+
+  test("answers 404 when there is no profile, never an empty or invented file", async () => {
+    jest.spyOn(llms, "build").mockResolvedValue(null);
+    const { res } = await askLlms(false, "smartlsgroup.com");
+    expect(res.statusCode).toBe(404);
+  });
+
+  test("a workspace host that serves no public site leaves the path alone", async () => {
+    jest.spyOn(llms, "build").mockResolvedValue("# x\n");
+    const { fellThrough } = await askLlms(false, "smartls.praxisls.com");
+    expect(fellThrough).toBe(true);
+    expect(llms.build).not.toHaveBeenCalled();
+  });
+});

@@ -249,6 +249,39 @@ export const getSwitches = () => tenant<SiteSwitches>("/site-settings/switches")
 export const saveSwitches = (body: Partial<SiteSwitches>) =>
   tenant<SiteSwitches>("/site-settings/switches", { method: "PUT", body });
 
+/* ── the AI profile (14700) ─────────────────────────────────────────────────*/
+
+/**
+ * What AI assistants read about the company: `/llms.txt`, `/llms-full.txt` and
+ * the Organization structured data on every public page. Validated by
+ * `siteSettings.aiProfile`. Blank text is stored as null, and `summary` decides
+ * whether anything is published at all.
+ *
+ * The PUT is PARTIAL: only the fields sent change, so the screen sends what the
+ * operator touched and nothing else.
+ */
+export type SiteAiProfile = {
+  summary: string | null;
+  alternate_names: string[];
+  founded: string | null;
+  offices: string | null;
+  services_summary: string | null;
+  sectors: string[];
+  areas_served: string[];
+  credentials: string | null;
+  leadership: string | null;
+  not_offered: string | null;
+  contact: string | null;
+  /** ISO `YYYY-MM-DD`, or null when never reviewed. */
+  reviewed_on: string | null;
+  updated_at?: string | null;
+  updated_by?: string | null;
+};
+
+export const getAiProfile = () => tenant<SiteAiProfile | null>("/site-settings/ai-profile");
+export const saveAiProfile = (body: Partial<SiteAiProfile>) =>
+  tenant<SiteAiProfile>("/site-settings/ai-profile", { method: "PUT", body });
+
 export const getCareers = () => tenant<SiteCareers>("/site-settings/careers");
 export const saveCareers = (body: Partial<SiteCareers>) =>
   tenant<SiteCareers>("/site-settings/careers", { method: "PUT", body });

@@ -209,6 +209,30 @@ function buildCspDirectives(defaults, scriptSrc) {
 const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
 
 /**
+ * Cloudflare Web Analytics, on the PUBLIC WEBSITE only (owner decision, 26 Nov
+ * 2026: visitor numbers with no cookie and so no consent banner).
+ *
+ * On a proxied domain Cloudflare injects one external script into the HTML it
+ * passes through, and that script posts its beacon to a second origin. With
+ * neither allowed, the browser refuses both silently and the dashboard simply
+ * reads zero visitors. So the public site's documents name exactly these two
+ * origins and nothing wider; the staff app and the console are not measured
+ * and their policy does not change.
+ */
+const CF_INSIGHTS_SCRIPT = "https://static.cloudflareinsights.com";
+const CF_INSIGHTS_BEACON = "https://cloudflareinsights.com";
+
+/** The public website's policy: the app-wide one, plus Web Analytics. */
+function buildPublicCspDirectives(defaults, scriptSrc) {
+  const base = buildCspDirectives(defaults, scriptSrc);
+  return {
+    ...base,
+    "script-src": [...base["script-src"], CF_INSIGHTS_SCRIPT],
+    "connect-src": ["'self'", CF_INSIGHTS_BEACON],
+  };
+}
+
+/**
  * `script-src`: helmet's default, the SPA shells' inline-script hashes, and
  * `'wasm-unsafe-eval'` — WebAssembly compilation only, not `eval` — for the
  * call noise filter's RNNoise module, which the default policy refuses to
@@ -650,8 +674,15 @@ function buildApp() {
     // file, unmodified, on any failure.
     const sendHtml = publicHead.makeHtmlSender(publicWebDir);
     const sendShell = (req, res) => res.sendFile(path.join(publicWebDir, "index.html"));
+    // The public website's documents carry its own policy, which adds
+    // Cloudflare Web Analytics (see buildPublicCspDirectives). It REPLACES the
+    // header the app-wide helmet set, on these responses only.
+    const publicCsp = helmet.contentSecurityPolicy({
+      directives: buildPublicCspDirectives(cspDefaults, scriptSrc),
+    });
     const serveApp = (req, res) =>
-      publicWebStatic(req, res, () => sendHtml(req, res, () => sendShell(req, res)));
+      publicCsp(req, res, () =>
+        publicWebStatic(req, res, () => sendHtml(req, res, () => sendShell(req, res))));
     const isPublicSurface = (req) => req.hostSurface === "public";
 
     // robots.txt and sitemap.xml, per host. Ahead of the mounts, so they
@@ -659,6 +690,8 @@ function buildApp() {
     const seo = seoRoutes({ servePublicWeb: config.SERVE_PUBLIC_WEB });
     app.get("/robots.txt", seo.robotsTxt);
     app.get("/sitemap.xml", seo.sitemapXml);
+    app.get("/llms.txt", seo.llmsTxt);
+    app.get("/llms-full.txt", seo.llmsFullTxt);
 
     /**
      * Resolve the host's surface once, before either mount reads it. Which
@@ -1037,4 +1070,4 @@ function start() {
 
 if (require.main === module) start();
 
-module.exports = { buildApp, start, buildCorsOptions, buildCspDirectives, buildScriptSrc };
+module.exports = { buildApp, start, buildCorsOptions, buildCspDirectives, buildPublicCspDirectives, buildScriptSrc };

@@ -257,6 +257,17 @@ router.put("/switches", edit, v.switches, asyncHandler(async (req, res) => {
   res.json({ data });
 }));
 
+/* ── the AI profile (14700) ─────────────────────────────────────────────────*/
+
+router.get("/ai-profile", view, asyncHandler(async (req, res) => {
+  res.json({ data: await req.tenantDb((c) => service.getAiProfile(c)) });
+}));
+
+router.put("/ai-profile", edit, v.aiProfile, asyncHandler(async (req, res) => {
+  const data = await req.tenantDb((c) => service.updateAiProfile(c, { patch: req.body, actor: req.user || {} }));
+  res.json({ data });
+}));
+
 /* ── an entity's public story ───────────────────────────────────────────────*/
 
 /**

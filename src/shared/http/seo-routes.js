@@ -52,7 +52,26 @@ function seoRoutes({ servePublicWeb }) {
     }
   }
 
-  return { robotsTxt, sitemapXml };
+  /**
+   * /llms.txt and /llms-full.txt: the tenant's AI profile, for AI assistants
+   * (see llms-txt.js). 404 when the host serves no public site, is a
+   * rehearsal, or the tenant has written no profile: never invented text.
+   */
+  const llms = (full) => async function llmsTxt(req, res, next) {
+    const host = hostOf(req);
+    if (!(await servesPublic(req))) return next();
+    const origin = `${req.protocol}://${req.headers.host}`;
+    try {
+      const text = await require("./llms-txt").build(host, origin, baseOf(req), { full });
+      if (!text) return res.status(404).type("text/plain").send("Not found");
+      res.type("text/markdown").set("Cache-Control", "public, max-age=3600").send(text);
+    } catch (err) {
+      logger.warn({ err, host }, "llms.txt failed");
+      res.status(404).type("text/plain").send("Not found");
+    }
+  };
+
+  return { robotsTxt, sitemapXml, llmsTxt: llms(false), llmsFullTxt: llms(true) };
 }
 
 module.exports = { seoRoutes };

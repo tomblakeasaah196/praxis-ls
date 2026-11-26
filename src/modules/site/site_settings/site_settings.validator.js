@@ -64,6 +64,9 @@ const schemas = {
   // a script that flips one switch must not reset the other six.
   switches: partial(shared.siteSwitches),
   entityStory: shared.entityPublicStory,
+  // Partial: the AI Profile screen saves a field as it loses focus, and a
+  // script that sets one fact must not blank the other eleven.
+  aiProfile: shared.aiProfile.partial(),
 
   // The image upload. Shared for the reason §6.3 gives: the control has to
   // state each slot's aspect, minimum width and byte cap BEFORE the file dialog
@@ -98,5 +101,6 @@ module.exports = {
   careers: mw("careers"),
   switches: mw("switches"),
   entityStory: mw("entityStory"),
+  aiProfile: mw("aiProfile"),
   media: mw("media"),
 };

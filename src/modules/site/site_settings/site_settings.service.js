@@ -37,6 +37,7 @@ const { AppError } = require("../../../utils/errors");
 const events = require("./site_settings.events");
 const repo = require("./site_settings.repo");
 const switches = require("./site_switches");
+const aiProfile = require("./site_ai_profile");
 // PR-07 (CE-25): the cover-attachment outbox — read here only, so the Story
 // tab can show a durable upload-failure state. The vault-side service never
 // requires this module, so the dependency is one-directional.
@@ -368,6 +369,31 @@ async function updateSwitches(client, { patch, actor = {} }) {
       action: events.SWITCHES_UPDATED,
       moduleKey: events.MODULE,
       entityRef: "site_switches:singleton",
+      before,
+      after,
+    });
+    return after;
+  });
+}
+
+/* ── the AI profile (14700) ─────────────────────────────────────────────────*/
+
+/**
+ * What AI assistants read about the company. Written on Settings › Website ›
+ * AI Profile, served at /llms.txt and in the Organization structured data;
+ * see `site_ai_profile.js` for the readers and why an empty one says nothing.
+ */
+const getAiProfile = (client) => aiProfile.load(client);
+
+async function updateAiProfile(client, { patch, actor = {} }) {
+  return atomically(client, async () => {
+    const before = await aiProfile.load(client);
+    const after = await aiProfile.save(client, patch, actor.user_id);
+    await audit(client, {
+      actorUserId: actor.user_id || null,
+      action: events.AI_PROFILE_UPDATED,
+      moduleKey: events.MODULE,
+      entityRef: "site_ai_profile:singleton",
       before,
       after,
     });
@@ -990,6 +1016,7 @@ module.exports = {
   getAbout, updateAbout,
   getCareers, updateCareers,
   getSwitches, updateSwitches,
+  getAiProfile, updateAiProfile,
   getEntityStory, updateEntityStory, serviceFocusCatalogue,
   publicPartners, publicSocial, publicAbout, publicEntities,
 };

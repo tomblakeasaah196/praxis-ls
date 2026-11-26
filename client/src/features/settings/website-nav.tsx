@@ -34,6 +34,7 @@ const ITEMS = [
   { to: "/settings/website/careers", label: () => tr("Careers"), end: false },
   { to: "/settings/website/messages", label: () => tr("Messages"), end: false },
   { to: "/settings/website/options", label: () => tr("Options"), end: false },
+  { to: "/settings/website/ai-profile", label: () => tr("AI Profile"), end: false },
 ];
 
 export function WebsiteNav() {

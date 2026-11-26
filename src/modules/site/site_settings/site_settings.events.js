@@ -27,6 +27,7 @@ module.exports = {
   ABOUT_UPDATED: "site.about_updated",
   CAREERS_UPDATED: "site.careers_updated",
   SWITCHES_UPDATED: "site.switches_updated",
+  AI_PROFILE_UPDATED: "site.ai_profile_updated",
   LEADER_CREATED: "site.leader_created",
   LEADER_UPDATED: "site.leader_updated",
   LEADER_DELETED: "site.leader_deleted",

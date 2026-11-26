@@ -179,6 +179,11 @@ const ROUTES = [
           { name: "Services", path: "/services" },
           { name: name || "Service", path: null },
         ],
+        ld: (origin, branding, canonical) => serviceLd({
+          name: name || written,
+          description: summarise(pick(r.short_description_en, r.meta_description_en, r.short_description_fr, r.meta_description_fr)) || null,
+          image: cover,
+        }, origin, branding, canonical),
       };
     },
   },
@@ -218,6 +223,28 @@ const ROUTES = [
   },
 ];
 
+/**
+ * A service page as schema.org reads it: the service, and who provides it.
+ * The provider is the brand by its site name, pointing at the home page, so a
+ * reader joins it to the Organization every page carries.
+ */
+function serviceLd(svc, origin, branding, canonical) {
+  if (!svc || !svc.name) return null;
+  const provider = branding && branding.name
+    ? { "@type": "Organization", name: branding.name, url: origin }
+    : null;
+  const out = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: svc.name,
+    url: canonical,
+  };
+  if (svc.description) out.description = svc.description;
+  if (svc.image) out.image = /^https?:\/\//i.test(svc.image) ? svc.image : origin + svc.image;
+  if (provider) out.provider = provider;
+  return out;
+}
+
 /* ── the offices, for the Organization data ─────────────────────────────────*/
 
 /**
@@ -231,7 +258,14 @@ const ROUTES = [
 async function offices(client) {
   const brand = require("../../modules/site/site_brand/site_brand.service");
   const legal = await brand.publicLegal(client);
-  if (!legal.length) return { places: [], email: null, phone: null, founded: null, sameAs: [] };
+  // The social PROFILES, read whatever else is published: a tenant with no
+  // company published yet still has a LinkedIn page that says who it is.
+  // `socialProfiles` drops a WhatsApp chat link, which is a way to reach the
+  // company and not a page about it, so it has no place in `sameAs`.
+  const { rows: social } = await client.query("SELECT url FROM site_social_link ORDER BY platform")
+    .catch(() => ({ rows: [] }));
+  const sameAs = require("./public-body").socialProfiles(social.map((s) => s.url));
+  if (!legal.length) return { places: [], email: null, phone: null, founded: null, sameAs, legalNames: [] };
   const { rows: about } = await client.query("SELECT founded_year, sections FROM site_about LIMIT 1")
     .catch(() => ({ rows: [] }));
   const sections = (about[0] && about[0].sections) || {};
@@ -272,15 +306,15 @@ async function offices(client) {
       telephone: e.phone || undefined,
     };
   });
-  const { rows: social } = await client.query("SELECT url FROM site_social_link ORDER BY platform")
-    .catch(() => ({ rows: [] }));
   return {
     places,
     email: legal.map((e) => e.email).find(Boolean) || null,
     phone: legal.map((e) => e.phone).find(Boolean) || null,
     founded: about[0] && about[0].founded_year ? String(about[0].founded_year) : null,
-    sameAs: social.map((s) => s.url).filter(Boolean),
+    sameAs,
+    // The registered names of the published companies, for `legalName`.
+    legalNames: [...new Set(legal.map((e) => String(e.legal_name || "").trim()).filter(Boolean))],
   };
 }
 
-module.exports = { ROUTES, offices, summarise, pageMeta };
+module.exports = { ROUTES, offices, summarise, pageMeta, serviceLd };
