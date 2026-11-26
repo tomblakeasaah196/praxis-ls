@@ -147,3 +147,22 @@ describe("the stagger", () => {
     expect(el.style.transitionDelay).toBe("120ms");
   });
 });
+
+describe("an element that appears after the first render is still watched", () => {
+  it("useInView observes a band that rendered nothing until its data arrived", async () => {
+    // The client logo band returns null until its logos load. The observer was
+    // attached once, on the first render, found no element, and never tried
+    // again, so the marquee stayed paused on every screen (26 Nov 2026).
+    const { useInView } = await import("@/components/ui/reveal");
+    function Band({ ready }: { ready: boolean }) {
+      const [ref, live] = useInView<HTMLDivElement>();
+      if (!ready) return null;
+      return <div ref={ref} data-testid="band" data-live={live ? "true" : "false"} />;
+    }
+    const { rerender } = render(<Band ready={false} />);
+    expect(observed).toHaveLength(0);
+    rerender(<Band ready />);
+    const band = screen.getByTestId("band");
+    expect(observed).toContain(band);
+  });
+});

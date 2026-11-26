@@ -86,12 +86,13 @@ function applySiteChoices(t: SiteThemePayload): void {
 function paintDocumentIdentity(b: Branding): void {
   applyBrand({ ...b, primary: b.primary || DEFAULT_PRIMARY });
 
-  if (b.name) {
+  // Only over the shell's placeholder. The server now writes every page's own
+  // title into the head ("Contact Us | Smart Logistics and Services") and
+  // `useShareMeta` keeps it; painting the brand's REGISTERED name over it once
+  // branding arrived turned every tab into "Smart Logistics & Services Ltd"
+  // (owner's review, 26 Nov 2026). og:site_name is the server's too.
+  if (b.name && (!document.title || document.title === "Praxis")) {
     document.title = b.name;
-    const og = document.querySelector<HTMLMetaElement>(
-      'meta[property="og:site_name"]',
-    );
-    if (og) og.content = b.name;
   }
 
   if (b.faviconUrl) {

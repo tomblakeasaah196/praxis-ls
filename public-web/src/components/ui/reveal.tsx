@@ -234,14 +234,40 @@ export function useApproaching<T extends HTMLElement>(): readonly [
 ] {
   const eager = reduced() || typeof IntersectionObserver === "undefined";
   const ref = React.useRef<T | null>(null);
+  const node = useMountedNode(ref);
   const [near, setNear] = React.useState(eager);
 
   React.useEffect(() => {
-    if (eager || near || !ref.current) return undefined;
-    return watchNear(ref.current, () => setNear(true));
-  }, [eager, near]);
+    if (eager || near || !node) return undefined;
+    return watchNear(node, () => setNear(true));
+  }, [eager, near, node]);
 
   return [ref as React.RefObject<T>, near] as const;
+}
+
+/**
+ * The element a ref points at, as STATE, so an effect can depend on it.
+ *
+ * The observers above were attached in an effect that ran once, on the first
+ * render. A caller that renders nothing until its data arrives (the client
+ * logo band returns null until the logos load) has no element on that first
+ * render, so the effect found `ref.current` empty, attached nothing, and never
+ * ran again: the band reported "off screen" forever and its marquee never
+ * moved, on every screen (owner's phone review, 26 Nov 2026). Reading the ref
+ * after every commit and promoting a change to state re-runs the effect the
+ * moment the element exists. A layout effect, so the observer is attached in
+ * the same frame the element is painted.
+ */
+function useMountedNode<T extends HTMLElement>(ref: React.RefObject<T | null>): T | null {
+  const [node, setNode] = React.useState<T | null>(null);
+  // No dependency list on purpose: the ref changes without a render, so the
+  // only way to see it is to look after every commit. The comparison makes it
+  // settle: one extra render when the element appears or goes, none otherwise.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useLayoutEffect(() => {
+    if (ref.current !== node) setNode(ref.current);
+  });
+  return node;
 }
 
 /**
@@ -263,12 +289,13 @@ export function useInView<T extends HTMLElement>(): readonly [
 ] {
   const still = reduced() || typeof IntersectionObserver === "undefined";
   const ref = React.useRef<T | null>(null);
+  const node = useMountedNode(ref);
   const [visible, setVisible] = React.useState(still);
 
   React.useEffect(() => {
-    if (still || !ref.current) return undefined;
-    return watchLive(ref.current, setVisible);
-  }, [still]);
+    if (still || !node) return undefined;
+    return watchLive(node, setVisible);
+  }, [still, node]);
 
   return [ref as React.RefObject<T>, visible] as const;
 }

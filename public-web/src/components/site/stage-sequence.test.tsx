@@ -11,7 +11,8 @@ import { StageSequence } from "./stage-sequence";
  * meaningful to assert about it in jsdom — and `motion.test.ts` already covers
  * the hook. What CAN go wrong, silently, is the contract between the two:
  *
- *   · a stage whose `--at` is wrong never lights, at any scroll position;
+ *   · a stage that cannot reach its arrival never lights, at any scroll
+ *     position (the last one did exactly that until 26 Nov 2026);
  *   · a diagram that is not `aria-hidden` gets announced as an image with no
  *     description, which is worse than no diagram;
  *   · and the body copy fading with the decoration, which is the one thing that
@@ -43,23 +44,22 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("the stage sequence", () => {
-  it("spreads the stages evenly across the scrub, first at 0 and last at 1", () => {
-    // A stage whose `--at` is past 1 never lights, however far the reader
-    // scrolls — and nothing else in the system would report it.
+  it("gives every stage its own scrub, so the last one can light too", async () => {
+    // It was one scrub over the list with `--at` 0, 0.5 and 1. A stage
+    // arrives when the scrub passes its `--at` by an eighth, so the stage at 1
+    // never arrived: "You Watch It Move" stayed faded at every scroll position
+    // (owner's phone review, 26 Nov 2026). The test that stood here asserted
+    // `--at: 1` for the last stage, i.e. the bug. Now each stage is scrubbed
+    // on its own and nothing waits for a share of a list.
     const { container } = render(<StageSequence stages={stages} />);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
     const items = [...container.querySelectorAll(".stage-item")] as HTMLElement[];
     expect(items).toHaveLength(3);
-    expect(items[0].style.getPropertyValue("--at")).toBe("0");
-    expect(items[2].style.getPropertyValue("--at")).toBe("1");
-  });
-
-  it("does not divide by zero on a single stage", () => {
-    // A tenant's own `feature_list` decides how many stages there are. One is a
-    // legitimate answer and `(i / (n - 1))` is NaN for it.
-    const { container } = render(<StageSequence stages={[stages[0]]} />);
-    const at = (container.querySelector(".stage-item") as HTMLElement).style.getPropertyValue("--at");
-    expect(at).toBe("0");
-    expect(at).not.toContain("NaN");
+    for (const item of items) {
+      expect(item.style.getPropertyValue("--at")).toBe("");
+      expect(item.style.getPropertyValue("--scrub")).not.toBe("");
+    }
+    expect(container.querySelector(".stage-seq")!.getAttribute("style")).toBeNull();
   });
 
   it("keeps every diagram out of the accessibility tree", () => {
