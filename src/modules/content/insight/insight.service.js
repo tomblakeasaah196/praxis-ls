@@ -15,6 +15,7 @@ const { audit, emitEvent } = require("../../../shared/events/emit");
 const { AppError } = require("../../../utils/errors");
 const events = require("./insight.events");
 const repo = require("./insight.repo");
+const indexNow = require("../../../shared/http/indexnow");
 
 const ref = (id) => `insight_article:${id}`;
 
@@ -293,18 +294,36 @@ async function update(client, { id, patch, actor = {} }) {
       title_en: ["a headline in English or French is required"],
     });
   }
-  return atomically(client, async () => {
-    const row = await repo.update(client, id, patch);
+  const row = await atomically(client, async () => {
+    const updated = await repo.update(client, id, patch);
     await audit(client, {
       actorUserId: actor.user_id || null,
       action: events.UPDATED,
       moduleKey: events.MODULE,
       entityRef: ref(id),
       before,
-      after: row,
+      after: updated,
     });
-    return row;
+    return updated;
   });
+  // A live article changed: tell the search engines, at its old address too
+  // when the slug moved, so the old one is recrawled into its 404.
+  if (row && row.is_published) announce(client, [before, row]);
+  return row;
+}
+
+/**
+ * IndexNow (shared/http/indexnow.js): the article's page, the Insights index
+ * and the home page, which lists the latest. Fire and forget. An article
+ * dated in the future is not live yet, so it is announced on no date at all
+ * rather than early; the sitemap carries it once it is.
+ */
+function announce(client, rows) {
+  const live = rows.filter(Boolean);
+  const future = live.some((r) => r.published_at && new Date(r.published_at).getTime() > Date.now());
+  if (future) return;
+  const slugs = [...new Set(live.flatMap((r) => [r.slug_en, r.slug_fr]).filter(Boolean))];
+  indexNow.ping(client, [...slugs.map((s) => "/insights/" + encodeURIComponent(s)), "/insights", "/"]);
 }
 
 /**
@@ -331,8 +350,8 @@ async function setPublished(client, { id, published, actor = {} }) {
       });
     }
   }
-  return atomically(client, async () => {
-    const row = await repo.setPublished(client, id, actor.user_id || null, published);
+  const row = await atomically(client, async () => {
+    const saved = await repo.setPublished(client, id, actor.user_id || null, published);
     const action = published ? events.PUBLISHED : events.UNPUBLISHED;
     await emitEvent(client, {
       eventTypeKey: action,
@@ -346,10 +365,14 @@ async function setPublished(client, { id, published, actor = {} }) {
       moduleKey: events.MODULE,
       entityRef: ref(id),
       before,
-      after: row,
+      after: saved,
     });
-    return row;
+    return saved;
   });
+  // Published or withdrawn, the address changed state: announce it either
+  // way, so a withdrawn piece is recrawled into its 404 rather than lingering.
+  announce(client, [row]);
+  return row;
 }
 
 /**

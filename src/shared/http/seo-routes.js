@@ -17,6 +17,7 @@ const publicHead = require("./public-head");
 const paths = require("./public-web-paths");
 const { resolveHostSurface, hostOf } = require("./host-surface");
 const { logger } = require("../../config/logger");
+const indexNow = require("./indexnow");
 
 /**
  * @param {{ servePublicWeb: boolean }} opts  SERVE_PUBLIC_WEB: whether a
@@ -71,7 +72,19 @@ function seoRoutes({ servePublicWeb }) {
     }
   };
 
-  return { robotsTxt, sitemapXml, llmsTxt: llms(false), llmsFullTxt: llms(true) };
+  /**
+   * /<key>.txt: the IndexNow key file (see indexnow.js). Answered only on a
+   * host whose surface is public, and only for THAT host's own key; any other
+   * 32-hex `.txt` path falls through to whatever answered it before.
+   */
+  async function indexNowKey(req, res, next) {
+    if ((await resolveHostSurface(req)) !== "public") return next();
+    const key = indexNow.keyFor(hostOf(req));
+    if (req.path !== "/" + key + ".txt") return next();
+    res.type("text/plain").set("Cache-Control", "public, max-age=86400").send(key);
+  }
+
+  return { robotsTxt, sitemapXml, llmsTxt: llms(false), llmsFullTxt: llms(true), indexNowKey };
 }
 
-module.exports = { seoRoutes };
+module.exports = { seoRoutes, INDEXNOW_KEY_PATH: /^\/[0-9a-f]{32}\.txt$/ };

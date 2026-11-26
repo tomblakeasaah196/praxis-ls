@@ -22,6 +22,7 @@ const media = require("../site_settings/site_settings.media");
 const repo = require("./site_brand.repo");
 const events = require("./site_brand.events");
 const pdfTemplate = require("./site_brand.pdf");
+const indexNow = require("../../../shared/http/indexnow");
 const { siteBrand, countries } = require("@praxis/shared");
 
 const ref = (kind, id) => `${kind}:${id}`;
@@ -283,7 +284,7 @@ async function setPublished(client, { id, published, actor = {} }) {
       );
     }
   }
-  return atomically(client, async () => {
+  const out = await atomically(client, async () => {
     const row = await repo.setPublished(client, id, published ? snapshotOf(before) : null, actor.user_id);
     await audit(client, {
       actorUserId: actor.user_id || null,
@@ -295,6 +296,14 @@ async function setPublished(client, { id, published, actor = {} }) {
     });
     return withStatus(row);
   });
+  // IndexNow (shared/http/indexnow.js): the document's page, the Trust index
+  // and the home page. The privacy policy has its own address.
+  const key = String(before.doc_key || "").toLowerCase();
+  if (key) {
+    const page = key === "privacy-policy" ? "/legal/privacy" : "/trust/" + encodeURIComponent(key);
+    indexNow.ping(client, [page, "/trust", "/"]);
+  }
+  return out;
 }
 
 /* ── the PDF ────────────────────────────────────────────────────────────────*/

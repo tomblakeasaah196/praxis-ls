@@ -653,6 +653,24 @@ async function publicSurfaceOrigin(tenantId) {
 }
 
 /**
+ * Every PUBLIC-surface host of a tenant (`surface = 'public'`): the domains
+ * that serve its website at their root. For IndexNow (shared/http/indexnow.js),
+ * which tells search engines about a page on each host that publishes it.
+ * Lower-cased, primary first; [] when the tenant has none.
+ */
+async function publicHosts(tenantId) {
+  if (!tenantId) return [];
+  const { rows } = await platform().query(
+    `SELECT host
+       FROM platform.subdomain
+      WHERE tenant_id = $1 AND surface = 'public'
+      ORDER BY is_primary DESC, created_at`,
+    [tenantId],
+  );
+  return rows.map((r) => normHost(r.host)).filter(Boolean);
+}
+
+/**
  * The tenant's own slug and the origin its assets are fetched from by something
  * OUTSIDE the app — today, an email-signature card sitting in a recipient's
  * mail client.
@@ -720,6 +738,7 @@ module.exports = {
   listActiveTenants,
   publicSiteBaseUrl,
   publicSurfaceOrigin,
+  publicHosts,
   poolStats,
   hostCacheStats,
   closeAll,

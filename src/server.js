@@ -40,7 +40,7 @@ const registry = require("./services/tenant/registry.service");
 const publicHead = require("./shared/http/public-head");
 const publicWebPaths = require("./shared/http/public-web-paths");
 const { resolveHostSurface } = require("./shared/http/host-surface");
-const { seoRoutes } = require("./shared/http/seo-routes");
+const { seoRoutes, INDEXNOW_KEY_PATH } = require("./shared/http/seo-routes");
 const inlineScriptHashes = require("./shared/http/inline-script-hashes");
 const { setSpaCacheHeaders } = require("./shared/http/spa-cache");
 
@@ -692,6 +692,8 @@ function buildApp() {
     app.get("/sitemap.xml", seo.sitemapXml);
     app.get("/llms.txt", seo.llmsTxt);
     app.get("/llms-full.txt", seo.llmsFullTxt);
+    // The IndexNow key file, per public host (shared/http/indexnow.js).
+    app.get(INDEXNOW_KEY_PATH, seo.indexNowKey);
 
     /**
      * Resolve the host's surface once, before either mount reads it. Which

@@ -47,6 +47,7 @@ jest.mock("../../src/modules/vault/document_vault/document_vault.service", () =>
   createDocument: jest.fn(),
 }));
 jest.mock("../../src/services/storage.service", () => ({ get: jest.fn(), delete: jest.fn() }));
+jest.mock("../../src/shared/http/indexnow", () => ({ ping: jest.fn() }));
 
 const fs = require("fs");
 const path = require("path");
@@ -158,7 +159,11 @@ describe("service_type_web.service — publish gate (guide §4.2)", () => {
       public_media_role: "COVER", public_media_content_type: "image/png",
     });
     repo.setPublished.mockResolvedValue({ ...p, is_published: true });
-    await expect(service.publish({}, { serviceTypeId: ST, actor: { user_id: "u-1" } })).resolves.toBeDefined();
+    const client = {};
+    await expect(service.publish(client, { serviceTypeId: ST, actor: { user_id: "u-1" } })).resolves.toBeDefined();
+    // IndexNow: the service page, the services index and the home page.
+    const indexNow = require("../../src/shared/http/indexnow");
+    expect(indexNow.ping).toHaveBeenLastCalledWith(client, [`/services/${p.slug_en}`, "/services", "/"]);
     // English stays required.
     switches.load.mockResolvedValueOnce({ languages: ["en"] });
     repo.lockProfile.mockResolvedValue({ ...p, short_description_en: null });

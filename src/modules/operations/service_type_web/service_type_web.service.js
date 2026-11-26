@@ -24,6 +24,7 @@ const repo = require("./service_type_web.repo");
 const { siteLanguages, quoteEngine } = require("@praxis/shared");
 const websiteService = require("./website-service");
 const siteSwitches = require("../../site/site_settings/site_switches");
+const indexNow = require("../../../shared/http/indexnow");
 
 /**
  * English first (website v2). Which half of a bilingual field this tenant
@@ -261,11 +262,25 @@ async function upsertProfile(client, { serviceTypeId, patch, actor = {} }) {
 
 /* ── PUBLISH / UNPUBLISH ─────────────────────────────────────────────────── */
 
+/**
+ * Tell the search engines a service page changed state (shared/http/indexnow.js):
+ * the page, the services index and the home page. Fire and forget, after the
+ * transaction, from the slugs the transaction read: the connection is not
+ * touched again once the publish has returned.
+ */
+function announce(client, profile) {
+  if (!profile) return;
+  const slugs = [profile.slug_en, profile.slug_fr].filter(Boolean);
+  indexNow.ping(client, [...new Set(slugs)].map((s) => "/services/" + encodeURIComponent(s)).concat(["/services", "/"]));
+}
+
 async function publish(client, { serviceTypeId, actor = {} }) {
   const exists = await repo.serviceTypeExists(client, serviceTypeId);
   if (!exists) throw new AppError("NOT_FOUND", "Service type not found", 404);
-  return atomically(client, async () => {
+  let announced = null;
+  const out = await atomically(client, async () => {
     const profile = await repo.lockProfile(client, serviceTypeId);
+    announced = profile;
     const serviceType = await repo.serviceTypeForPublish(client, serviceTypeId);
     if (!serviceType) throw new AppError("NOT_FOUND", "Service type not found", 404);
     if (!serviceType.is_active) {
@@ -303,12 +318,15 @@ async function publish(client, { serviceTypeId, actor = {} }) {
     });
     return getTab(client, serviceTypeId);
   });
+  announce(client, announced);
+  return out;
 }
 
 async function unpublish(client, { serviceTypeId, actor = {} }) {
   const exists = await repo.serviceTypeExists(client, serviceTypeId);
   if (!exists) throw new AppError("NOT_FOUND", "Service type not found", 404);
-  return atomically(client, async () => {
+  let announced = null;
+  const out = await atomically(client, async () => {
     const before = await repo.lockProfile(client, serviceTypeId);
     if (!before) throw new AppError("NOT_FOUND", "No web profile to unpublish", 404);
     if (!before.is_published) {
@@ -316,6 +334,7 @@ async function unpublish(client, { serviceTypeId, actor = {} }) {
       return getTab(client, serviceTypeId);
     }
     const row = await repo.setUnpublished(client, serviceTypeId);
+    announced = before;
     await emitEvent(client, {
       eventTypeKey: events.UNPUBLISHED,
       moduleKey: events.MODULE,
@@ -332,6 +351,8 @@ async function unpublish(client, { serviceTypeId, actor = {} }) {
     });
     return getTab(client, serviceTypeId);
   });
+  announce(client, announced);
+  return out;
 }
 
 /* ── MEDIA ───────────────────────────────────────────────────────────────── */
