@@ -777,7 +777,12 @@ async function sitemap(host, origin, base) {
   const at = (rest) => paths.joinBase(base, rest);
   let portfolioOn = false;
   const rows = await withTenant(host, async (client) => {
-    const services = require("../../modules/operations/service_type_web_public/service_type_web_public.service");
+    // The repo's published list, the same read the public services route
+    // makes. This named `service_type_web_public.service`, whose `list` was
+    // removed when the service families arrived: the call threw, the catch
+    // below logged it, and thirteen service pages left the sitemap with no
+    // test failing.
+    const services = require("../../modules/operations/service_type_web/service_type_web.repo");
     const portfolio = require("../../modules/sales/portfolio_public/portfolio_public.service");
     const careers = require("../../modules/hr/careers/careers.service");
     // A section the tenant switched off (website v2, 14600) answers the
@@ -789,11 +794,8 @@ async function sitemap(host, origin, base) {
     // Each section is independent: a tenant with no case notes should still get a
     // sitemap of their services, not a 500.
     const sections = [
-      // The list became `{ groups: [{ services }] }` with the service families
-      // (website v2, PR 3), and this section silently listed nothing from then
-      // on: thirteen service pages a crawler was never told about. Both shapes
-      // are read, so the next reshaping cannot empty it the same way.
-      [() => services.list(client).then(serviceRows), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
+      // One row per service and family, so `serviceRows` lists each once.
+      [() => services.publicList(client).then(serviceRows), (r) => at("/services/" + encodeURIComponent(r.slug_en || r.slug_fr || ""))],
       [() => (portfolioOn ? portfolio.list(client) : []), (r) => at("/portfolio/" + encodeURIComponent(r.slug || ""))],
       [() => careers.list(client), (r) => at("/careers/" + encodeURIComponent(r.public_token || r.token || ""))],
       // Published articles only — listPublic filters, and an unpublished slug in

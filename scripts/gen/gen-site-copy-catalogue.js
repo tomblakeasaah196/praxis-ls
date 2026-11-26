@@ -272,6 +272,8 @@ const SECTION_LABELS = {
   profile: "Company profile",
   notFound: "Page not found",
   crash: "Error screen",
+  // The share cards: each page's title and sentence when its link is shared.
+  share: "Link previews",
 };
 
 /** `titleMain` → "Title main"; `sub` → "Sub". The label a tenant reads beside
