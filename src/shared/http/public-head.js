@@ -33,6 +33,8 @@ const crypto = require("crypto");
 const brandHeads = require("./public-head-brand");
 const shareCopy = require("./public-head-share");
 const shareCard = require("../../services/share-card/share-card.service");
+const publicBody = require("./public-body");
+const aiProfile = require("../../modules/site/site_settings/site_ai_profile");
 
 /**
  * Hosts that must answer `noindex` and a blanket robots Disallow.
@@ -177,7 +179,7 @@ const absolute = (origin, url) =>
  * not hold would be worse than claiming none. Name and logo are what branding
  * actually knows.
  */
-function organizationLd(branding, origin, org = null) {
+function organizationLd(branding, origin, org = null, profile = null) {
   const name = (branding && branding.name) || null;
   if (!name) return null;
   // PR 4 (14660): the offices as Places with their addresses, the founding
@@ -185,18 +187,51 @@ function organizationLd(branding, origin, org = null) {
   // (`public-head-brand.offices`). The registered office is the `address`;
   // every office, that one included, is a `location`.
   const places = (org && org.places) || [];
+  // The registered names of the published companies. One is a string; several
+  // are a list, which schema.org allows for any property.
+  const legalNames = ((org && org.legalNames) || []).filter((n) => n && n !== name);
+  // 14700: the AI profile's facts, when the tenant has written one. The names
+  // people search the company by that the site does not print (an
+  // abbreviation, a former name) belong HERE and in /llms.txt, never in the
+  // visible copy, and `areaServed` / `knowsAbout` are what an assistant reads
+  // to decide whether the company answers a question about a place or trade.
+  const p = profile || {};
+  const alternates = (p.alternate_names || []).filter((n) => n && n !== name);
   return compact({
     "@context": "https://schema.org",
     "@type": "Organization",
     name,
+    alternateName: alternates.length === 1 ? alternates[0] : alternates,
+    legalName: legalNames.length === 1 ? legalNames[0] : legalNames,
+    description: p.summary || null,
     url: origin,
     logo: absolute(origin, branding && branding.logoUrl),
-    foundingDate: org && org.founded,
+    foundingDate: (org && org.founded) || p.founded || null,
     email: org && org.email,
     telephone: org && org.phone,
     address: places[0] ? places[0].address : null,
     location: places.length > 1 ? places : null,
+    areaServed: p.areas_served || null,
+    knowsAbout: p.sectors || null,
     sameAs: org && org.sameAs,
+  });
+}
+
+/**
+ * The site itself, on the home page only: its name as the search result's
+ * site name (the Link Previews name, the one every title ends with), the
+ * other names people type to find it, and its address. Google reads this for
+ * the site name it prints above a result.
+ */
+function websiteLd(name, homeUrl, profile = null) {
+  if (!name) return null;
+  const alternates = ((profile && profile.alternate_names) || []).filter((n) => n && n !== name);
+  return compact({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name,
+    alternateName: alternates.length === 1 ? alternates[0] : alternates,
+    url: homeUrl,
   });
 }
 
@@ -655,7 +690,14 @@ async function headFor(host, urlPath, origin, base) {
   // bytes and at worst a staging vacancy in Google Jobs.
   if (!noindex) {
     const org = await withTenant(host, (client) => brandHeads.offices(client)).catch(() => null);
-    const graphs = [organizationLd(branding, origin, org)];
+    const profile = await withTenant(host, (client) => aiProfile.published(client)).catch(() => null);
+    const graphs = [organizationLd(branding, origin, org, profile)];
+    if (rel === "/" || rel === "") {
+      // The home page's URL as this host serves it: the base, with the
+      // trailing slash a root URL always has.
+      const home = origin + paths.joinBase(base, "");
+      graphs.push(websiteLd(name, home.endsWith("/") ? home : home + "/", profile));
+    }
     if (page && typeof page.ld === "function") graphs.push(page.ld(origin, branding, canonical));
     if (page && page.trail) graphs.push(breadcrumbLd(origin, base, page.trail));
     for (const g of graphs) {
@@ -679,6 +721,9 @@ function applyHead(html, tags) {
     // The shell ships this one with the default in it; two would be read as one
     // at random by `querySelector`, and the stale one usually wins.
     .replace(/\s*<meta\s+name="praxis:public-base"[^>]*>/i, "")
+    // The shell says `index, follow`. A head that says anything else must be
+    // the only robots tag, or a reader may obey the shell's.
+    .replace(/\s*<meta\s+name="robots"[^>]*>/i, (m) => (/name="robots"/.test(tags) ? "" : m))
     .replace("</head>", "  " + tags + "\n  </head>");
 }
 
@@ -858,10 +903,38 @@ function makeHtmlSender(publicWebDir) {
       const host = String(req.headers.host || "").toLowerCase().split(":")[0];
       const origin = req.protocol + "://" + req.headers.host;
       const base = req.publicBase || "/public";
-      const tags = await memo(host + " " + base + " " + req.path, () =>
-        headFor(host, req.path, origin, base),
-      );
-      res.type("html").send(applyHead(readIndex(), tags));
+
+      // A path no route of the website answers is a 404, said with the
+      // status and not only with the page: a 200 carrying "page not found" is
+      // what a search engine calls a soft 404, and every one of them is a URL
+      // it keeps re-crawling. The app still renders its own not-found page.
+      // One head per host for all of them, so a scanner trying ten thousand
+      // paths cannot push real pages out of the memo.
+      if (!publicBody.isKnownPath(req.path, base)) {
+        const tags = await memo(host + " " + base + " 404", () => notFoundHead(host, base));
+        return res.status(404).type("html").send(applyHead(readIndex(), tags));
+      }
+
+      const key = host + " " + base + " " + req.path;
+      const [tags, body] = await Promise.all([
+        memo(key, () => headFor(host, req.path, origin, base)),
+        // The page's text for a reader that runs no script. Best-effort on its
+        // own: a failure prints the empty shell, never a broken page.
+        // `?e=` previews another environment's record, which the LIVE read
+        // cannot see, so such a request is never called missing.
+        req.query && req.query.e
+          ? { html: null, notFound: false }
+          : memo(key + " body", () => bodyFor(host, req.path, base)).catch((err) => {
+            logger.warn({ err, path: req.path }, "page text failed - serving the head only");
+            return { html: null, notFound: false };
+          }),
+      ]);
+      if (body.notFound) {
+        // The route exists and the record does not: an unknown article, an
+        // unpublished service, a switched-off section.
+        return res.status(404).type("html").send(applyHead(readIndex(), noindexed(tags)));
+      }
+      res.type("html").send(publicBody.applyBody(applyHead(readIndex(), tags), body.html));
     } catch (err) {
       logger.warn({ err, path: req.path }, "head injection failed - serving the shell");
       return next();
@@ -869,7 +942,42 @@ function makeHtmlSender(publicWebDir) {
   };
 }
 
+/** The page's text, for `#root`. See `public-body.js`. */
+function bodyFor(host, urlPath, base) {
+  if (isNoindexHost(host)) return Promise.resolve({ html: null, notFound: false });
+  const rel = paths.stripBase(urlPath, base);
+  return publicBody.render((fn) => withTenant(host, fn), rel, base);
+}
+
+/** A head saying "do not index this", whatever else it says. */
+function noindexed(tags) {
+  if (tags.includes('name="robots"')) return tags;
+  return '<meta name="robots" content="noindex" />\n    ' + tags;
+}
+
+/**
+ * The head of a path nothing answers: the site's name as the title, the base
+ * the app reads its links from, and `noindex`. No canonical and no structured
+ * data: there is no page here to describe.
+ */
+async function notFoundHead(host, base) {
+  const view = await describe(host, null).catch(() => null);
+  const name = (view && view.name) || "Praxis";
+  return [
+    '<meta name="robots" content="noindex" />',
+    '<meta name="praxis:public-base" content="' + esc(base || paths.DEFAULT_BASE) + '" />',
+    "<title>" + esc(name) + "</title>",
+  ].join("\n    ");
+}
+
 module.exports = {
+  // Shared with `llms-txt.js` and `public-body.js`: the same LIVE connection
+  // and the same memo, so the AI files cost what the heads cost.
+  withTenant,
+  memo,
+  bodyFor,
+  notFoundHead,
+  websiteLd,
   SITEMAP_ROUTES,
   ROUTES,
   makeHtmlSender,

@@ -86,6 +86,25 @@
     />
     <meta property="og:type" content="website" />
     <meta name="robots" content="index, follow" />
+    <!--
+      THE PAGE'S TEXT, FOR A READER THAT RUNS NO SCRIPT.
+
+      The server prints each page's own words inside #root, in a
+      `data-prerender` block (src/shared/http/public-body.js), because AI
+      crawlers run no JavaScript and would otherwise read an empty page.
+      React empties #root on its first render and draws the designed page.
+      Until then a visitor with scripts would see that plain text flash, so
+      it is hidden here; without scripts the `noscript` rule shows it. The
+      words are the same either way.
+    -->
+    <style>
+      [data-prerender] { display: none; }
+    </style>
+    <noscript>
+      <style>
+        [data-prerender] { display: block; padding: 2rem; font: 16px/1.6 system-ui, sans-serif; }
+      </style>
+    </noscript>
   </head>
   <body>
     <div id="root"></div>

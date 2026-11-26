@@ -1038,6 +1038,10 @@ export declare const siteSettings: {
    *  sections, every one of them off until a tenant turns it on. */
   siteSwitches: z.ZodTypeAny;
   SITE_SWITCHES: SiteSwitchKey[];
+
+  /** The AI profile (14700): what AI assistants read about the company.
+   *  Every field is optional, so the object itself validates a partial PUT. */
+  aiProfile: z.ZodTypeAny;
 };
 
 export type SiteSwitchKey =

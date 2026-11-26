@@ -398,6 +398,10 @@ const WebsiteOptionsPage = lazyNamed(
   () => import("@/features/settings/website-options"),
   "WebsiteOptionsPage",
 );
+const WebsiteAiProfilePage = lazyNamed(
+  () => import("@/features/settings/website-ai-profile"),
+  "WebsiteAiProfilePage",
+);
 const WebsiteImagesPage = lazyNamed(
   () => import("@/features/settings/website-images"),
   "WebsiteImagesPage",
@@ -940,6 +944,7 @@ export function App() {
               <Route path="settings/website/careers" element={<WebsiteCareersPage />} />
               <Route path="settings/website/messages" element={<WebsiteMessagesPage />} />
               <Route path="settings/website/options" element={<WebsiteOptionsPage />} />
+              <Route path="settings/website/ai-profile" element={<WebsiteAiProfilePage />} />
               <Route path="settings/website/photographs" element={<WebsiteImagesPage />} />
               <Route path="settings/website/documents" element={<WebsiteDocumentsPage />} />
               <Route

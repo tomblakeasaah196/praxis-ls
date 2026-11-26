@@ -521,6 +521,51 @@ const siteSwitches = z
   })
   .strict();
 
+/* ── the AI profile (14700) ─────────────────────────────────────────────────*/
+
+/**
+ * What AI assistants read about the company: `/llms.txt`, `/llms-full.txt`
+ * and the Organization structured data on every page.
+ *
+ * Plain text, English, written for a machine that will repeat it. Blanks are
+ * stored as null, and a list is trimmed of empty entries and duplicates, so
+ * "nothing written" has one spelling and the public reads can test for it.
+ * `summary` is the field that decides whether anything is published at all.
+ */
+const profileText = (max) =>
+  z.string().trim().max(max).transform((v) => v || null).nullable().optional();
+const profileList = (maxItems, maxLen) =>
+  z
+    .array(z.string().trim().max(maxLen))
+    .max(maxItems)
+    .transform((list) => [...new Set(list.filter(Boolean))])
+    .optional();
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+const aiProfile = z
+  .object({
+    summary: profileText(1200),
+    alternate_names: profileList(12, 120),
+    founded: profileText(40),
+    offices: profileText(PROSE),
+    services_summary: profileText(PROSE),
+    sectors: profileList(30, 120),
+    areas_served: profileList(40, 120),
+    credentials: profileText(PROSE),
+    leadership: profileText(PROSE),
+    not_offered: profileText(PROSE),
+    contact: profileText(LINE * 2),
+    reviewed_on: z
+      .string()
+      .trim()
+      .regex(ISO_DAY, "Use a full date.")
+      .or(z.literal("").transform(() => null))
+      .nullable()
+      .optional(),
+  })
+  .strict();
+
+exports.aiProfile = aiProfile;
 exports.siteSwitches = siteSwitches;
 exports.SITE_SWITCHES = SITE_SWITCHES;
 exports.careers = careers;

@@ -2494,6 +2494,19 @@
       "actions": []
     },
     {
+      "id": "settings_website_ai_profile",
+      "title": "Website AI Profile",
+      "title_fr": "Profil IA du site web",
+      "route": "/settings/website/ai-profile",
+      "area": "settings",
+      "module_key": "MOD-29",
+      "purpose": "What ChatGPT, Gemini, Claude and other AI assistants read about the company: the summary, other names, offices, services, sectors, areas served, credentials, leadership, what the company does not do, and contact. Published at /llms.txt and in the website's search data; an empty summary publishes nothing.",
+      "actions": [
+        "get_site_ai_profile",
+        "update_site_ai_profile"
+      ]
+    },
+    {
       "id": "settings_website_photographs",
       "title": "Website Photographs",
       "title_fr": "Photographies du site web",

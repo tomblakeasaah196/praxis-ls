@@ -126,6 +126,27 @@ describe("CSP wiring in server.js", () => {
     expect(scriptSrc.some((v) => /unsafe-inline/.test(v))).toBe(false);
   });
 
+  it("allows Cloudflare Web Analytics on the public website, and nowhere else", () => {
+    // Owner decision, 26 Nov 2026: visitor numbers with no cookie. Cloudflare
+    // injects a script from one origin that beacons to another; with neither
+    // allowed the browser refuses both and the dashboard reads zero.
+    const helmet = require("helmet");
+    const { buildCspDirectives, buildPublicCspDirectives } = require("../../src/server");
+    const defaults = helmet.contentSecurityPolicy.getDefaultDirectives();
+    const scriptSrc = ["'self'", "'sha256-shellhash='"];
+    const pub = buildPublicCspDirectives(defaults, scriptSrc);
+    expect(pub["script-src"]).toEqual(expect.arrayContaining(["'self'", "'sha256-shellhash='", "https://static.cloudflareinsights.com"]));
+    expect(pub["connect-src"]).toEqual(["'self'", "https://cloudflareinsights.com"]);
+    // Everything else is the app-wide policy, unchanged.
+    expect(pub["frame-src"]).toEqual(buildCspDirectives(defaults, scriptSrc)["frame-src"]);
+    // The staff app and the console are not measured.
+    const app = buildCspDirectives(defaults, scriptSrc);
+    expect(JSON.stringify(app)).not.toContain("cloudflareinsights");
+    // And it is the public mount that wears it.
+    expect(serverSrc).toContain("buildPublicCspDirectives(cspDefaults, scriptSrc)");
+    expect(serverSrc).toMatch(/const serveApp = \(req, res\) =>\s*publicCsp\(req, res,/);
+  });
+
   it("computes the hash from the BUILT file, never a pasted literal", () => {
     expect(serverSrc).toContain("public-web/dist/index.html");
     // A hardcoded digest goes stale the first time the theme block is edited,
