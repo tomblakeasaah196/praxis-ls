@@ -650,10 +650,10 @@
   /* ── The how-we-work sequence (§7.4) ────────────────────────────────────
    *
    * A rail that fills as the reader scrolls, and three stages that arrive on
-   * it. `--scrub` is written on the list by `useScrollScrub`; `--at` is written
-   * on each stage as its position along that scrub. The comparison between them
-   * is done in CSS, so adding a fourth stage needs no JavaScript to know about
-   * it.
+   * it. `--scrub` is written on EACH STAGE by its own `useScrollScrub`
+   * (stage-sequence.tsx says why it is no longer one scrub over the list), and
+   * `--at` is left at 0, so a stage arrives an eighth of the way through its
+   * own travel up the screen.
    *
    * ── HOW A STAGE KNOWS IT HAS ARRIVED, WITHOUT A MEDIA QUERY OR A CLASS ──
    *

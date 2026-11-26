@@ -30,7 +30,7 @@ import "./brand.css";
  *
  * ── THE SCRUB WRITES CSS, NOT STATE ────────────────────────────────────────
  *
- * `useScrollScrub` writes `--scrub` on the container, once per frame, without
+ * `useScrollScrub` writes `--scrub` on each stage, once per frame, without
  * touching React. Everything below reads it in CSS. The alternative — a scroll
  * handler that calls `setState` — re-renders this subtree sixty times a second
  * on the phone this app exists for. `lib/motion.ts` opens with that rule and it
@@ -108,59 +108,63 @@ const DIAGRAMS: Array<(p: { className?: string }) => React.JSX.Element> = [
 ];
 
 export function StageSequence({ stages }: { stages: Stage[] }) {
-  /* Narrower than the default 1 → 0.
-
-     The default scrub completes as the element's bottom edge leaves the top of
-     the screen, which for a band this tall means the last stage lights up when
-     it is already off screen. 0.85 → 0.25 finishes the fill while the whole
-     sequence is still comfortably in view, which is where somebody is actually
-     reading it. */
-  const ref = useScrollScrub<HTMLOListElement>({ start: 0.85, end: 0.25 });
-
   return (
-    <ol ref={ref} className="stage-seq">
-      {stages.map((s, i) => {
-        const Diagram = DIAGRAMS[i % DIAGRAMS.length];
-        return (
-          <li
-            key={i}
-            className="stage-item"
-            /* Where this stage sits along the scrub, 0…1. The CSS compares it
-               against `--scrub` to decide whether the stage has arrived — one
-               declaration for every stage, and no JavaScript that has to know
-               how many there are. */
-            style={{ "--at": String(i / Math.max(stages.length - 1, 1)) } as React.CSSProperties}
-          >
-            <div className="stage-rail" aria-hidden>
-              <span className="stage-dot" />
-            </div>
-            <div className="stage-body">
-              <span className="num text-micro font-semibold text-[var(--primary-ink)]">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <h3 className="mt-2 text-title font-semibold leading-snug">
-                {s.title}
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">{s.body}</p>
-            </div>
-            {/* The diagram is decoration and says so: `aria-hidden` on the svg,
-                and the stage's meaning is entirely in the heading and the
-                sentence above. A reader using a screen reader loses nothing —
-                §1.5's point is that the diagram replaces the sentences a
-                SIGHTED reader would have skimmed, not the ones that carry the
-                fact. */}
-            {s.image && s.image.id ? (
-              <figure className="stage-figure stage-photo">
-                <SitePhoto image={s.image} sizes="(min-width: 768px) 20rem, 90vw" />
-              </figure>
-            ) : (
-              <div className="stage-figure">
-                <Diagram className="h-full w-full" />
-              </div>
-            )}
-          </li>
-        );
-      })}
+    <ol className="stage-seq">
+      {stages.map((s, i) => (
+        <StageItem key={i} stage={s} index={i} />
+      ))}
     </ol>
+  );
+}
+
+/**
+ * One stage, lit by ITS OWN arrival on screen.
+ *
+ * The sequence used to be one scrub over the whole list, with each stage
+ * waiting for its share of it (`--at`: 0, 0.5, 1). Two things broke that,
+ * and the owner saw both on a phone (26 Nov 2026): "You Watch It Move" never
+ * lit at all, because a stage arrives only when the scrub passes its `--at`
+ * by an eighth and the last stage's `--at` was 1, the scrub's ceiling; and on
+ * a phone, where the three photographs stack into a list three screens tall,
+ * the whole-list scrub finished long after the photographs had scrolled away.
+ *
+ * Each stage now carries its own scrub, from its top reaching 90% of the
+ * screen to its bottom passing 40%, and arrives an eighth of the way in: as it
+ * comes up the screen, at any width, in order because that is the order they
+ * reach the reader.
+ */
+function StageItem({ stage: s, index: i }: { stage: Stage; index: number }) {
+  const ref = useScrollScrub<HTMLLIElement>({ start: 0.9, end: 0.4 });
+  const Diagram = DIAGRAMS[i % DIAGRAMS.length];
+  return (
+    <li ref={ref} className="stage-item">
+      <div className="stage-rail" aria-hidden>
+        <span className="stage-dot" />
+      </div>
+      <div className="stage-body">
+        <span className="num text-micro font-semibold text-[var(--primary-ink)]">
+          {String(i + 1).padStart(2, "0")}
+        </span>
+        <h3 className="mt-2 text-title font-semibold leading-snug">
+          {s.title}
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">{s.body}</p>
+      </div>
+      {/* The diagram is decoration and says so: `aria-hidden` on the svg,
+          and the stage's meaning is entirely in the heading and the
+          sentence above. A reader using a screen reader loses nothing:
+          §1.5's point is that the diagram replaces the sentences a
+          SIGHTED reader would have skimmed, not the ones that carry the
+          fact. */}
+      {s.image && s.image.id ? (
+        <figure className="stage-figure stage-photo">
+          <SitePhoto image={s.image} sizes="(min-width: 768px) 20rem, 90vw" />
+        </figure>
+      ) : (
+        <div className="stage-figure">
+          <Diagram className="h-full w-full" />
+        </div>
+      )}
+    </li>
   );
 }
