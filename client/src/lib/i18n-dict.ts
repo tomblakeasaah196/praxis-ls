@@ -3627,6 +3627,11 @@ export const en = {
     "Last seen yesterday at {{time}}": "Last seen yesterday at {{time}}",
     "Last seen {{date}} at {{time}}": "Last seen {{date}} at {{time}}",
     "Online now": "Online now",
+    "Jump to the latest message": "Jump to the latest message",
+    "{{count}} new messages, jump to the latest": "{{count}} new messages, jump to the latest",
+    "1 new message, jump to the latest": "1 new message, jump to the latest",
+    "Back to chats": "Back to chats",
+    "Back to clients": "Back to clients",
     "Your microphone is on": "Your microphone is on",
     "Your microphone is muted": "Your microphone is muted",
     // ── The other side's microphone, and where the call's sound plays ──
@@ -8306,6 +8311,11 @@ export const fr: Dict = {
     "Last seen yesterday at {{time}}": "Vu hier à {{time}}",
     "Last seen {{date}} at {{time}}": "Vu le {{date}} à {{time}}",
     "Online now": "En ligne",
+    "Jump to the latest message": "Aller au dernier message",
+    "{{count}} new messages, jump to the latest": "{{count}} nouveaux messages, aller au dernier",
+    "1 new message, jump to the latest": "1 nouveau message, aller au dernier",
+    "Back to chats": "Retour aux discussions",
+    "Back to clients": "Retour aux clients",
     "Your microphone is on": "Votre micro est actif",
     "Your microphone is muted": "Votre micro est coupé",
     // ── Le micro de l'autre personne, et la sortie du son de l'appel ──

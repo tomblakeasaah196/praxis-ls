@@ -127,31 +127,30 @@ for (const width of [320, 390, 1440]) {
     ).toBe(false);
     if (width < 768) {
       /*
-       * THE FLOATING CLUSTER IS HERE, AND IT IS ABOVE THE COMPOSER.
+       * A CONVERSATION ON A PHONE TAKES THE WHOLE SCREEN (27 Nov 2026).
        *
-       * This used to assert the opposite — a quick-actions menu in the title
-       * bar and NO cluster — because the cluster's `bottom-24` anchor lands on
-       * the composer's Send button, which is the mic when nothing is typed,
-       * which is the control that sends a voice note. Suppressing it was the
-       * old answer; the title-bar menu that stood in for it is gone at every
-       * width, so a phone in Smart Comms would have had no quick actions and no
-       * clock-in at all.
+       * This used to assert that the floating cluster was here and cleared the
+       * composer through `--fab-floor`. The owner asked for the WhatsApp
+       * shape instead: an open conversation hides the shell (title bar, Comms
+       * tabs, bottom nav, the cluster) and its back arrow is the way out, to a
+       * list that has all of them (lib/immersive.ts).
        *
-       * The cluster clears the composer instead: `--fab-floor` is published by
-       * the composer and the anchor is `max(6rem, var(--fab-floor))`. Asserted
-       * as REAL GEOMETRY rather than as a class, because a class cannot tell
-       * you whether `max()` resolved, whether the variable reached the
-       * portalled node, or whether the composer grew after it was measured —
-       * and jsdom lays nothing out, so this is the only place the arithmetic
-       * can be checked against a browser that actually performed it.
+       * Asserted as REAL GEOMETRY: the conversation's header at the top edge
+       * and its composer at the bottom edge, with nothing drawn over either.
+       * jsdom lays nothing out, so a class check could not tell whether the
+       * shell actually let go of the space.
        */
-      const fab = page.getByRole("button", { name: /Quick actions/ });
-      await expect(fab).toBeVisible();
-      const fabBox = (await fab.boundingBox())!;
-      const composerBox = (await page
-        .locator("[data-composer]")
-        .boundingBox())!;
-      expect(fabBox.y + fabBox.height).toBeLessThanOrEqual(composerBox.y);
+      await expect(page.getByRole("button", { name: /Quick actions/ })).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "Comms sections" })).toBeHidden();
+      await expect(page.getByRole("button", { name: "Open menu" })).toBeHidden();
+      const back = page.getByRole("button", { name: "Back to chats" });
+      await expect(back).toBeVisible();
+      expect((await back.boundingBox())!.y).toBeLessThan(24);
+      const composerBox = (await page.locator("[data-composer]").boundingBox())!;
+      expect(composerBox.y + composerBox.height).toBeGreaterThan(833 - 2);
+      expect(composerBox.x).toBeLessThanOrEqual(0.5);
+      expect(composerBox.width).toBeGreaterThanOrEqual(width - 1);
     }
     expect(
       await page

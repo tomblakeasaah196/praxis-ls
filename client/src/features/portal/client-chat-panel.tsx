@@ -64,6 +64,8 @@ import { ClientChatTools, ShareLocationDialog, type SharedPlace } from "./client
 import { FileOnQuoteRequestDialog, type ChatFile } from "@/features/sales/file-on-quote-request";
 import { DeliveryLine, SendByEmailDialog, type DeliveryPerson } from "./client-message-email";
 import { AccountManagerCard } from "./account-manager";
+import { DayDivider, JumpToLatest } from "@/features/comms/chat/thread-aids";
+import { NEAR_BOTTOM_PX, startsNewDay, useLatestTracker } from "@/features/comms/chat/thread-days";
 
 type Attachment = {
   attachment_id: string;
@@ -479,6 +481,9 @@ export function ClientChatPanel({
     nearBottom.current = true;
   }, [thread]);
   const count = page?.messages.length || 0;
+  const pageMessages = React.useMemo(() => page?.messages || [], [page]);
+  // The team's own messages are never news to the person reading as the team.
+  const latest = useLatestTracker(scroller, pageMessages, (m) => m.direction === "STAFF", thread);
   React.useEffect(() => {
     const el = scroller.current;
     if (!el || !count) return;
@@ -658,7 +663,14 @@ export function ClientChatPanel({
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {header ? (
-          <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-3 py-2.5">
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-2.5 border-b border-border px-3 py-2.5",
+              // Full screen on a phone in the Client inbox (lib/immersive.ts):
+              // the header is the top of the screen, under the status bar.
+              fill && "max-md:gap-1.5 max-md:pl-1 max-md:pt-[calc(0.625rem+env(safe-area-inset-top))]",
+            )}
+          >
             {header}
             {infoButton}
           </div>
@@ -685,7 +697,8 @@ export function ClientChatPanel({
               ref={scroller}
               onScroll={(e) => {
                 const el = e.currentTarget;
-                nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+                nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+                latest.onScroll(el);
               }}
               className={cn(
                 "chat-thread-bg min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6",
@@ -704,17 +717,22 @@ export function ClientChatPanel({
                 </div>
               ) : (
                 <ul className="space-y-2.5">
-                  {page.messages.map((m) => (
-                    <Bubble
-                      key={m.message_id}
-                      m={m}
-                      onEmail={canEmail ? setEmailing : undefined}
-                      onFile={canFileOnRequest ? setFiling : undefined}
-                    />
+                  {page.messages.map((m, i) => (
+                    <React.Fragment key={m.message_id}>
+                      {startsNewDay(m.created_at, page.messages[i - 1]?.created_at) ? (
+                        <DayDivider iso={m.created_at} as="li" />
+                      ) : null}
+                      <Bubble
+                        m={m}
+                        onEmail={canEmail ? setEmailing : undefined}
+                        onFile={canFileOnRequest ? setFiling : undefined}
+                      />
+                    </React.Fragment>
                   ))}
                 </ul>
               )}
             </div>
+            <JumpToLatest show={!latest.atBottom && !!page?.messages.length} unseen={latest.unseen} onJump={latest.jump} />
           </TabsContent>
         </TabsRoot>
         <div ref={composer} data-composer className="relative max-h-[50%] shrink-0 overflow-y-auto border-t border-border bg-card">

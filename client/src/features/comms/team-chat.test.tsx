@@ -374,3 +374,87 @@ describe("the revealed message, owned by the page", () => {
     expect(openRows()).toHaveLength(0);
   });
 });
+
+/**
+ * A full-screen conversation on a phone (27 Nov 2026).
+ *
+ * The page RAISES immersive mode while a conversation is open and the shell
+ * hides its chrome below `md` (lib/immersive.ts); the list never raises it, so
+ * Mailbox, Clients and Calls stay one tap away from the list.
+ */
+describe("a full-screen conversation", () => {
+  it("raises immersive mode while a conversation is open, and Back lowers it", async () => {
+    const { useIsImmersive } = await import("@/lib/immersive");
+    const seen: boolean[] = [];
+    function Probe() {
+      seen.push(useIsImmersive());
+      return null;
+    }
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/comms?channel=one"]}>
+        <TeamChatPage />
+        <Probe />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(seen.at(-1)).toBe(true));
+    await user.click(screen.getByRole("button", { name: "Back to chats" }));
+    await waitFor(() => expect(seen.at(-1)).toBe(false));
+    expect(screen.getByText("Pick a conversation to start.")).toBeInTheDocument();
+  });
+
+  it("the list alone does not raise it", async () => {
+    const { useIsImmersive } = await import("@/lib/immersive");
+    const seen: boolean[] = [];
+    function Probe() {
+      seen.push(useIsImmersive());
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={["/comms"]}>
+        <TeamChatPage />
+        <Probe />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Pick a conversation to start.");
+    expect(seen.every((v) => v === false)).toBe(true);
+  });
+});
+
+describe("day dividers and jump to latest", () => {
+  it("marks where the day turns over, once per day", () => {
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    fixture.messages = [
+      { message_id: "a", body: "Morning", created_at: yesterday.toISOString() },
+      { message_id: "b", body: "Again", created_at: yesterday.toISOString() },
+      { message_id: "c", body: "Next day", created_at: today.toISOString() },
+    ] as never;
+    render(chat());
+    const dividers = screen.getAllByRole("separator");
+    expect(dividers.map((d) => d.getAttribute("aria-label"))).toEqual(["Yesterday", "Today"]);
+  });
+
+  it("appears once the reader scrolls up, counts what others send, and goes back down", () => {
+    const view = render(chat());
+    const pane = screen.getByText("Hello").parentElement!;
+    Object.defineProperties(pane, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { value: 200 } });
+    expect(screen.queryByRole("button", { name: /jump to the latest/i })).toBeNull();
+    pane.scrollTop = 100;
+    fireEvent.scroll(pane);
+    expect(screen.getByRole("button", { name: "Jump to the latest message" })).toBeInTheDocument();
+    // Theirs counts; mine does not.
+    fixture.messages = [
+      ...fixture.messages,
+      { message_id: "m2", body: "From them", sender_user_id: "them" },
+      { message_id: "m3", body: "From me", sender_user_id: "me" },
+    ] as never;
+    view.rerender(chat());
+    const jump = screen.getByRole("button", { name: "1 new message, jump to the latest" });
+    fireEvent.click(jump);
+    expect(pane.scrollTop).toBe(1000);
+    expect(screen.queryByRole("button", { name: /jump to the latest/i })).toBeNull();
+  });
+});

@@ -51,6 +51,8 @@ import { tenant } from "@/lib/api-client";
 import { useResource } from "@/lib/use-resource";
 import { useIsDesktop } from "@/lib/use-media-query";
 import { cn } from "@/lib/cn";
+import { useImmersive } from "@/lib/immersive";
+import { ArrowLeftIcon } from "@/components/ui/icons";
 import { Chips } from "@/components/ui/chips";
 import { IndexRow } from "@/components/ui/index-row";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -79,6 +81,9 @@ export function ClientInboxPage() {
   const isDesktop = useIsDesktop();
   const [params, setParams] = useSearchParams();
   const openClient = params.get("client");
+  // An open conversation on a phone takes the whole screen, as Chat's does
+  // (lib/immersive.ts). The list keeps the shell.
+  useImmersive(!!openClient);
   const openThread = params.get("thread") || "general";
   // A link to one conversation shows every client, so its row is in the list.
   const [filter, setFilter] = React.useState<Filter>(() => (params.get("client") ? "all" : "waiting"));
@@ -131,7 +136,12 @@ export function ClientInboxPage() {
     <section className="animate-fade-in flex min-h-0 flex-1 flex-col">
       {/* Sized from the shell's remaining space, as Chat is: the list and the
           messages each scroll inside it and the page itself does not. */}
-      <div className="chat-shell grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[320px_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "chat-shell grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[320px_minmax(0,1fr)]",
+          openClient && "max-md:rounded-none max-md:border-0 max-md:!shadow-none",
+        )}
+      >
         {/* On a phone the list is the screen, and an open conversation takes
             its place until Back. */}
         <div className={cn("min-h-0 flex-col overflow-hidden border-border md:border-r", openClient ? "hidden md:flex" : "flex")}>
@@ -203,7 +213,14 @@ export function ClientInboxPage() {
           </div>
         </div>
 
-        <div className={cn("min-h-0 min-w-0 flex-col overflow-hidden", openClient ? "flex" : "hidden md:flex")}>
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-col overflow-hidden",
+            openClient ? "flex" : "hidden md:flex",
+            // The home indicator, edge to edge; zero while the keyboard is up.
+            "max-md:pb-[var(--immersive-safe-bottom,env(safe-area-inset-bottom))]",
+          )}
+        >
           {openClient ? (
             <ClientChatPanel
               // One conversation box per client: a reply half typed to one
@@ -227,8 +244,9 @@ export function ClientInboxPage() {
                 <>
                   <button
                     type="button"
-                    className="text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
-                    aria-label={tr("Back")}
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+                    aria-label={tr("Back to clients")}
+                    title={tr("Back to clients")}
                     onClick={() => {
                       const next = new URLSearchParams(params);
                       next.delete("client");
@@ -236,7 +254,7 @@ export function ClientInboxPage() {
                       setParams(next);
                     }}
                   >
-                    ←
+                    <ArrowLeftIcon width={20} height={20} />
                   </button>
                   <ChatAvatar name={open?.client_name} size="sm" />
                   <div className="min-w-0 flex-1">
