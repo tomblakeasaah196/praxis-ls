@@ -491,6 +491,11 @@ const schemas = {
     // client starts receiving English invoices.
     recipient_language: z.enum(["en", "fr"]).nullable().optional(),
     draft_language: z.enum(["en", "fr"]).nullable().optional(),
+
+    // How a message from a SHARED mailbox is signed, chosen per message in the
+    // composer. TEAM (the default when absent) names nobody; TEAM_AND_ME adds
+    // "Sent by <sender>" under the team label. Ignored for a personal mailbox.
+    sign_as: z.enum(["TEAM", "TEAM_AND_ME"]).nullable().optional(),
   }).strict()
     .refine((v) => !(v.send_at && v.send_in_recipient_morning), {
       message: "Choose either an exact time or the recipient's morning, not both.",

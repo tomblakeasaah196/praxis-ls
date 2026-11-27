@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Field, Select } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
 import { Pill } from "@/components/ui/pill";
+import { Segmented } from "@/components/ui/segmented";
 import { SplitButton } from "@/components/ui/split-button";
 import { DropdownItem } from "@/components/ui/dropdown-menu";
 import { ClockIcon, MicIcon, SendIcon, SparklesIcon, XIcon } from "@/components/ui/icons";
@@ -79,6 +80,12 @@ export type ComposerSlots = {
 export type ComposerProps = {
   connectionId: string;
   mailboxes?: api.Mailbox[];
+  /**
+   * The kind of the mailbox this opens on, for a caller that does not pass the
+   * `mailboxes` list (a reply knows its thread's mailbox, not the whole set). A
+   * SHARED mailbox draws the per-message Sign As choice.
+   */
+  mailboxKind?: api.MailboxKind | null;
   threadId?: string | null;
   replyToMessageId?: string | null;
   kind?: api.Draft["kind"];
@@ -142,6 +149,7 @@ const splitAddresses = parseAddresses;
 export function Composer({
   connectionId,
   mailboxes = [],
+  mailboxKind = null,
   threadId = null,
   replyToMessageId = null,
   kind = "NEW",
@@ -202,6 +210,14 @@ export function Composer({
   const [override, setOverride] = React.useState("");
   const [schedule, setSchedule] = React.useState<ScheduleChoice>({ kind: "NOW" });
   const [scheduling, setScheduling] = React.useState(false);
+
+  /* How a message from a SHARED mailbox is signed. Per MESSAGE, on purpose:
+   * every new composer starts on the team signature, which names nobody, and
+   * the sender opts this one message into "Sent by <me>". It is not remembered,
+   * so nobody's name goes out on info@ because of a choice made last week. */
+  const [signAs, setSignAs] = React.useState<api.SignAs>("TEAM");
+  const fromBox = mailboxes.find((m) => m.email_connection_id === from);
+  const fromShared = (fromBox ? fromBox.kind : mailboxKind) === "SHARED";
 
   /* Drag-and-drop onto the body (§5.6, "attachment-bar.tsx drag-drop"). The
    * Attach button worked; dropping a file did nothing at all — and dropping a
@@ -653,6 +669,9 @@ export function Composer({
       // typed a reason. The server refuses the send without one, and writes it
       // to the immutable ledger with their name on it when there is.
       guardrail_override_reason: override.trim() || undefined,
+      // Read by the server only for a SHARED mailbox. Sent as the default when
+      // the choice is not on screen, so the server never has to guess.
+      sign_as: fromShared ? signAs : undefined,
     };
 
     try {
@@ -732,6 +751,20 @@ export function Composer({
                 ))}
             </Select>
           </Field>
+        )}
+        {fromShared && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground sm:w-10 sm:shrink-0" aria-hidden="true">{tr("Sign")}</span>
+            <Segmented
+              label={tr("Sign As")}
+              value={signAs}
+              onChange={setSignAs}
+              options={[
+                { value: "TEAM", label: tr("Team") },
+                { value: "TEAM_AND_ME", label: tr("Team + Me") },
+              ]}
+            />
+          </div>
         )}
         {/* Below `sm` each label sits ABOVE its field, so the field gets the
             whole width: beside it, a 40px "Subject" column cut a phone's

@@ -65,6 +65,7 @@ function httpsUrl(v) {
  * @param {object} [input.template]   signature_template row
  * @param {object} [input.mailbox]    { email_address }
  * @param {object} [input.identity]   { purpose, from_address } — SYSTEM renders
+ * @param {object} [input.team]       { label, signed_by }: a SHARED mailbox's render
  * @param {'en'|'fr'} lang
  */
 function resolve(input = {}, lang = "en") {
@@ -80,13 +81,35 @@ function resolve(input = {}, lang = "en") {
   const identity = input.identity || {};
   const system = Boolean(input.system);
 
-  const fullName = system
+  /*
+   * TEAM renders: mail sent from a SHARED mailbox (info@, operations@).
+   *
+   * The mailbox speaks, not the person who happened to answer it. Until this
+   * existed a message from info@ carried the sender's personal signature with
+   * only the email line swapped, so two colleagues answering the same box sent
+   * two different signatures and each one handed their mobile and WhatsApp to
+   * whoever wrote to the generic address.
+   *
+   * So a team render takes the SYSTEM render's privacy rules (no person, no
+   * personal number of any kind) and puts the mailbox's own label where the
+   * name goes. The one personal fact it may carry is a "Sent by" line, and only
+   * when the sender chose that for this message (`signed_by`).
+   */
+  const team = !system && input.team
+    ? { label: String(input.team.label || "").trim() || null, signed_by: input.team.signed_by || null }
+    : null;
+  const impersonal = system || Boolean(team);
+
+  const fullName = impersonal
     ? null
     : (employee.full_name || user.full_name || null);
-  const jobTitle = system ? null : (employee.job_title || null);
+  const sentBy = team && team.signed_by
+    ? (language === "fr" ? `Envoyé par ${team.signed_by}` : `Sent by ${team.signed_by}`)
+    : null;
+  const jobTitle = team ? sentBy : (system ? null : (employee.job_title || null));
   const department = system
     ? departmentLabel(identity.purpose, language)
-    : (employee.department || null);
+    : (team ? null : (employee.department || null));
 
   // The SENDING MAILBOX wins, and that ordering is load-bearing rather than
   // incidental. `employee.email` is the address HR holds; the mailbox is the
@@ -101,14 +124,15 @@ function resolve(input = {}, lang = "en") {
     || identity.from_address
     || null;
 
-  // A SYSTEM render never carries a person's mobile.
+  // A SYSTEM or TEAM render never carries a person's numbers: the company
+  // line in the corporate block is the number to call.
   // Override → master → blank; see PHONE PRECEDENCE in the header.
-  const phoneDesk = system ? null : (profile.phone_desk || employee.phone_desk || null);
-  const phoneMobile = system ? null : (profile.phone_mobile || employee.phone_mobile || null);
-  const whatsapp = system ? null : (profile.whatsapp || null);
-  const pronouns = system ? null : (profile.pronouns || null);
-  const credentials = system ? null : (profile.credentials || null);
-  const bookingUrl = system ? null : httpsUrl(profile.booking_url);
+  const phoneDesk = impersonal ? null : (profile.phone_desk || employee.phone_desk || null);
+  const phoneMobile = impersonal ? null : (profile.phone_mobile || employee.phone_mobile || null);
+  const whatsapp = impersonal ? null : (profile.whatsapp || null);
+  const pronouns = impersonal ? null : (profile.pronouns || null);
+  const credentials = impersonal ? null : (profile.credentials || null);
+  const bookingUrl = impersonal ? null : httpsUrl(profile.booking_url);
 
   const companyName = entity.legal_name || entity.trading_name || null;
   const addressLine = join(
@@ -162,11 +186,14 @@ function resolve(input = {}, lang = "en") {
     email,
   ]);
 
-  const personLine = join([fullName, pronouns && `(${pronouns})`, credentials]);
+  const personLine = team
+    ? (team.label || companyName)
+    : join([fullName, pronouns && `(${pronouns})`, credentials]);
 
   return {
     language,
     system,
+    team: Boolean(team),
     // Carried so a "missing P.O. Box" gap can link to THIS entity's dossier
     // rather than to the entity list for the reader to find it again.
     entity_id: entity.entity_id || null,
@@ -220,8 +247,8 @@ function resolve(input = {}, lang = "en") {
       confidentiality: confidentiality || null,
     },
     empty: [
-      !fullName && !system ? "full_name" : null,
-      !jobTitle && !system ? "job_title" : null,
+      !fullName && !impersonal ? "full_name" : null,
+      !jobTitle && !impersonal ? "job_title" : null,
       !email ? "email" : null,
       !companyName ? "company" : null,
     ].filter(Boolean),

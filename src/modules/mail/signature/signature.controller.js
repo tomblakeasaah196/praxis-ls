@@ -19,6 +19,7 @@ module.exports = {
       userId: actor(req).user_id,
       language: req.query.lang || req.query.language,
       connectionId: req.query.connection_id || null,
+      signAs: req.query.sign_as === "TEAM_AND_ME" ? "TEAM_AND_ME" : "TEAM",
     })),
   })),
   png: asyncHandler(async (req, res) => {

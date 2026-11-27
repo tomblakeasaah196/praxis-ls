@@ -1125,6 +1125,7 @@ export function ThreadView({
               // the first choice's composer and quietly lose the Cc.
               key={replying}
               connectionId={thread.email_connection_id}
+              mailboxKind={thread.mailbox_kind || null}
               threadId={thread.email_thread_id}
               replyToMessageId={messages[lastIndex]?.email_message_id || null}
               kind={replying}
