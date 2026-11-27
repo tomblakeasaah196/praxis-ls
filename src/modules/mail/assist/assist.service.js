@@ -264,7 +264,7 @@ async function generate(client, { user, callType, system, prompt, temperature = 
  * that ships fabricated invoice numbers to clients on the tail of the
  * distribution.
  */
-function systemFor({ lang, facts, styleInstruction, extra = "" }) {
+function systemFor({ lang, facts, styleInstruction, extra = "", withSubject = false }) {
   const factBlock = facts.length
     ? `FACTS FROM THE RECORD — these are the only facts you may state:\n${facts.map((f) => `· ${f}`).join("\n")}`
     : "FACTS FROM THE RECORD: none are available for this thread.";
@@ -276,9 +276,78 @@ function systemFor({ lang, facts, styleInstruction, extra = "" }) {
     "Do NOT state any reference number, amount, date or percentage that does not appear verbatim above.",
     "If you need a fact you do not have, write the sentence without it rather than estimating.",
     "Preserve Incoterms, container types, currency codes and document references exactly as written.",
-    "Return only the body of the email. No subject line, no commentary.",
+    withSubject
+      ? subjectInstruction(lang)
+      : "Return only the body of the email. No subject line, no commentary.",
     extra,
   ].filter(Boolean).join("\n\n");
+}
+
+/* ── A subject, when the operator has none (27 Nov 2026) ─────────────────────
+ *
+ * Writing a new mail from a brief and then having to invent its subject line
+ * was the one step the assistant left to the operator. When the composer says
+ * the Subject field is EMPTY (`want_subject`, and no `subject` sent), the same
+ * model call returns a subject on a first line of its own, and it is lifted out
+ * here so it lands in the Subject field and never in the body.
+ *
+ * Never on a reply (`draft`): a reply's subject is the thread's. Never when the
+ * operator typed one: then it is the brief, as before. And never a second call:
+ * the subject is a dozen tokens on the call that is already being paid for. */
+
+const SUBJECT_MAX = 150;
+
+function subjectInstruction(lang) {
+  const label = lang === "fr" ? "Objet" : "Subject";
+  return [
+    `Begin with ONE line of the form "${label}: <subject line>", then a blank line, then the body of the email.`,
+    `The subject line is in ${lang === "fr" ? "French" : "English"}, under 80 characters, specific to this email, with no quotation marks and no full stop at the end.`,
+    "It follows the same rule about facts as the body. No other commentary.",
+  ].join(" ");
+}
+
+/** Does this compose call ask for a subject? Only when it sent none. */
+function wantsSubject(input) {
+  return Boolean(input && input.want_subject) && !String((input && input.subject) || "").trim();
+}
+
+const SUBJECT_LINE = /^\s*(?:\*\*)?\s*(?:subject|objet|sujet)\s*(?:\*\*)?\s*:\s*(.+?)\s*$/i;
+
+/**
+ * Split a "Subject: …" first line off the model's text. Returns the text
+ * untouched, and no subject, when the model did not lead with one: a missing
+ * subject is a field left empty, never a body that loses its first line.
+ */
+function splitSubject(text) {
+  const raw = String(text || "");
+  const lines = raw.split(/\r?\n/);
+  const first = lines.findIndex((l) => l.trim() !== "");
+  if (first === -1) return { subject: null, body: raw };
+  const m = lines[first].match(SUBJECT_LINE);
+  if (!m) return { subject: null, body: raw };
+  const subject = m[1]
+    .replace(/\*\*/g, "")
+    .replace(/^["'«“\s]+|["'»”\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\.$/, "")
+    .trim()
+    .slice(0, SUBJECT_MAX);
+  const body = lines.slice(first + 1).join("\n").replace(/^\s*\n/, "").trimStart();
+  return { subject: subject || null, body };
+}
+
+/**
+ * The subject goes through the same fence as the body: an invented reference
+ * number in a subject line is the same fabrication in a more visible place.
+ * Its violations join the body's, so the composer's one warning covers both.
+ */
+function withSubjectFence(done, subject, factStrings) {
+  if (!subject) return done;
+  const v = fence.fence(subject, factStrings);
+  if (v.ok) return done;
+  const prior = (done.fence && done.fence.violations) || [];
+  const violations = [...new Set([...prior, ...v.violations])];
+  return { ...done, fence: { ok: false, violations }, needs_review: true };
 }
 
 /**
@@ -428,21 +497,27 @@ async function compose(client, input = {}, user = null) {
     };
   }
 
+  // A translation is a rewrite of text that already has its subject.
+  const withSubject = wantsSubject(input) && !TRANSLATE_TO[input.action];
   const out = await generate(client, {
     user,
     callType: input.action ? `compose.${input.action}` : `compose.${input.tone || "formal"}`,
-    system: systemFor({ lang, facts: factStrings, styleInstruction, extra: brief }),
+    system: systemFor({ lang, facts: factStrings, styleInstruction, extra: brief, withSubject }),
     prompt: seed
       ? `Here is the material to work from:\n\n${seed}`
       : "Draft the email described by the instruction above.",
   });
 
+  const split = withSubject ? splitSubject(out.text || "") : { subject: null, body: out.text || "" };
   // `input.draft` — the operator's own text when they asked for a rewrite via
   // this endpoint — is the only thing here worth preserving terms from. A
   // compose with no draft transforms nothing, so there is nothing to preserve.
-  const done = finish(out.text || "", factStrings, input.draft || null);
+  const done = withSubjectFence(
+    finish(split.body, factStrings, input.draft || null), split.subject, factStrings,
+  );
   return {
     draft_text: done.text,
+    subject_text: split.subject,
     prompt: styleInstruction,
     language: lang,
     language_source: languageSource,
@@ -838,7 +913,7 @@ async function transcribe(client, { audioDataUrl } = {}, user = null) {
   }
 }
 
-async function voice(client, { threadId, transcript: spoken, tone, language } = {}, user = null) {
+async function voice(client, { threadId, transcript: spoken, tone, language, wantSubject = false } = {}, user = null) {
   await assertAiOn(client, user);
   if (!spoken || !String(spoken).trim()) throw new AppError("EMPTY_TRANSCRIPT", "Nothing was dictated.", 422);
   const ctx = threadId ? await threadContext(client, threadId) : {};
@@ -862,15 +937,20 @@ async function voice(client, { threadId, transcript: spoken, tone, language } = 
       styleInstruction: prompts.resolvePrompt(tone || "formal", lang),
       extra: "The input is a spoken dictation. Remove filler and false starts. " +
         "Do not add substance the speaker did not say.",
+      withSubject: Boolean(wantSubject),
     }),
     prompt: String(spoken),
   });
 
+  const split = wantSubject ? splitSubject(out.text || "") : { subject: null, body: out.text || "" };
   // Dictation is transcribed, not translated: the speaker said what they said,
   // and a term they used that the tidy-up dropped should come back.
-  const done = finish(out.text || "", factStrings, String(spoken));
+  const done = withSubjectFence(
+    finish(split.body, factStrings, String(spoken)), split.subject, factStrings,
+  );
   return {
     draft_text: done.text,
+    subject_text: split.subject,
     language: lang,
     language_source: languageSource,
     transcript: String(spoken),
@@ -890,6 +970,7 @@ const runGuardrails = (message, ctx) => guardrails.check(message, ctx);
 module.exports = {
   compose, draft, rewrite, translate, summary, voice, transcribe,
   runFence, runGlossary, runGuardrails,
+  splitSubject, wantsSubject,
   assertAiOn, threadContext, threadMessages,
   FEATURE, SUMMARY_TRIGGER, MAIL_VENDOR,
 };

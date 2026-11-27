@@ -120,6 +120,9 @@ router.post("/assist/compose", requireAi, requirePermission("MOD-72", "view"),
     to: z.array(z.string().max(320)).max(50).optional(),
     instruction: z.string().max(2000).optional(),
     language: z.enum(["en", "fr"]).optional(),
+    /* The Subject field is empty: write one too. Ignored when `subject` is
+     * sent, because then the operator's subject is the brief. */
+    want_subject: z.boolean().optional(),
   }).strict()),
   requireVisibleThreadBody("thread_id", { optional: true }),
   asyncHandler(async (req, res) => res.json({
@@ -226,12 +229,14 @@ router.post("/assist/voice", requireAi, requirePermission("MOD-72", "view"),
     transcript: z.string().min(1).max(20000),
     tone: TONE.optional(),
     language: z.enum(["en", "fr"]).optional(),
+    want_subject: z.boolean().optional(),
   }).strict()),
   requireVisibleThreadBody("thread_id", { optional: true }),
   asyncHandler(async (req, res) => res.json({
     data: await req.identityDb((c) => service.voice(c, {
       threadId: req.body.thread_id, transcript: req.body.transcript,
       tone: req.body.tone, language: req.body.language,
+      wantSubject: req.body.want_subject === true,
     }, actor(req))),
   })));
 
