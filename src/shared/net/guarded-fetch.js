@@ -147,7 +147,7 @@ function readCapped(res, maxBytes) {
  * the hop. `finish` is the only way out, and it is idempotent, because a socket
  * can error after it has answered just as happily as before.
  */
-function fetchOneHop(url, { maxBytes, timeoutMs, idleMs, accept, lookup, allowContentTypes }) {
+function fetchOneHop(url, { maxBytes, timeoutMs, idleMs, accept, userAgent, lookup, allowContentTypes }) {
   const transport = url.protocol === "https:" ? https : http;
   return new Promise((resolve) => {
     let settled = false;
@@ -186,7 +186,7 @@ function fetchOneHop(url, { maxBytes, timeoutMs, idleMs, accept, lookup, allowCo
         headers: {
           Accept: accept,
           "Accept-Language": "en, fr;q=0.8",
-          "User-Agent": USER_AGENT,
+          "User-Agent": userAgent,
           // `identity`, and deliberately. Advertising gzip would let a host hand
           // back compressed bytes, and this module has no decompressor — parsing
           // gzipped HTML with a regex produces a preview of nothing, on exactly
@@ -266,7 +266,7 @@ function fetchOneHop(url, { maxBytes, timeoutMs, idleMs, accept, lookup, allowCo
  * @param {string} targetUrl
  * @param {{
  *   maxBytes?: number, timeoutMs?: number, idleMs?: number, maxHops?: number,
- *   accept?: string, allowContentTypes?: string[],
+ *   accept?: string, allowContentTypes?: string[], userAgent?: string,
  *   resolve?: (host: string, opts: object) => Promise<Array<{address: string}>>,
  * }} [opts]  `resolve` is the injected DNS answer used by tests.
  */
@@ -276,6 +276,9 @@ async function guardedFetch(targetUrl, opts = {}) {
     timeoutMs: opts.timeoutMs || DEFAULT_TIMEOUT_MS,
     idleMs: opts.idleMs || DEFAULT_IDLE_MS,
     accept: opts.accept || "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+    // A caller that is not a link preview says what it is instead: the default
+    // names link previews, and a NOC tracing our traffic deserves the truth.
+    userAgent: opts.userAgent || USER_AGENT,
     allowContentTypes: opts.allowContentTypes || null,
     lookup: makeGuardedLookup(opts.resolve ? { resolve: opts.resolve } : {}),
   };

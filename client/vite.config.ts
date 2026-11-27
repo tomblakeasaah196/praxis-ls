@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
+import { isOwnFont, isOwnImage } from "./config/sw-routes";
 import {
   sharedAlias,
   SHARED_COMMONJS_INCLUDE,
@@ -177,8 +178,9 @@ export default defineConfig({
         // hashed filenames make staleness impossible.
         runtimeCaching: [
           {
-            urlPattern: ({ request }: { request: Request }) =>
-              request.destination === "font",
+            // Our own files only: see config/sw-routes.ts for the night this
+            // matched every site's fonts and images and refused them all.
+            urlPattern: isOwnFont,
             handler: "CacheFirst",
             options: {
               cacheName: "praxis-fonts",
@@ -198,8 +200,7 @@ export default defineConfig({
           // cache must refresh in the background on the next online load while
           // still serving instantly — and offline — from what it has.
           {
-            urlPattern: ({ request }: { request: Request }) =>
-              request.destination === "image",
+            urlPattern: isOwnImage,
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "praxis-media",

@@ -22,10 +22,18 @@
  *            (every link targets `_blank`, see the sanitizer), escaping the
  *            sandbox so the destination site works normally.
  *   CSP      its own, in the document: no script, no frames, no forms, inline
- *            styles only, and images from `data:` and `blob:` until the reader
- *            or a trusted sender allows `https:`. It sits on top of the app's
- *            own policy, which a `srcdoc` frame inherits. Anything the
- *            remote-content pass in `message-body.ts` misses is refused here.
+ *            styles only, and images from `data:` and `blob:` only, even once
+ *            images are shown: a shown remote image is fetched by our server
+ *            and handed over as a `blob:` (`message-body.ts`). It sits on top
+ *            of the app's own policy, which a `srcdoc` frame inherits. Anything
+ *            the rendering passes miss is refused here.
+ *
+ *            The frame is NOT free to fetch from another site even when a
+ *            policy says it may. With `allow-same-origin` it belongs to the
+ *            PWA's service worker, so its requests can be answered by the
+ *            worker's own `fetch()`, which runs under the policy `sw.js` was
+ *            served with. That is how "Show images" drew a broken image for
+ *            every sender until the proxy (27 Nov 2026).
  *
  * ── SIZE ────────────────────────────────────────────────────────────────────
  *
@@ -57,7 +65,6 @@ function anchorOf(target: EventTarget | null): HTMLAnchorElement | null {
 export function EmailFrame({
   html,
   title,
-  showRemote,
   ink,
   scheme,
   onMailto,
@@ -67,7 +74,6 @@ export function EmailFrame({
   html: string;
   /** What a screen reader announces for the frame. */
   title: string;
-  showRemote: boolean;
   ink: EmailInk;
   scheme: "light" | "dark";
   onMailto?: (m: Mailto) => void;
@@ -75,7 +81,7 @@ export function EmailFrame({
 }) {
   const ref = React.useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = React.useState<number | null>(null);
-  const srcDoc = React.useMemo(() => buildSrcDoc(html, { showRemote, ink, scheme }), [html, showRemote, ink, scheme]);
+  const srcDoc = React.useMemo(() => buildSrcDoc(html, { ink, scheme }), [html, ink, scheme]);
 
   // Read through a ref so a new handler from the parent does not reload the frame.
   const onMailtoRef = React.useRef(onMailto);

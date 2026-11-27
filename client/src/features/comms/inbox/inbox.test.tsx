@@ -12,7 +12,7 @@
  *      two is the failure the per-id result shape exists to prevent.
  */
 import * as React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
@@ -698,14 +698,55 @@ describe("the reading pane draws the sender's email", () => {
     expect(screen.queryByText("DEMO BUILD BRIEF")).toBeNull();
   });
 
+  /**
+   * Shown images come through OUR proxy as blob: URLs, never from the sender.
+   *
+   * The frame used to be handed the sender's https URL, and it drew a broken
+   * image for every sender: it belongs to the PWA's service worker, which could
+   * not fetch another site under its own CSP. These tests pin the replacement.
+   * `fetch` answers only the proxy route, so a frame that still pointed at
+   * track.example would show up as a srcdoc containing it.
+   */
+  const PROXIED = "/api/tenant/mail/thread/m1/remote-image?url=https%3A%2F%2Ftrack.example%2Fp.gif";
+  let fetched: string[] = [];
+  beforeEach(() => {
+    fetched = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      fetched.push(String(url));
+      return String(url).includes("/remote-image?")
+        ? new Response(new Blob(["PNG"], { type: "image/png" }), { status: 200 })
+        : new Response("", { status: 404 });
+    }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const proxiedSrc = async () => {
+    await vi.waitFor(() => expect(frameOf(/Message from/).getAttribute("srcdoc")).toMatch(/ src="blob:/));
+    return frameOf(/Message from/).getAttribute("srcdoc") || "";
+  };
+
   it("holds remote images back and offers to trust a stranger", async () => {
     view(htmlThread(), { "/mail/image-trust": { email_image_trust_id: "x", sender_address: "client@maersk.cm" } });
     expect(frameOf(/Message from/).getAttribute("srcdoc")).not.toContain(' src="https://track.example/p.gif"');
+    expect(fetched).toEqual([]);
     await userEvent.click(screen.getByRole("button", { name: "Always show from client@maersk.cm" }));
-    // Trusted from here on: the banner goes and the frame may fetch https.
+    // Trusted from here on: the banner goes and the image arrives through our proxy.
     expect(await screen.findByTitle(/Message from/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show images" })).toBeNull();
-    expect(frameOf(/Message from/).getAttribute("srcdoc")).toContain("img-src data: blob: https:");
+    const doc = await proxiedSrc();
+    expect(fetched).toEqual([PROXIED]);
+    expect(doc).not.toContain("https://track.example");
+  });
+
+  it("Show images draws the picture from our proxy, and the frame still may not reach the sender", async () => {
+    view(htmlThread());
+    expect(screen.getByText("One image was not loaded. Remote images can tell the sender you opened this.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show images" }));
+    const doc = await proxiedSrc();
+    expect(fetched).toEqual([PROXIED]);
+    expect(doc).not.toContain("https://track.example");
+    expect(doc).toContain("img-src data: blob:;");
+    expect(screen.queryByRole("button", { name: "Show images" })).toBeNull();
   });
 
   it("never offers permanent trust to a sender who failed verification", () => {
@@ -714,10 +755,12 @@ describe("the reading pane draws the sender's email", () => {
     expect(screen.queryByRole("button", { name: /Always show from/ })).toBeNull();
   });
 
-  it("shows a trusted sender's images without asking", () => {
+  it("shows a trusted sender's images without asking, through the proxy", async () => {
     view(htmlThread({ image_trust: { trusted: true, reason: "party" } }));
     expect(screen.queryByRole("button", { name: "Show images" })).toBeNull();
-    expect(frameOf(/Message from/).getAttribute("srcdoc")).toContain(' src="https://track.example/p.gif"');
+    const doc = await proxiedSrc();
+    expect(fetched).toEqual([PROXIED]);
+    expect(doc).not.toContain("https://track.example");
   });
 
   it("repairs a body stored before formatting was kept, and swaps it in", async () => {

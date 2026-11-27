@@ -26,6 +26,15 @@
  * "Show images" is a re-render rather than a re-fetch of the message — and so
  * the alt text still has something to be the alternative TO.
  *
+ * WHAT "SHOW IMAGES" FETCHES, AND FROM WHERE. Not the sender's server: ours.
+ * Each remote reference is fetched through `GET /mail/thread/:id/remote-image`
+ * (`remote-image.service.js`) and drawn from the object URL that comes back,
+ * the way an inline `cid:` part is, so the reader's IP address and device never
+ * reach whoever put a pixel in the message. It is also the only way the images
+ * load at all: the frame belongs to the PWA's service worker, and the worker
+ * cannot fetch another site under the CSP `sw.js` is served with. A reference
+ * the proxy did not return is dropped, never left pointing at the sender.
+ *
  * ── WHY THIS PARSES RATHER THAN PATTERN-MATCHES ─────────────────────────────
  *
  * The first version of this file did the whole job with regexes, on the
@@ -431,11 +440,143 @@ export function splitQuotedHtml(html: string): SplitBody {
 }
 
 
+/* ── Remote images, through our proxy ─────────────────────────────────────── */
+
+/** Longer than any real image URL; the server refuses past it too. */
+const MAX_PROXY_URL = 2048;
+
+/**
+ * A reference as the proxy is asked for it: `//host/x` is the https one, and
+ * only absolute http(s) is fetchable. Kept in step with `normalise` in
+ * `remote-image.service.js`, which compares against exactly this string.
+ */
+export function proxiableUrl(raw: string): string | null {
+  const v = String(raw || "").trim();
+  if (!v || v.length > MAX_PROXY_URL) return null;
+  if (v.startsWith("//")) return `https:${v}`;
+  return /^https?:\/\//i.test(v) ? v : null;
+}
+
+/**
+ * The first candidate of a srcset, read the way the HTML spec reads one: a run
+ * of non-space characters with its trailing commas removed. A comma INSIDE a
+ * URL stays, so an image CDN's `w_600,h_400` is one URL. The server reads a
+ * srcset the same way, so the candidate asked for is one it recognises.
+ */
+function firstSrcsetUrl(value: string): string | null {
+  for (const token of value.split(/\s+/)) {
+    const t = token.replace(/^,+|,+$/g, "");
+    if (t && !DESCRIPTOR.test(t)) return t;
+  }
+  return null;
+}
+
+/** The attributes that hold exactly one URL. `srcset` is handled on its own. */
+const SINGLE_URL_ATTRS = ["src", "poster", "background"] as const;
+
+/** A web font is not an image, and the proxy serves only images. */
+const FONT_FILE = /\.(?:woff2?|ttf|otf|eot)(?:[?#]|$)/i;
+
+const cssInner = (whole: string) => whole.slice(4, -1).trim().replace(/^['"]|['"]$/g, "");
+
+function cssRefs(css: string, out: Set<string>): void {
+  for (const m of css.match(CSS_URL) || []) {
+    const url = proxiableUrl(cssInner(m));
+    if (url && !FONT_FILE.test(url)) out.add(url);
+  }
+}
+
+/**
+ * The remote images a body draws, as the proxy will be asked for them.
+ *
+ * A `srcset` contributes its first candidate only when the element has no
+ * `src`: one picture per element is what the frame draws, and asking for every
+ * density of it would multiply the requests for nothing.
+ */
+export function remoteImageRefs(html: string): string[] {
+  if (!html) return [];
+  const { root } = parseBody(html);
+  const out = new Set<string>();
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    if (el.tagName.toLowerCase() === "style") {
+      cssRefs(el.textContent || "", out);
+      continue;
+    }
+    for (const attr of SINGLE_URL_ATTRS) {
+      const value = el.getAttribute(attr);
+      const url = value == null ? null : proxiableUrl(value);
+      if (url) out.add(url);
+    }
+    const srcset = el.getAttribute("srcset");
+    if (srcset != null && !el.hasAttribute("src")) {
+      const first = firstSrcsetUrl(srcset);
+      const url = first ? proxiableUrl(first) : null;
+      if (url) out.add(url);
+    }
+    const style = el.getAttribute("style");
+    if (style) cssRefs(style, out);
+  }
+  return [...out];
+}
+
+/**
+ * The showing pass: every remote reference becomes the object URL the proxy
+ * returned for it, and one with no object URL (still loading, refused, or not
+ * fetchable at all, like a relative path) is removed. Nothing is left pointing
+ * at a host we do not control, which is what lets the frame's policy refuse
+ * `https:` outright.
+ */
+function proxyIn(root: ParentNode, urls: Record<string, string>): void {
+  const swap = (raw: string): string | null => {
+    const url = proxiableUrl(raw);
+    return url ? urls[url] || null : null;
+  };
+  const swapCss = (css: string): string =>
+    css.replace(CSS_IMPORT, "").replace(CSS_URL, (whole) => {
+      const inner = cssInner(whole);
+      if (!isRemote(inner)) return whole;
+      const local = swap(inner);
+      return local ? `url(${local})` : "none";
+    });
+
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("*"))) {
+    if (el.tagName.toLowerCase() === "style") {
+      const css = el.textContent || "";
+      const next = swapCss(css);
+      if (next !== css) el.textContent = next;
+      continue;
+    }
+    for (const attr of SINGLE_URL_ATTRS) {
+      const value = el.getAttribute(attr);
+      if (value == null || !isRemote(value)) continue;
+      const local = swap(value);
+      if (local) el.setAttribute(attr, local);
+      else el.removeAttribute(attr);
+    }
+    const srcset = el.getAttribute("srcset");
+    if (srcset != null && referencesRemote("srcset", srcset)) {
+      el.removeAttribute("srcset");
+      if (!el.hasAttribute("src")) {
+        const first = firstSrcsetUrl(srcset);
+        const local = first ? swap(first) : null;
+        if (local) el.setAttribute("src", local);
+      }
+    }
+    const style = el.getAttribute("style");
+    if (style && /url\(/i.test(style)) {
+      const next = swapCss(style);
+      if (next !== style) el.setAttribute("style", next);
+    }
+  }
+}
+
 /* ── What the sealed frame is handed ─────────────────────────────────────── */
 
 export type RenderOptions = {
   /** The reader asked for remote images, or the sender is trusted for them. */
   showRemote: boolean;
+  /** Remote images already fetched through our proxy, as object URLs keyed by `proxiableUrl`. */
+  remoteUrls?: Record<string, string>;
   /** Inline parts already fetched as blob URLs, keyed by Content-ID. */
   cidUrls?: Record<string, string>;
   /** Recolour for dark mode against these anchors; null in light mode. */
@@ -476,15 +617,20 @@ function resolveCidsIn(root: ParentNode, cidUrls: Record<string, string>): void 
  * The HTML the sealed frame renders: parsed ONCE, then blocked, resolved and
  * recoloured on that one fragment.
  *
- * Order matters in one place: blocking runs before `cid:` resolution, because a
- * resolved inline part is a `blob:` URL and is local by definition, and running
- * the other way round would only work by the accident that `isRemote` also
- * passes `blob:`.
+ * Order matters in one place: blocking (or proxying) runs before `cid:`
+ * resolution, because a resolved inline part is a `blob:` URL and is local by
+ * definition, and running the other way round would only work by the accident
+ * that `isRemote` also passes `blob:`.
  */
-export function renderBody(html: string, { showRemote, cidUrls = {}, dark = null }: RenderOptions): RenderedBody {
+export function renderBody(
+  html: string,
+  { showRemote, remoteUrls = {}, cidUrls = {}, dark = null }: RenderOptions,
+): RenderedBody {
   if (!html) return { html: "", blocked: 0, ownDark: false };
   const { doc, root } = parseBody(html);
-  const blocked = showRemote ? 0 : blockIn(root);
+  let blocked = 0;
+  if (showRemote) proxyIn(root, remoteUrls);
+  else blocked = blockIn(root);
   resolveCidsIn(root, cidUrls);
   const ownDark = hasOwnDarkMode(root);
   if (dark && !ownDark) recolourFragment(root, dark);

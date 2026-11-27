@@ -10,6 +10,7 @@ const attachments = require("./attachment.service");
 const commands = require("./commands.service");
 const body = require("./body.service");
 const imageTrust = require("./image-trust.service");
+const remoteImages = require("./remote-image.service");
 const { cpanelPreset } = require("./autodiscover");
 const msOAuth = require("./providers/microsoftOAuth");
 const googleOAuth = require("./providers/googleOAuth");
@@ -312,6 +313,23 @@ module.exports = {
    * XSS vector. The user downloads it and opens it in the thing that owns that
    * file type.
    */
+  /* The bytes of one remote image in a message the caller can see, fetched by
+   * our server (remote-image.service.js). A 404 covers "not in this message",
+   * "refused" and "the sender's server failed" alike: the reader sees the same
+   * empty box for all three, and a caller probing for which one it was learns
+   * nothing about our network. */
+  remoteImage: asyncHandler(async (req, res) => {
+    const found = await req.identityDb((c) => remoteImages.imageFor(c, req.params.id, req.query.url));
+    if (!found) throw new AppError("NOT_FOUND", "image not available", 404);
+    res.setHeader("Content-Type", found.contentType);
+    // Private: the request carries the reader's token. A day, because the same
+    // newsletter reopened should not fetch its pictures again.
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.end(found.buffer);
+  }),
   downloadAttachment: asyncHandler(async (req, res) => {
     const att = req.mailAttachment;
     if (!att || !att.vault_id) throw new AppError("NOT_FOUND", "attachment not found", 404);
