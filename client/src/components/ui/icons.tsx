@@ -306,3 +306,60 @@ export const AlertTriangleIcon = (p: P) => (
     <path d="M12 17h.01" />
   </svg>
 );
+
+/* ── Mail actions ───────────────────────────────────────────────────────────
+ * Added with the mobile mail pass (27 Nov 2026), where the conversation strip
+ * and the composer footer went from labelled buttons to icons so each fits on
+ * one row of a phone. Every one of them is drawn inside a button that carries
+ * its own `aria-label` and `title`: the glyph is never the only name. */
+
+/** Reply: an arrow turning back. */
+export const ReplyIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9 17 4 12l5-5" />
+    <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+  </svg>
+);
+/** Forward: the reply arrow, mirrored. */
+export const ForwardIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="m15 17 5-5-5-5" />
+    <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
+  </svg>
+);
+/** Archive: a box with a lid. */
+export const ArchiveIcon = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4" width="18" height="4" rx="1" />
+    <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  </svg>
+);
+/** An opened envelope: "mark as read". */
+export const MailOpenIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 10v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9" />
+    <path d="m3 10 9-7 9 7" />
+    <path d="m3 10 9 6 9-6" />
+  </svg>
+);
+/** The assistant's mark, wherever a control asks the AI to do something. */
+export const SparklesIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" />
+    <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+  </svg>
+);
+/** Attach a file. */
+export const PaperclipIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7" />
+  </svg>
+);
+/** A clock: "later". */
+export const ClockIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);

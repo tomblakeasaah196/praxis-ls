@@ -459,7 +459,11 @@ describe("the conversation view", () => {
     // conversation at all — you closed it, found its row and ticked a checkbox.
     renderView(<ThreadView thread={detail()} {...props} folder="INBOX" />);
     expect(screen.getByRole("button", { name: "Reply" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Forward" })).toBeInTheDocument();
+    // Forward rides behind Reply's ▾ since the strip became one row (27 Nov
+    // 2026): still one tap from the top of the pane, never back in the footer.
+    await userEvent.click(screen.getByRole("button", { name: "More reply options" }));
+    expect(screen.getByRole("menuitem", { name: "Forward" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
     expect(props.onMove).toHaveBeenCalledWith("ARCHIVE");
   });

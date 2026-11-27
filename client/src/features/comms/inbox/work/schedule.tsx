@@ -46,16 +46,30 @@ export function SchedulePicker({
   value,
   onChange,
   recipientTimezone,
+  open: openProp,
+  onOpenChange,
 }: {
   value: ScheduleChoice;
   onChange: (v: ScheduleChoice) => void;
   /** From the bound party. `null` means the morning option cannot work. */
   recipientTimezone?: string | null;
+  /**
+   * Controlled mode, for a caller that opens the picker from its own control:
+   * the composer's Send ▾ (27 Nov 2026). Controlled and closed with nothing
+   * scheduled, the picker draws NOTHING, because its "Send later" button is
+   * then the caller's menu item and two of them would be one too many.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [openState, setOpenState] = React.useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const setOpen = (v: boolean) => (controlled ? onOpenChange?.(v) : setOpenState(v));
   const [at, setAt] = React.useState("");
 
   if (!open) {
+    if (controlled && value.kind === "NOW") return null;
     return (
       <div className="flex flex-wrap items-center gap-2">
         {value.kind !== "NOW" && (

@@ -16,6 +16,17 @@
  * applies them one at a time and returns which failed, and this surfaces that
  * rather than showing a success toast over a partial result — an archive that
  * silently dropped two is worse than one that says which two.
+ *
+ * ── ON A PHONE, SELECTION STARTS WITH A LONG PRESS ──────────────────────────
+ *
+ * Below `lg` the row's checkbox is not drawn until something is selected: it
+ * cost every card about 40px of a 375px width for an action taken a few times a
+ * day, and squeezed the sender and subject on every row (tenant review, 27 Nov
+ * 2026). Holding a row for `LONG_PRESS_MS` selects it, the checkboxes appear,
+ * and while anything is selected a tap toggles a row instead of opening it.
+ * Clearing the selection puts the list back. The checkbox stays in the
+ * accessibility tree throughout (visually hidden, not removed), and `x` still
+ * selects from the keyboard, so nobody depends on a gesture they cannot make.
  */
 import * as React from "react";
 import { cn } from "@/lib/cn";
@@ -26,7 +37,13 @@ import { Pill } from "@/components/ui/pill";
 import { EmptyState, LoadingRow } from "@/components/ui/states";
 import { fmtRelative } from "@/lib/format";
 import { tr } from "@/lib/i18n";
+import { useIsDesktop } from "@/lib/use-media-query";
 import type { BulkOp, MailFolder, Thread } from "@/lib/mail-api";
+
+/** How long a press has to be held before it selects rather than opens. */
+export const LONG_PRESS_MS = 450;
+/** A finger that travels further than this is scrolling, not holding. */
+const LONG_PRESS_SLOP_PX = 10;
 
 /** The star, as a button rather than an icon with a click handler on a span. */
 function Star({
@@ -142,6 +159,8 @@ export function ThreadRow({
   onSelect,
   onStar,
   onFocus,
+  touchSelect = false,
+  selecting = false,
 }: {
   thread: Thread;
   selected: boolean;
@@ -153,10 +172,63 @@ export function ThreadRow({
   onStar: (on: boolean) => void;
   /** The row took focus by itself (a click, or Tab into the list). */
   onFocus: () => void;
+  /** The phone's model: the checkbox is hidden and a long press selects. */
+  touchSelect?: boolean;
+  /** Something in the list is selected, so a tap toggles rather than opens. */
+  selecting?: boolean;
 }) {
   const unread = thread.unread_count > 0;
   const subject = thread.subject || tr("(no subject)");
   const ref = React.useRef<HTMLButtonElement>(null);
+
+  /* The long press. A timer started on pointer-down, cancelled by lifting,
+   * leaving or moving past the slop (that is a scroll). When it fires it
+   * selects, and the click the lift is about to produce is swallowed so the
+   * conversation does not also open. */
+  const press = React.useRef<{ timer: number; x: number; y: number; fired: boolean } | null>(null);
+  const cancelPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+    if (press.current && !press.current.fired) press.current = null;
+  };
+  React.useEffect(() => () => cancelPress(), []);
+  const pressHandlers = touchSelect
+    ? {
+        onPointerDown: (e: React.PointerEvent) => {
+          // A touch and a primary mouse button are 0; a right or middle
+          // button is not a hold. (`?? 0`: some synthetic events carry none.)
+          if ((e.button ?? 0) !== 0) return;
+          cancelPress();
+          const state = { timer: 0, x: e.clientX, y: e.clientY, fired: false };
+          state.timer = window.setTimeout(() => {
+            state.fired = true;
+            onSelect(true);
+            // A short buzz where the device offers one: the press registered.
+            navigator.vibrate?.(15);
+          }, LONG_PRESS_MS);
+          press.current = state;
+        },
+        onPointerMove: (e: React.PointerEvent) => {
+          const p = press.current;
+          if (!p || p.fired) return;
+          if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > LONG_PRESS_SLOP_PX) cancelPress();
+        },
+        onPointerUp: cancelPress,
+        onPointerCancel: cancelPress,
+        onPointerLeave: cancelPress,
+        // Android raises the context menu on the same hold; it is the gesture
+        // we are using, so it must not also open the browser's menu.
+        onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+      }
+    : {};
+  const onRowClick = () => {
+    if (press.current?.fired) {
+      press.current = null;
+      return;
+    }
+    if (touchSelect && selecting) onSelect(!selected);
+    else onOpen();
+  };
+  const showCheckbox = !touchSelect || selecting;
 
   /* Move the real DOM focus when the cursor lands here, and bring the row into
    * view. `block: "nearest"` rather than "center": holding ↓ through a
@@ -200,16 +272,18 @@ export function ThreadRow({
         {/* tabIndex -1 on both: the list is ONE tab stop (see `ThreadList`),
             and `x` and `s` reach these from the keyboard. Three focusables per
             row made a fifty-row list 150 presses deep. */}
-        <Checkbox
-          checked={selected}
-          onCheckedChange={onSelect}
-          tabIndex={-1}
-          label={
-            <span className="sr-only">
-              {tr("Select")} {subject}
-            </span>
-          }
-        />
+        <span className={showCheckbox ? "contents" : "sr-only"}>
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onSelect}
+            tabIndex={-1}
+            label={
+              <span className="sr-only">
+                {tr("Select")} {subject}
+              </span>
+            }
+          />
+        </span>
         <Star
           on={thread.is_starred}
           onToggle={() => onStar(!thread.is_starred)}
@@ -218,10 +292,15 @@ export function ThreadRow({
         <button
           ref={ref}
           type="button"
-          onClick={onOpen}
+          onClick={onRowClick}
           onFocus={onFocus}
+          {...pressHandlers}
           tabIndex={focused ? 0 : -1}
-          className="min-w-0 flex-1 text-left focus-visible:outline-none"
+          className={cn(
+            "min-w-0 flex-1 text-left focus-visible:outline-none",
+            // A held finger must not start a text selection or the iOS callout.
+            touchSelect && "select-none [-webkit-touch-callout:none]",
+          )}
           aria-current={active ? "true" : undefined}
           aria-keyshortcuts="Enter x s"
         >
@@ -344,6 +423,7 @@ export function ThreadList({
    */
   filter?: React.ReactNode;
 }) {
+  const touchSelect = !useIsDesktop();
   const allSelected = threads.length > 0 && selected.size === threads.length;
   const toggleAll = (on: boolean) =>
     onSelectedChange(
@@ -533,6 +613,8 @@ export function ThreadList({
             onOpen={() => onOpen(t)}
             onSelect={(on) => toggleOne(t.email_thread_id, on)}
             onStar={(on) => onStar(t, on)}
+            touchSelect={touchSelect}
+            selecting={selected.size > 0}
           />
         ))}
         {loading && <LoadingRow label={tr("Loading conversations…")} />}

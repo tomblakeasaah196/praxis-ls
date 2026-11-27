@@ -15,6 +15,7 @@ import { Pill } from "@/components/ui/pill";
 import { FilePicker } from "@/components/ui/image-upload";
 import { compressImage } from "@/lib/image-compress";
 import { tr } from "@/lib/i18n";
+import { PaperclipIcon } from "@/components/ui/icons";
 import type { AttachmentTray as Tray } from "@/lib/mail-api";
 
 const mb = (n: number) => `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -167,9 +168,21 @@ export function AttachButton({
       label={tr("Attach")}
       multiple
       disabled={disabled || working}
+      // A paperclip, square, the height of the Send button beside it (27 Nov
+      // 2026): the composer footer is one row on a phone. The file input
+      // underneath keeps "Attach" as its accessible name, and the title says
+      // it on hover.
+      triggerClassName="cursor-pointer"
       trigger={
-        <span className="inline-flex h-8 items-center rounded-lg border px-3 text-sm no-underline">
-          {working ? tr("Preparing…") : tr("Attach")}
+        <span
+          title={working ? tr("Preparing…") : tr("Attach")}
+          className="grid h-9 w-9 place-items-center rounded-lg border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {working ? (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+          ) : (
+            <PaperclipIcon width={18} height={18} />
+          )}
         </span>
       }
       onPick={(files) => void handle(files)}

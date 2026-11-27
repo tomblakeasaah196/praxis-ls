@@ -35,6 +35,10 @@ import { Input } from "@/components/ui/input";
 import { Field, Select } from "@/components/ui/modal";
 import { ErrorState } from "@/components/ui/states";
 import { Pill } from "@/components/ui/pill";
+import { SplitButton } from "@/components/ui/split-button";
+import { DropdownItem } from "@/components/ui/dropdown-menu";
+import { ClockIcon, MicIcon, SendIcon, SparklesIcon, XIcon } from "@/components/ui/icons";
+import { cn } from "@/lib/cn";
 import { useResource } from "@/lib/use-resource";
 import { tr } from "@/lib/i18n";
 import { reportActionError } from "@/lib/action-error";
@@ -197,6 +201,7 @@ export function Composer({
    * back with `undo_seconds: 0` and must not draw a countdown toast. */
   const [override, setOverride] = React.useState("");
   const [schedule, setSchedule] = React.useState<ScheduleChoice>({ kind: "NOW" });
+  const [scheduling, setScheduling] = React.useState(false);
 
   /* Drag-and-drop onto the body (§5.6, "attachment-bar.tsx drag-drop"). The
    * Attach button worked; dropping a file did nothing at all — and dropping a
@@ -206,6 +211,7 @@ export function Composer({
   const [dragging, setDragging] = React.useState(false);
   // The AI tools are shut until asked for; see the one button on the toolbar.
   const [aiOpen, setAiOpen] = React.useState(false);
+  const [voiceOpen, setVoiceOpen] = React.useState(false);
   const [pasteMessage, setPasteMessage] = React.useState<string | null>(null);
 
   const [slash, setSlash] = React.useState<{ open: boolean; query: string }>({ open: false, query: "" });
@@ -727,36 +733,58 @@ export function Composer({
             </Select>
           </Field>
         )}
-        <div className="flex items-center gap-2">
-          <label htmlFor="composer-to" className="w-10 shrink-0 text-xs text-muted-foreground">{tr("To")}</label>
-          <RecipientField
-            id="composer-to"
-            value={to}
-            onChange={(v) => setField("to_address", splitAddresses(v), (() => setTo(v)) as never)}
-            extra={recipientExtras}
-          />
-          {!showCc && (
-            <button
-              type="button"
-              onClick={() => setShowCc(true)}
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {tr("Cc")}
-            </button>
-          )}
-          {!showBcc && (
-            <button
-              type="button"
-              onClick={() => setShowBcc(true)}
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {tr("Bcc")}
-            </button>
-          )}
+        {/* Below `sm` each label sits ABOVE its field, so the field gets the
+            whole width: beside it, a 40px "Subject" column cut a phone's
+            subject line to "Re: Smart Services Logistics Ltd, windin"
+            (27 Nov 2026). Cc, Bcc and Close stay on the label's line. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
+          <label htmlFor="composer-to" className="text-xs text-muted-foreground sm:w-10 sm:shrink-0">{tr("To")}</label>
+          <div className="order-last min-w-0 basis-full sm:order-none sm:flex-1 sm:basis-0">
+            <RecipientField
+              id="composer-to"
+              value={to}
+              onChange={(v) => setField("to_address", splitAddresses(v), (() => setTo(v)) as never)}
+              extra={recipientExtras}
+            />
+          </div>
+          <span className="ml-auto flex shrink-0 items-center gap-2 sm:ml-0">
+            {!showCc && (
+              <button
+                type="button"
+                onClick={() => setShowCc(true)}
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {tr("Cc")}
+              </button>
+            )}
+            {!showBcc && (
+              <button
+                type="button"
+                onClick={() => setShowBcc(true)}
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {tr("Bcc")}
+              </button>
+            )}
+            {/* Close KEEPS the draft: that is what autosave is for, and it is
+                findable in Drafts. It was a word at the far end of the footer;
+                it is the ✕ every sheet on a phone already has. */}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={tr("Close")}
+                title={tr("Close")}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <XIcon width={16} height={16} />
+              </button>
+            )}
+          </span>
         </div>
         {showCc && (
-          <div className="flex items-center gap-2">
-            <label htmlFor="composer-cc" className="w-10 shrink-0 text-xs text-muted-foreground">{tr("Cc")}</label>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+            <label htmlFor="composer-cc" className="text-xs text-muted-foreground sm:w-10 sm:shrink-0">{tr("Cc")}</label>
             {/* The same picker as To. Cc is where a colleague gets copied, so
                 searching staff from it is the whole point — typing a
                 remembered address was the only way before. */}
@@ -769,8 +797,8 @@ export function Composer({
           </div>
         )}
         {showBcc && (
-          <div className="flex items-center gap-2">
-            <label htmlFor="composer-bcc" className="w-10 shrink-0 text-xs text-muted-foreground">{tr("Bcc")}</label>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+            <label htmlFor="composer-bcc" className="text-xs text-muted-foreground sm:w-10 sm:shrink-0">{tr("Bcc")}</label>
             <RecipientField
               id="composer-bcc"
               value={bcc}
@@ -785,8 +813,8 @@ export function Composer({
             </span>
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <label htmlFor="composer-subject" className="w-10 shrink-0 text-xs text-muted-foreground">{tr("Subject")}</label>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+          <label htmlFor="composer-subject" className="text-xs text-muted-foreground sm:w-10 sm:shrink-0">{tr("Subject")}</label>
           <Input
             id="composer-subject"
             value={subject}
@@ -800,19 +828,44 @@ export function Composer({
         editor={editor}
         slotRight={
           <>
-            {/* THE one AI control. Tones, drafting, rewriting, translation and
-                dictation used to sit open under every draft, ten controls a
-                person writing two lines scrolled past. They are all still
-                there, behind this. */}
-            <Button
-              size="sm"
-              variant={aiOpen ? "outline" : "ghost"}
+            {/* THE AI controls, as two icons at the end of the formatting bar
+                (27 Nov 2026). ✨ opens the panel: tones, drafting, rewriting
+                and translation, which used to sit open under every draft, ten
+                controls a person writing two lines scrolled past. 🎤 opens the
+                same panel straight on dictation, so speaking a reply is one
+                tap, not two. */}
+            <button
+              type="button"
+              aria-label={tr("Dictate")}
+              title={tr("Dictate")}
+              aria-pressed={aiOpen && voiceOpen}
+              onClick={() => {
+                const next = !(aiOpen && voiceOpen);
+                setVoiceOpen(next);
+                if (next) setAiOpen(true);
+              }}
+              className={cn(
+                "inline-flex h-7 w-7 items-center justify-center rounded transition-colors",
+                aiOpen && voiceOpen ? "bg-primary/15 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <MicIcon width={16} height={16} />
+            </button>
+            <button
+              type="button"
+              aria-label={tr("Write With AI")}
+              title={tr("Write With AI")}
               aria-expanded={aiOpen}
               aria-controls="composer-ai"
               onClick={() => setAiOpen((v) => !v)}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded px-1.5 text-xs font-medium transition-colors",
+                aiOpen ? "bg-primary/15 text-primary-ink" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
             >
-              {tr("Write With AI")}
-            </Button>
+              <SparklesIcon width={16} height={16} />
+              <span className="hidden sm:inline">{tr("Write With AI")}</span>
+            </button>
             {slots["composer.toolbar.right"]}
           </>
         }
@@ -899,6 +952,7 @@ export function Composer({
             setText={setBodyText}
             getSubject={() => subject}
             getRecipients={() => splitAddresses(to)}
+            voiceOpen={voiceOpen}
           />
         </div>
       )}
@@ -957,11 +1011,34 @@ export function Composer({
       {error && <div className="px-3 pt-2"><ErrorState message={error} /></div>}
       {slots["composer.presend"]}
 
+      {/* ONE row on a phone (27 Nov 2026): the paperclip, then Send taking
+          the rest of the width with Send Later behind its ▾. Close is the ✕ on
+          the To line. "Signature will be added when you send" is gone: the
+          signature is in the preview, and a sentence under every reply saying
+          so was one nobody read twice. */}
       <footer className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
-        <Button size="sm" onClick={send} disabled={!canSend} loading={busy}>
-          {schedule.kind === "NOW" ? tr("Send") : tr("Schedule")}
-        </Button>
         <AttachButton onFiles={attach} disabled={busy} />
+        <SplitButton
+          label={schedule.kind === "NOW" ? tr("Send") : tr("Schedule")}
+          icon={<SendIcon width={16} height={16} />}
+          onClick={send}
+          disabled={!canSend}
+          loading={busy}
+          menuLabel={tr("More send options")}
+          className="min-w-0 flex-1 sm:flex-none"
+          mainClassName="flex-1"
+        >
+          <DropdownItem onSelect={() => setScheduling(true)}>
+            <ClockIcon width={16} height={16} />
+            {schedule.kind === "NOW" ? tr("Send Later") : tr("Change the Time")}
+          </DropdownItem>
+          {schedule.kind !== "NOW" && (
+            <DropdownItem onSelect={() => setSchedule({ kind: "NOW" })}>
+              <SendIcon width={16} height={16} />
+              {tr("Send Now Instead")}
+            </DropdownItem>
+          )}
+        </SplitButton>
         {attaching && attachPercent !== null && (
           <span className="flex min-w-0 items-center gap-2">
             <span className="micro max-w-[12rem] truncate text-muted-foreground">
@@ -977,22 +1054,30 @@ export function Composer({
             />
           </span>
         )}
-        <SchedulePicker value={schedule} onChange={setSchedule} />
         {slots["composer.footer.left"]}
         <span className="ml-auto flex items-center gap-2">
           {slots["composer.footer.right"]}
           {savedAt && <Pill tone="mute">{tr("Draft saved")}</Pill>}
-          {/* Close KEEPS the draft — that is what autosave is for, and it is now
-              findable in Drafts. Discard is the other half of that bargain,
-              offered here so somebody who has decided against a message does
-              not have to go and find it in a list to throw it away. */}
+          {/* Discard is the other half of Close's bargain (Close keeps the
+              draft), offered here so somebody who has decided against a
+              message does not have to go and find it in a list to throw it
+              away. */}
           {draftId && (
             <Button size="sm" variant="ghost" disabled={busy} onClick={discard}>
               {tr("Discard")}
             </Button>
           )}
-          {onClose && <Button size="sm" variant="ghost" onClick={onClose}>{tr("Close")}</Button>}
         </span>
+        {/* The time picker, opened from the ▾, and the line that says when a
+            scheduled message goes. Nothing at all while sending now. */}
+        <div className="basis-full empty:hidden">
+          <SchedulePicker
+            value={schedule}
+            onChange={setSchedule}
+            open={scheduling}
+            onOpenChange={setScheduling}
+          />
+        </div>
       </footer>
 
       {/* A SCHEDULED message has no undo window — it has a whole schedule to be
