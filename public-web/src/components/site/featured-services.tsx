@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { getLang } from "@/lib/i18n";
 import { p } from "@/lib/base-path";
 import { pickSlug, pickText, type ServiceCard } from "@/lib/services-api";
-import { Section } from "@/components/site/section";
+import { Section, wideGridClass } from "@/components/site/section";
 import { ArrowRightIcon, BoxIcon } from "@/components/ui/icons";
 import { Reveal } from "@/components/ui/reveal";
 
@@ -38,7 +38,7 @@ export function FeaturedServicesBand({ services }: { services: ServiceCard[] }) 
         </Link>
       }
     >
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      <ul className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 ${wideGridClass(services.length)}`}>
         {services.map((s, i) => {
           const name = pickText(s, "name", lang) || "";
           const line = pickText(s, "short_description", lang);

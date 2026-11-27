@@ -7,7 +7,7 @@ import { PublicApiError, messageFor } from "@/lib/api";
 import { currentLocale, tStatic } from "@/lib/i18n";
 import { dateAgo, enumText } from "@/lib/format";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
-import { MediaCard, Section } from "@/components/site/section";
+import { MediaCard, Section, wideGridClass } from "@/components/site/section";
 import { Card } from "@/components/ui/card";
 import { Panel } from "@/components/ui/panel";
 import { ButtonLink } from "@/components/ui/button";
@@ -226,7 +226,7 @@ export function CareersPage() {
           divided
           title={pickBilingual(features.title, lang) || t("site.careers.lookingFor")}
         >
-          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <ul className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 ${wideGridClass(features.items.length)}`}>
             {features.items.map((item, i) => (
               <Reveal as="li" key={pickBilingual(item.title, lang) || i} delay={(i % 3) as 0 | 1 | 2}>
                 <h3 className="text-base font-semibold leading-snug tracking-tight">
@@ -290,7 +290,7 @@ function CultureStrip({ tag }: { tag: string }) {
       divided
       title={t("site.careers.cultureTitle")}
     >
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      <div className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 ${wideGridClass(rows.length)}`}>
         {rows.map((a, i) => {
           const slug = insights.insightSlug(a, lang);
           return (

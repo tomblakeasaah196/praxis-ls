@@ -12,7 +12,7 @@ import { listCorridors, type Corridor } from "@/lib/corridors-api";
 import { CorridorPanel } from "@/components/site/corridor-panel";
 import { currentLocale, tStatic } from "@/lib/i18n";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
-import { MediaCard, MoreLink, Section } from "@/components/site/section";
+import { MediaCard, MoreLink, Section, wideGridClass } from "@/components/site/section";
 import { Card } from "@/components/ui/card";
 import { Panel } from "@/components/ui/panel";
 import { EmptyState, ErrorState } from "@/components/state";
@@ -145,7 +145,7 @@ export function PortfolioIndexPage() {
             />
           )
         ) : (
-          <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <ul className={`grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 ${wideGridClass(rows.length)}`}>
             {rows.map((s, i) => (
               <Reveal as="li" key={s.slug} delay={(i % 3) as 0 | 1 | 2}>
                 <MediaCard

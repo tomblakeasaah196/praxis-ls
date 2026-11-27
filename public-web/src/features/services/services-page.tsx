@@ -15,7 +15,7 @@ import { isMultilingual, useSiteSwitches } from "@/lib/site-switches";
 import { caseLabel } from "@/lib/label-case";
 import { usePublishedServices } from "@/lib/use-services";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
-import { MediaCard, MoreLink, Section } from "@/components/site/section";
+import { MediaCard, MoreLink, Section, wideGridClass } from "@/components/site/section";
 import { Card } from "@/components/ui/card";
 import { IconTile } from "@/components/ui/icon-tile";
 import { Panel } from "@/components/ui/panel";
@@ -144,7 +144,7 @@ function ModeGrid({
   return (
     <ul
       ref={grid}
-      className="tilt-stage grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+      className={`tilt-stage grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 ${wideGridClass(count)}`}
       data-count={count}
     >
       {children}
@@ -819,7 +819,7 @@ export function ServiceDetailPage() {
           divided
           className="xl:hidden"
         >
-          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <ul className={`grid gap-5 sm:grid-cols-2 lg:grid-cols-3 ${wideGridClass(related.length)}`}>
             {related.map((r, i) => {
               // `related` carries a name and two slugs and nothing else, so
               // every one of these cards is coverless by construction — and its
