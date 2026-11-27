@@ -499,6 +499,9 @@ function sanitizeQuote(fragment) {
  * @param {object} doc   TipTap JSON (`{type:'doc', content:[…]}`)
  * @param {object} opts  `{ quotedHtml, quotedText }` — the reply history to
  *                       append below the new text, already rendered.
+ *                       `{ signatureHtml, signatureText }` — the sender's
+ *                       signature, already wrapped, placed BETWEEN the new text
+ *                       and the quoted history.
  * @returns {{html:string, text:string, bytes:number, cids:string[], warnings:string[]}}
  */
 function serialize(doc, opts = {}) {
@@ -508,6 +511,12 @@ function serialize(doc, opts = {}) {
   const ctx = { cids: new Set(), warnings: new Set() };
 
   let body = renderNode({ type: "doc", content: doc.content || [] }, ctx);
+
+  // The signature signs THIS message, so it sits under this message's text and
+  // above the history. It used to be appended to the finished document, which
+  // put it under the whole quoted thread: on a reply to a long rate offer it
+  // landed below the other party's vessel list, where nobody scrolls to it.
+  if (opts.signatureHtml) body += opts.signatureHtml;
 
   // The quoted history goes below a rule, in grey, collapsed by the reader's own
   // client. Not re-serialized: it is already email HTML from a message that was
@@ -521,6 +530,7 @@ function serialize(doc, opts = {}) {
   const html = shell(body);
 
   let text = renderText({ type: "doc", content: doc.content || [] }, ctx).replace(/\n{3,}/g, "\n\n").trim();
+  if (opts.signatureText) text = text ? `${text}\n\n${opts.signatureText}` : opts.signatureText;
   if (opts.quotedText) {
     text += `\n\n${String(opts.quotedText).split("\n").map((l) => `> ${l}`).join("\n")}`;
   }

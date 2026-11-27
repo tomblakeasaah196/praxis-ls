@@ -12,11 +12,20 @@
  *
  * A timer that hid the button at zero would be lying in the other direction —
  * claiming the message has gone when the flusher has not run yet.
+ *
+ * WHAT ENDS THE "Sending…" LINE. The composer asks the server once the window
+ * has passed (see `use-send-outcome`) and moves this to `sent` or `failed`. It
+ * used to have no way out of `held` at all: the message left within seconds,
+ * appeared in the thread, and the composer went on saying "Sending…" with an
+ * Undo button beside a draft that no longer existed, until somebody pressed ×
+ * (27 Nov 2026: "Messages are not going. Send stays like that").
  */
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { tr } from "@/lib/i18n";
+
+export type UndoState = "held" | "cancelling" | "cancelled" | "gone" | "sent" | "failed";
 
 export function UndoSendToast({
   releaseAt,
@@ -28,7 +37,7 @@ export function UndoSendToast({
   releaseAt: string;
   onUndo: () => void;
   onDismiss: () => void;
-  state: "held" | "cancelling" | "cancelled" | "gone";
+  state: UndoState;
   error?: string | null;
 }) {
   const [left, setLeft] = React.useState(() =>
@@ -45,7 +54,7 @@ export function UndoSendToast({
   // Once it has certainly gone, get out of the way — but only after a beat, so
   // the outcome is readable rather than a flash.
   React.useEffect(() => {
-    if (state === "cancelled" || state === "gone") {
+    if (state === "cancelled" || state === "gone" || state === "sent") {
       const t = setTimeout(onDismiss, 4000);
       return () => clearTimeout(t);
     }
@@ -73,6 +82,18 @@ export function UndoSendToast({
         <>
           <Pill tone="warn">{tr("Not sent")}</Pill>
           <span className="text-sm">{tr("Back in your drafts.")}</span>
+        </>
+      )}
+      {state === "sent" && (
+        <>
+          <Pill tone="ok">{tr("Sent")}</Pill>
+          <span className="text-sm">{tr("It is in your Sent folder.")}</span>
+        </>
+      )}
+      {state === "failed" && (
+        <>
+          <Pill tone="bad">{tr("Not sent")}</Pill>
+          <span className="text-sm">{error || tr("The mail server refused it. Open the Outbox to retry.")}</span>
         </>
       )}
       {state === "gone" && (
