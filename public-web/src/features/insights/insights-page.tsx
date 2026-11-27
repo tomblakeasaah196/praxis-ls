@@ -19,7 +19,7 @@ import { p } from "@/lib/base-path";
 import { useShareMeta } from "@/lib/use-share-meta";
 import { StagedLines } from "@/components/ui/type";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
-import { Section } from "@/components/site/section";
+import { Section, wideGridClass } from "@/components/site/section";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chip } from "@/components/ui/pill";
@@ -303,7 +303,13 @@ export function InsightsPage() {
                 archive when every card is the same size. Filtered views stay a
                 plain grid, because there the reader is choosing, not browsing. */}
             {showLead && <LeadCard article={state.view.articles[0]} lang={lang} />}
-            <ul className={cn("grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4", showLead && "mt-10")}>
+            <ul
+              className={cn(
+                "grid gap-6 sm:grid-cols-2 lg:grid-cols-3",
+                wideGridClass(state.view.articles.length - (showLead ? 1 : 0)),
+                showLead && "mt-10",
+              )}
+            >
               {(showLead ? state.view.articles.slice(1) : state.view.articles).map((a, i) => (
                 <Reveal
                   as="li"

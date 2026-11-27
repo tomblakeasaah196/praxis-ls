@@ -295,3 +295,36 @@ export function MoreLink({
   );
 }
 
+/**
+ * The column class a card grid takes from 1536px (Tailwind `2xl`), chosen from
+ * how many cards it holds.
+ *
+ * The card grids are `sm:grid-cols-2 lg:grid-cols-3`, and from 1536px they go
+ * to four columns (PR 633). A grid of fewer than four then drew its cards on
+ * the left and left empty columns on the right: a service family of three
+ * showed three cards and a blank fourth slot at 1920px. So the wide column
+ * count follows the count instead:
+ *
+ *   - 4 or more cards: four columns, the wide layout.
+ *   - 2 or 3 cards: that many columns, so they share the full width.
+ *   - 1 card: four columns, so it stays one card the size of a card in any
+ *     other grid on the page, not a single panel stretched across the frame.
+ *
+ * Only the `2xl` step depends on the count: below 1536px every grid renders as
+ * it did, whatever it holds.
+ *
+ * The class names are written out whole because Tailwind finds the utilities it
+ * generates by reading the source, and a name assembled at run time never
+ * reaches the stylesheet. It lives here, in the first-paint chunk every card
+ * grid already imports `Section` from, because a module of its own became a
+ * chunk of its own plus an import line in every route that uses it, which the
+ * deferred budget in `scripts/check-bundle.mjs` had no room for.
+ */
+export function wideGridClass(count: number): string {
+  return count === 2
+    ? "2xl:grid-cols-2"
+    : count === 3
+      ? "2xl:grid-cols-3"
+      : "2xl:grid-cols-4";
+}
+
