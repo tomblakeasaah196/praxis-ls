@@ -46,6 +46,7 @@ import { afterPaint } from "@/lib/after-paint";
 import { Reveal } from "@/components/ui/reveal";
 import { LongCopy } from "./long-copy";
 import { QuoteBand } from "@/components/site/quote-band";
+import "@/components/site/desktop.css";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { useShareMeta, useSiteName, withSiteName } from "@/lib/use-share-meta";
 import { p } from "@/lib/base-path";
@@ -143,7 +144,7 @@ function ModeGrid({
   return (
     <ul
       ref={grid}
-      className="tilt-stage grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3"
+      className="tilt-stage grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
       data-count={count}
     >
       {children}
@@ -575,7 +576,10 @@ export function ServiceDetailPage() {
             <span aria-hidden className="band-service-scrim" />
           </>
         ) : null}
-        <PageContainer size="reading" className="relative">
+        {/* From 1280px the heading starts on the frame's left edge, where the
+            columns below start; a centred 768px block over a full-width body
+            read as two pages. */}
+        <PageContainer size="reading" className="relative xl:max-w-none">
           <nav aria-label={t("site.services.eyebrow")} className="mb-6">
             <Link
               to={p("/services")}
@@ -670,7 +674,7 @@ export function ServiceDetailPage() {
       </section>
 
       <Section divided>
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="svc-cols grid gap-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           {/* Either column can be shorter with tenant-authored content. Keep
               both at their natural height so the shorter one sticks within
               this shared row, then leaves with the longer one. Mobile stacks
@@ -711,46 +715,81 @@ export function ServiceDetailPage() {
             )}
           </div>
 
-          <div className="space-y-6 lg:sticky lg:top-[var(--sticky-top)] lg:self-start">
-            {highlights.length > 0 && (
-              <Panel title={t("site.servicesPage.highlights")} titleAs="h2">
-                <ul className="space-y-2.5">
-                  {highlights.map((h) => (
-                    <li key={h} className="flex items-start gap-2.5 text-sm">
-                      <CheckIcon size={15} className="mt-1 text-[rgb(var(--ok))]" />
-                      <span>{h}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
-            )}
-            {coverage && (
-              <Panel title={t("site.servicesPage.coverage")} titleAs="h2">
-                <p className="text-sm text-muted-foreground">{coverage}</p>
-              </Panel>
-            )}
-            {profile.video_url ? (
-              <Card padded>
-                <h2 className="text-title font-semibold tracking-tight">
-                  {t("site.servicesPage.video")}
-                </h2>
-                {/* `preload="none"` — a stranger on a metered connection should not
-                    pay for a film they did not ask for. */}
-                <video
-                  src={profile.video_url}
-                  controls
-                  preload="none"
-                  className="mt-3 aspect-video w-full rounded-[calc(var(--radius)-2px)] bg-black"
-                />
-              </Card>
-            ) : null}
+          <div className="lg:sticky lg:top-[var(--sticky-top)] lg:self-start">
+            {/* The side panel on a desktop screen leads with the action, and
+                carries the related services the band below shows on smaller
+                screens. Both are drawn from 1280px only, and the copies they
+                replace are hidden there, so nothing is offered twice. The
+                button sits OUTSIDE the spaced list: a hidden first child would
+                still push the next one down by the list's gap. */}
             <ButtonLink
               to={p("/quote")}
               size="lg"
-              className="w-full justify-center"
+              className="desk-flex mb-6 hidden w-full justify-center"
             >
               {t("site.servicesPage.cta")}
             </ButtonLink>
+            <div className="space-y-6">
+              {highlights.length > 0 && (
+                <Panel title={t("site.servicesPage.highlights")} titleAs="h2">
+                  <ul className="space-y-2.5">
+                    {highlights.map((h) => (
+                      <li key={h} className="flex items-start gap-2.5 text-sm">
+                        <CheckIcon size={15} className="mt-1 text-[rgb(var(--ok))]" />
+                        <span>{h}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+              )}
+              {coverage && (
+                <Panel title={t("site.servicesPage.coverage")} titleAs="h2">
+                  <p className="text-sm text-muted-foreground">{coverage}</p>
+                </Panel>
+              )}
+              {profile.video_url ? (
+                <Card padded>
+                  <h2 className="text-title font-semibold tracking-tight">
+                    {t("site.servicesPage.video")}
+                  </h2>
+                  {/* `preload="none"` — a stranger on a metered connection should not
+                      pay for a film they did not ask for. */}
+                  <video
+                    src={profile.video_url}
+                    controls
+                    preload="none"
+                    className="mt-3 aspect-video w-full rounded-[calc(var(--radius)-2px)] bg-black"
+                  />
+                </Card>
+              ) : null}
+              <ButtonLink
+                to={p("/quote")}
+                size="lg"
+                className="w-full justify-center xl:hidden"
+              >
+                {t("site.servicesPage.cta")}
+              </ButtonLink>
+              {related.length > 0 && (
+                <Panel
+                  title={t("site.servicesPage.related")}
+                  titleAs="h2"
+                  className="desk-block hidden"
+                >
+                  <ul className="space-y-2.5">
+                    {related.map((r) => (
+                      <li key={r.slug_en}>
+                        <MoreLink
+                          to={p(`/services/${encodeURIComponent(pickSlug(r, lang))}`)}
+                          className="text-sm"
+                        >
+                          {pickText(r, "name", lang) || ""}
+                        </MoreLink>
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
+              )}
+            </div>
           </div>
         </div>
       </Section>
@@ -778,8 +817,9 @@ export function ServiceDetailPage() {
           variant={nextSurface()}
           title={t("site.servicesPage.related")}
           divided
+          className="xl:hidden"
         >
-          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {related.map((r, i) => {
               // `related` carries a name and two slugs and nothing else, so
               // every one of these cards is coverless by construction — and its

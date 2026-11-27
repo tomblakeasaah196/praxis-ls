@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { QuoteWizard } from "@/components/site/quote-wizard";
 import { usePublishedServices } from "@/lib/use-services";
 import { PageHero } from "@/components/site/page-hero";
+import "@/components/site/desktop.css";
 
 /**
  * `/quote` — the quote desk, on its own page.
@@ -78,7 +79,7 @@ export function QuotePage() {
       </PageHero>
 
       <Section>
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] desk-split">
           <Card padded>
             <QuoteWizard services={services} groups={groups} />
           </Card>

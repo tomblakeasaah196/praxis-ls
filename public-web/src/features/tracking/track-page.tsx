@@ -23,6 +23,7 @@ import { SearchIcon, BoxIcon, ShieldIcon, DocumentIcon } from "@/components/ui/i
 import { useShareMeta } from "@/lib/use-share-meta";
 import { TrackingView } from "./track-result";
 import { PageHero } from "@/components/site/page-hero";
+import "@/components/site/desktop.css";
 
 /**
  * `/public/track` — the public lookup, and the page most visitors of this whole
@@ -228,7 +229,9 @@ function Outcome({
       className="track-verdict max-w-2xl p-6 sm:p-8"
       role={announce ? "alert" : undefined}
     >
-      <div className="relative">
+      {/* From 1280px the plate runs across the frame: the answer on the left,
+          what to do about it on the right (`.track-outcome`, desktop.css). */}
+      <div className="track-outcome relative">
         <span
           aria-hidden
           className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"

@@ -38,7 +38,7 @@ export function FeaturedServicesBand({ services }: { services: ServiceCard[] }) 
         </Link>
       }
     >
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {services.map((s, i) => {
           const name = pickText(s, "name", lang) || "";
           const line = pickText(s, "short_description", lang);

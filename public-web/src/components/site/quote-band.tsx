@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApproaching } from "@/components/ui/reveal";
 import type { ServiceCard } from "@/lib/services-api";
+import { tList } from "@/lib/i18n";
+import "@/components/site/desktop.css";
 
 /**
  * The quote form at the bottom of a service page, fetched a screen before it is
@@ -63,7 +65,10 @@ export function QuoteBand({
   const [ref, near] = useApproaching<HTMLDivElement>();
 
   return (
-    <div ref={ref}>
+    // From 1280px the card has the next steps beside it (`.quote-band` in
+    // desktop.css); below that the steps are not drawn and the band is the
+    // card alone, as it always was.
+    <div ref={ref} className="quote-band">
       <Card padded className="max-w-reading">
         {near ? (
           <React.Suspense fallback={<QuotePlaceholder label={t("common.loading")} />}>
@@ -84,6 +89,7 @@ export function QuoteBand({
           <QuotePlaceholder label={t("common.loading")} />
         )}
       </Card>
+      <QuoteSteps className="quote-band-steps hidden" />
     </div>
   );
 }
@@ -103,6 +109,46 @@ function QuotePlaceholder({ label }: { label: string }) {
       <Skeleton className="h-11 w-full" />
       <Skeleton className="h-11 w-2/3" />
       <span className="sr-only">{label}</span>
+    </div>
+  );
+}
+
+/**
+ * "What happens next" beside the wizard, drawn from 1280px only (the element
+ * also carries `hidden`; `.quote-band-steps` in desktop.css shows it).
+ *
+ * The same three steps and markup as the aside on the quote page
+ * (`features/quote/quote-page.tsx`). Kept as a copy on purpose: shared, it
+ * became its own chunk on two routes and cost more than the twenty lines it
+ * saves, against budgets (`check:bundle`) with almost no headroom.
+ */
+function QuoteSteps({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  const steps = tList<{ t: string; d: string }>("site.quote.steps");
+  return (
+    <div className={className}>
+      <h2 className="text-title font-semibold tracking-tight">
+        {t("site.quote.whatHappens")}
+      </h2>
+      <ol className="mt-5 space-y-5">
+        {steps.map((s, i) => (
+          <li key={s.t} className="flex gap-3.5">
+            <span
+              aria-hidden
+              className="num mt-0.5 text-micro font-semibold text-[var(--primary-ink)]"
+            >
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div>
+              <h3 className="text-sm font-semibold">{s.t}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{s.d}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-6 text-xs text-muted-foreground">
+        {t("site.quote.requiredNote")}
+      </p>
     </div>
   );
 }

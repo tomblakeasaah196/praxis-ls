@@ -226,7 +226,7 @@ export function CareersPage() {
           divided
           title={pickBilingual(features.title, lang) || t("site.careers.lookingFor")}
         >
-          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {features.items.map((item, i) => (
               <Reveal as="li" key={pickBilingual(item.title, lang) || i} delay={(i % 3) as 0 | 1 | 2}>
                 <h3 className="text-base font-semibold leading-snug tracking-tight">
@@ -290,7 +290,7 @@ function CultureStrip({ tag }: { tag: string }) {
       divided
       title={t("site.careers.cultureTitle")}
     >
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {rows.map((a, i) => {
           const slug = insights.insightSlug(a, lang);
           return (

@@ -145,7 +145,7 @@ export function PortfolioIndexPage() {
             />
           )
         ) : (
-          <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {rows.map((s, i) => (
               <Reveal as="li" key={s.slug} delay={(i % 3) as 0 | 1 | 2}>
                 <MediaCard

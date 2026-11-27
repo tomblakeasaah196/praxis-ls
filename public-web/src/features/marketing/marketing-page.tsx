@@ -72,6 +72,7 @@ const CorridorScene = React.lazy(() =>
 );
 import { p } from "@/lib/base-path";
 import { useShareMeta } from "@/lib/use-share-meta";
+import "@/components/site/desktop.css";
 
 /**
  * The marketing home — `/public`.
@@ -629,7 +630,7 @@ function PortalBand() {
              media query rather than a Tailwind prefix because the pull is
              computed from `--py-band`, and it does not apply below lg, where
              the columns stack and the card would land on the copy. */
-          className="band-overlap relative z-10"
+          className="band-overlap desk-center relative z-10"
         />
       </Reveal>
     </Section>
@@ -671,7 +672,7 @@ function QuoteBand({ block }: { block: CtaBandBlock | null }) {
         The `id="quote"` stays: links to `…/#quote` are already in circulation,
         and this is where they should land.
       */}
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] desk-split">
         {/*
           §7.6: THE HIERARCHY IS THE ARGUMENT.
 
@@ -774,7 +775,7 @@ function ContactBand() {
           journalist, someone whose file has gone wrong — and giving it the same
           elevation as the conversion would make the page end on two equal
           offers, which is the hierarchy §7.6 exists to prevent. */}
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] desk-split">
         <Card padded className="elev-1 flex flex-col justify-center">
           <p className="max-w-measure text-muted-foreground">
             {t("site.contact.bandLead")}
