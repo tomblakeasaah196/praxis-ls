@@ -10,9 +10,10 @@
  *
  * ── SEARCH IS THE LIST, NOT A MODE ──────────────────────────────────────────
  *
- * One box and one Search button. A second button, "By Meaning", used to sit
- * beside it and answer the same box from a semantic index in a separate panel;
- * it left with the mail simplification of 16 Nov 2026.
+ * One box, and no Search button: the list follows the box a moment after the
+ * typing stops, and Enter runs it at once (27 Nov 2026). A second button, "By
+ * Meaning", used to sit beside it and answer the same box from a semantic index
+ * in a separate panel; it left with the mail simplification of 16 Nov 2026.
  *
  * Typing in the box narrows the same list the folder rail narrows. There is no
  * separate results screen, so every filter, every selection and every bulk
@@ -33,7 +34,8 @@ import { pageShell } from "@/lib/layout";
 import { tr } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { PencilIcon } from "@/components/ui/icons";
+import { PencilIcon, SearchIcon, XIcon } from "@/components/ui/icons";
+import { useIsDesktop } from "@/lib/use-media-query";
 import { ErrorState } from "@/components/ui/states";
 import { SplitPane } from "@/components/ui/split-pane";
 import { NewMessageDialog } from "./composer/new-message";
@@ -50,6 +52,11 @@ import { DraftList, OutboxList } from "./pending";
 import { useConfirm } from "@/components/ui/use-confirm";
 
 const PAGE = 50;
+
+/** How long the box waits after the last keystroke before the list follows
+ *  it. Long enough not to fetch on every letter of "demurrage", short enough
+ *  that nobody reaches for a Search button that is no longer there. */
+export const SEARCH_PAUSE_MS = 700;
 
 /** What an empty list means depends on why it is empty. Say the right thing. */
 function emptyHintFor(sel: RailSelection, query: string): string {
@@ -72,6 +79,14 @@ export function InboxPage() {
   const [sel, setSel] = React.useState<RailSelection>({ folder: "INBOX", stream: "HUMAN" });
   const [query, setQuery] = React.useState("");
   const [applied, setApplied] = React.useState("");
+  // The list follows the box once the typing pauses. Clearing the box is a
+  // search too: an empty box shows the folder again.
+  React.useEffect(() => {
+    if (query === applied) return undefined;
+    const t = window.setTimeout(() => setApplied(query), SEARCH_PAUSE_MS);
+    return () => window.clearTimeout(t);
+  }, [query, applied]);
+  const isDesktop = useIsDesktop();
   /* `?thread=<id>` opens that conversation on arrival. This is what a push
    * notification taps through to (server side: mail-notify.service.js builds
    * `/comms/mail?thread=…`) — without it every mail alert landed on the folder
@@ -212,6 +227,21 @@ export function InboxPage() {
 
   const folderRows = folders.data?.folders || [];
   const streams = folders.data?.streams || { HUMAN: 0, SYSTEM: 0 };
+  const rail = (compact: boolean) => (
+    <FolderRail
+      compact={compact}
+      mailboxes={boxes}
+      folders={folderRows}
+      selection={{ ...sel, connectionId }}
+      onChange={(next) => {
+        setSel(next);
+        setOpenId(null);
+      }}
+      humanUnread={streams.HUMAN}
+      systemUnread={streams.SYSTEM}
+      outboxWaiting={outboxWaiting}
+    />
+  );
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -393,7 +423,10 @@ export function InboxPage() {
      * `min-height: auto` refuses to shrink below its content, so one missing
      * `min-h-0` pushes the overflow back up to the page.
      */
-    <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1">
+    // `pb-20` below `lg`: the assistant's floating button sits over the bottom
+    // right of a phone, and without room under the last conversation its time
+    // and preview were unreachable behind it.
+    <div className="flex flex-col gap-3 pb-20 lg:min-h-0 lg:flex-1 lg:pb-0">
       {confirmDialog}
       {/* The page's NAME, for anything that navigates by heading: a screen
           reader's heading list, the h1-per-page rule the layout gate asserts
@@ -418,7 +451,14 @@ export function InboxPage() {
        * here that is not about the list: a mail client's write button is the one
        * control people go to without reading, and the far right of a row that
        * also holds a search field is where it is hardest to find. */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
+        {/* Compose is drawn FIRST at desktop, labelled, at the left edge (the
+            reason is above). On a phone it is a square pen at the END of the
+            search row, the same height as the field, so its right edge lines
+            up with the folder dropdown below it: one row for "find or write",
+            one row for "where am I" (tenant review, 27 Nov 2026). One button,
+            moved by `order`, so there are never two Compose buttons in the
+            accessibility tree. */}
         <Button
           size="sm"
           onClick={() => setComposeOpen(true)}
@@ -430,9 +470,11 @@ export function InboxPage() {
               ? tr("Write a new email")
               : tr("Connect a mailbox first")
           }
+          aria-label={tr("Compose")}
           icon={<PencilIcon width={16} height={16} />}
+          className="order-last h-10 w-10 shrink-0 px-0 lg:order-first lg:h-9 lg:w-auto lg:px-3"
         >
-          {tr("Compose")}
+          <span className="hidden lg:inline">{tr("Compose")}</span>
         </Button>
 
         {!sel.pending && (
@@ -440,34 +482,43 @@ export function InboxPage() {
             role="search"
             onSubmit={(e) => {
               e.preventDefault();
+              // The keyboard's search key, or Enter: run it now rather than
+              // waiting out the pause.
               setApplied(query);
             }}
-            className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+            className="relative min-w-0 flex-1"
           >
-            {/* Full width on a phone, so the buttons wrap onto the next line
-                instead of squeezing the field to a few letters. */}
+            {/* No Search button. The list follows the box a moment after the
+                typing stops (`SEARCH_PAUSE_MS`), and Enter runs it at once. The
+                button was a second row on a phone for something the keyboard
+                already does. */}
+            <SearchIcon
+              width={16}
+              height={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
             <Input
+              type="search"
+              enterKeyHint="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={tr("Search mail: from:maersk has:attachment demurrage")}
               aria-label={tr("Search mail")}
-              className="min-w-0 basis-full sm:basis-auto sm:flex-1"
+              className="min-w-0 pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
             />
-            <Button type="submit" variant="outline" size="sm">
-              {tr("Search")}
-            </Button>
-            {applied && (
-              <Button
+            {(query || applied) && (
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
+                aria-label={tr("Clear search")}
+                title={tr("Clear search")}
                 onClick={() => {
                   setQuery("");
                   setApplied("");
                 }}
+                className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
               >
-                {tr("Clear")}
-              </Button>
+                <XIcon width={16} height={16} />
+              </button>
             )}
           </form>
         )}
@@ -479,20 +530,15 @@ export function InboxPage() {
             missing height chain: it kept the rail on screen while the page
             carried everything else past it, and a tenant with thirty labels
             still could not reach the bottom of it. */}
-        <aside className="lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-          <FolderRail
-            mailboxes={boxes}
-            folders={folderRows}
-            selection={{ ...sel, connectionId }}
-            onChange={(next) => {
-              setSel(next);
-              setOpenId(null);
-            }}
-            humanUnread={streams.HUMAN}
-            systemUnread={streams.SYSTEM}
-            outboxWaiting={outboxWaiting}
-          />
-        </aside>
+        {/* Below `lg` the rail is two dropdowns on one row, not eight rows
+            stacked over the list. Chosen in JavaScript rather than with
+            `hidden lg:block`, so a screen reader is not handed two copies of
+            every folder. */}
+        {isDesktop ? (
+          <aside className="lg:min-h-0 lg:overflow-y-auto lg:pr-1">{rail(false)}</aside>
+        ) : (
+          rail(true)
+        )}
 
         <div className="flex min-w-0 flex-col gap-3 lg:min-h-0">
           {note && (
