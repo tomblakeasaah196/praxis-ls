@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import * as api from "@/lib/careers-api";
 import * as insights from "@/lib/insights-api";
 import { PublicApiError, messageFor } from "@/lib/api";
-import { currentLocale, tStatic } from "@/lib/i18n";
+import { currentLocale, getLang, tStatic } from "@/lib/i18n";
 import { dateAgo, enumText } from "@/lib/format";
 import { PageContainer, PageShell } from "@/components/site/page-shell";
 import { MediaCard, Section, wideGridClass } from "@/components/site/section";
@@ -14,10 +14,8 @@ import { ButtonLink } from "@/components/ui/button";
 import { ErrorState, SuccessState } from "@/components/state";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { Chip, ChipOnDark } from "@/components/ui/pill";
-import { SitePhoto } from "@/components/site/site-photo";
-import { PhotoArt } from "@/components/site/page-hero-art";
-import { HERO_SCRIMS, SCRIM_CARD } from "@/components/site/hero-scrim";
 import type { SiteImage } from "@/lib/site-images";
+import { caseLabel } from "@/lib/label-case";
 import { Markdown } from "@/components/ui/markdown";
 import {
   AlertIcon,
@@ -473,14 +471,24 @@ function VacancyFacts({
     band,
   ].filter(Boolean) as string[];
   if (!chips.length) return null;
+  const Tag = onDark ? ChipOnDark : Chip;
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      {chips.map((c) =>
-        onDark ? <ChipOnDark key={c}>{c}</ChipOnDark> : <Chip key={c}>{c}</Chip>,
-      )}
+      {chips.map((c) => (
+        <Tag key={c}>{c}</Tag>
+      ))}
     </div>
   );
 }
+
+/** The photographs themselves, off the first paint, from the chunk
+ *  `PageHero` already loads lazily (see page-hero-art.tsx). */
+const CardArt = React.lazy(() =>
+  import("@/components/site/page-hero-art").then((m) => ({ default: m.CardArt })),
+);
+const BandArt = React.lazy(() =>
+  import("@/components/site/page-hero-art").then((m) => ({ default: m.PhotoArt })),
+);
 
 /** A role's photograph in the shape the site's picture renderer takes. The
  *  picture sits behind words that already say what the role is, so it is
@@ -507,6 +515,7 @@ function coverImage(v: api.PublicVacancy): SiteImage | null {
  */
 function VacancyPhotoCard({ v }: { v: api.PublicVacancy }) {
   const { t } = useTranslation();
+  const image = coverImage(v);
   const lead = [
     v.location_city || v.location,
     v.employment_type ? enumText(v.employment_type) : null,
@@ -517,20 +526,14 @@ function VacancyPhotoCard({ v }: { v: api.PublicVacancy }) {
     <div className="py-6">
       <Link
         to={p(`/careers/${encodeURIComponent(v.token)}`)}
-        className="group band-hero photo-band flex min-h-[20rem] flex-col justify-end rounded-[var(--radius)] sm:min-h-[24rem]"
+        className="vacancy-card group band-hero photo-band flex flex-col justify-end rounded-[var(--radius)]"
       >
-        <div className="photo-band-art" aria-hidden>
-          <SitePhoto
-            image={coverImage(v)}
-            sizes="(min-width: 80em) 75vw, 100vw"
-            decorative
-          />
-          <div
-            className="photo-band-scrim"
-            style={{ backgroundImage: HERO_SCRIMS.css(SCRIM_CARD) }}
-          />
-        </div>
-        <div className="flex flex-col gap-1 p-5 sm:flex-row sm:items-end sm:justify-between sm:gap-8 sm:p-8">
+        {image ? (
+          <React.Suspense fallback={null}>
+            <CardArt image={image} />
+          </React.Suspense>
+        ) : null}
+        <div className="vacancy-card-body">
           <div className="min-w-0">
             <SectionHead
               onDark
@@ -541,7 +544,7 @@ function VacancyPhotoCard({ v }: { v: api.PublicVacancy }) {
             <VacancyFacts v={v} onDark lead />
             <VacancyDates v={v} onDark />
           </div>
-          <span className="mt-3 shrink-0 text-sm font-semibold text-hero-foreground underline-offset-4 group-hover:underline sm:mt-0">
+          <span className="vacancy-card-apply text-sm font-semibold text-hero-foreground underline-offset-4 group-hover:underline">
             {t("site.careers.apply")}
           </span>
         </div>
@@ -624,8 +627,10 @@ export function VacancyPage() {
            measured scrim, the header laid over it. A Test role never has one
            (the server drops it), so the sandbox note below needs no twin. */
         <section className="band-hero photo-band" data-size="page">
-          <PhotoArt image={cover} priority />
-          <PageContainer size="reading" className="pb-10">
+          <React.Suspense fallback={null}>
+            <BandArt image={cover} priority />
+          </React.Suspense>
+          <PageContainer size="reading" className="vacancy-band-body">
             <nav aria-label={t("site.careers.title")} className="mb-6">
               <Link
                 to={p("/careers")}
@@ -637,7 +642,14 @@ export function VacancyPage() {
             <BadgePill onDark className="mb-4">
               {t("site.careers.list")}
             </BadgePill>
-            <SectionHead as="h1" onDark title={v.title} />
+            {/* A marketing plate, so the headline is staged like every other
+                page's, painted at once because it is the LCP element. Cased
+                here because SectionHead only cases a plain string. */}
+            <SectionHead
+              as="h1"
+              onDark
+              title={<StagedLines paintImmediately text={caseLabel(v.title, getLang())} />}
+            />
             <VacancyFacts v={v} onDark />
             <VacancyDates v={v} onDark />
           </PageContainer>

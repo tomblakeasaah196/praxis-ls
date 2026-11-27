@@ -3,7 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { CareersPage, VacancyPage } from "./careers-page";
-import { SCRIM_CARD, SCRIM_FLOOR } from "@/components/site/hero-scrim";
+import { SCRIM_FLOOR } from "@/components/site/hero-scrim";
+import { SCRIM_CARD } from "@/components/site/page-hero-art";
 import { __resetSitePageCache } from "@/lib/use-site-page";
 import "@/lib/i18n";
 
@@ -328,6 +329,8 @@ describe("a role's careers photo", () => {
     expect(card).toHaveAttribute("href", expect.stringContaining("/careers/tok-2"));
     // The picture, at the widths that exist, behind the words: decorative,
     // because the title already says what it is.
+    // The picture is lazily loaded, after the words.
+    await waitFor(() => expect(card.querySelector("img")).not.toBeNull());
     const img = card.querySelector("img")!;
     expect(img).toHaveAttribute("src", `/api/tenant/public/site/media/${COVER.id}`);
     expect(img).toHaveAttribute("alt", "");
@@ -354,6 +357,7 @@ describe("a role's careers photo", () => {
     const h1 = await screen.findByRole("heading", { level: 1, name: "Customer Service Officer" });
     const band = h1.closest("section")!;
     expect(band).toHaveClass("photo-band");
+    await waitFor(() => expect(band.querySelector("img")).not.toBeNull());
     expect(band.querySelector("img")).toHaveAttribute("src", `/api/tenant/public/site/media/${COVER.id}`);
   });
 

@@ -114,26 +114,5 @@ export const SCRIM_DOOR_WASH = {
   ],
 } as const;
 
-/**
- * THE CAREERS PHOTO CARD (14720): the hero's colour and floor, laid the other
- * way up.
- *
- * A role's card carries its words at the FOOT (title, chips, dates, the apply
- * line) over a photograph the recruiter chose, so the scrim is held at the
- * floor from the bottom edge to just over half the card and falls away above
- * it, where only the picture is. Measured against the same worst case as the
- * hero (a blown-out, near-white photograph), so a role's words read whatever
- * was uploaded behind them. The card's `min-height` keeps the copy inside the
- * floored half; `careers-page.test.tsx` holds the stops to `SCRIM_FLOOR`.
- */
-export const SCRIM_CARD = {
-  shape: "linear-gradient(0deg",
-  stops: [
-    { at: "0%", alpha: 0.95, over: true },
-    { at: "62%", alpha: 0.88, over: true },
-    { at: "100%", alpha: 0.2, over: false },
-  ],
-} as const;
-
 /** The plate's floor: the lightest scrim the hero ever floats its plate over. */
 export const PLATE_GROUND_FLOOR = 0.55;

@@ -205,8 +205,20 @@ const FIRST_PAINT_BUDGET_KB = 131.8;
  * budget is far enough above today's total that counting the portal and the
  * careers form too costs nothing and closes the loophole where a chunk is
  * excused by not being named.
+ *
+ * ── 220 → 221, FOR THE CAREERS PHOTO (14720) ──────────────────────────────
+ *
+ * By 27 Nov 2026 `main` sat 22 bytes under 220, so "far enough above today's
+ * total" had stopped being true and the next feature on ANY public route would
+ * fail here, whatever it was. The careers photo card and the role's photo band
+ * cost about 0.6 kB, all of it deferred: the card markup and on-dark variants
+ * in the careers route, the card scrim in the lazy `page-hero-art` chunk, and
+ * five rules in page-hero.css (moved out of the entry stylesheet, which is why
+ * the first-paint budget did NOT move). What a visitor gets for it is a role
+ * that arrives with a photograph. One kilobyte, not a round number with room in
+ * it: the point of this budget is that the next raise has to say why too.
  */
-const DEFERRED_BUDGET_KB = 220;
+const DEFERRED_BUDGET_KB = 221;
 
 /**
  * What ONE route adds to the first paint: its own lazy chunk, plus everything
