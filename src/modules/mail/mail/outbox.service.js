@@ -325,9 +325,24 @@ async function send(client, actor, input = {}) {
   // that lands in the undo window must not rewrite a message the sender already
   // approved. A failure here must not block the send — a missing signature is
   // recoverable, a lost invoice is not.
+  //
+  // A composed document is serialized AGAIN with the signature in it, so the
+  // signature lands between the new text and the quoted history rather than
+  // under the whole thread. The first serialization above stays the one the
+  // empty-body check reads: a signature is not a body.
   try {
-    const baked = await attachSignature(client, actor, input, html, text);
-    html = baked.html; text = baked.text;
+    const sig = await resolveSignature(client, actor, input);
+    if (sig && input.body_json) {
+      const signatures = require("../signature/signature.html");
+      const out = compose.serialize(input.body_json, {
+        quotedHtml: input.quoted_html, quotedText: input.quoted_text,
+        signatureHtml: signatures.blockHtml(sig.html), signatureText: signatures.blockText(sig.text),
+      });
+      html = out.html; text = out.text;
+    } else if (sig) {
+      const baked = require("../signature/signature.service").bake(html, text, sig);
+      html = baked.html; text = baked.text;
+    }
   } catch { /* @silent:storage the message without a signature is still the message */ }
 
   const draftId = input.email_draft_id || null;
@@ -724,11 +739,12 @@ async function flush(client, deps = {}, { limit = 20 } = {}) {
   return { claimed: due.length, results };
 }
 
-async function attachSignature(client, actor, input, html, text) {
+/** The signature to put on this message, or null when there is none to add. */
+async function resolveSignature(client, actor, input) {
   const { rows } = await client.query(
     `SELECT state FROM feature_state WHERE feature_key = 'mail.signatures'`,
   );
-  if (!rows[0] || rows[0].state !== "on") return { html, text };
+  if (!rows[0] || rows[0].state !== "on") return null;
   const signatures = require("../signature/signature.service");
   const resolved = await signatures.resolveFor(client, {
     userId: actor.user_id || null,
@@ -740,7 +756,8 @@ async function attachSignature(client, actor, input, html, text) {
     // Only read when the connection is a SHARED mailbox; see signature.teamOf.
     signAs: input.sign_as || "TEAM",
   });
-  return signatures.bake(html, text, resolved);
+  if (!resolved || resolved.disabled || !resolved.html) return null;
+  return resolved;
 }
 
 module.exports = {

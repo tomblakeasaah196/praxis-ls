@@ -58,7 +58,8 @@ import { pasteFileFromEvent } from "@/components/ui/upload-paste";
 import { RecipientField, type ExtraRecipient } from "./recipient-field";
 import { isAddress, parseAddresses } from "./addresses";
 import { useFromMailbox } from "./use-from-mailbox";
-import { UndoSendToast } from "./undo-toast";
+import { UndoSendToast, type UndoState } from "./undo-toast";
+import { useSendOutcome } from "./use-send-outcome";
 import { AssistToolbar } from "../work/assist";
 import { GuardrailBar } from "../work/guardrails";
 import { useGuardrails } from "../work/use-guardrails";
@@ -194,7 +195,7 @@ export function Composer({
   const [savedAt, setSavedAt] = React.useState<string | null>(null);
 
   const [queued, setQueued] = React.useState<api.QueuedSend | null>(null);
-  const [undoState, setUndoState] = React.useState<"held" | "cancelling" | "cancelled" | "gone">("held");
+  const [undoState, setUndoState] = React.useState<UndoState>("held");
   const [undoError, setUndoError] = React.useState<string | null>(null);
 
   /* ── PR-4 §8.8 and PR-5 §9.3 ──────────────────────────────────────────────
@@ -698,6 +699,19 @@ export function Composer({
       setBusy(false);
     }
   }
+
+  /* The window closed: find out whether it left, so the toast can say so and
+   * the composer can close. The thread is reloaded once more on success, since
+   * the reload at Send time ran before the message existed. */
+  useSendOutcome(queued, undoState === "held", (o) => {
+    if (o.kind === "sent") {
+      setUndoState("sent");
+      onSent?.();
+    } else {
+      setUndoState("failed");
+      setUndoError(o.reason);
+    }
+  });
 
   async function undo() {
     if (!queued) return;

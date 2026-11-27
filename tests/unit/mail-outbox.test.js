@@ -148,6 +148,26 @@ describe("send() queues rather than sending", () => {
       expect(repo.enqueue.mock.calls[0][1].payload.text).toContain("SIG");
     });
 
+    test("ON A REPLY THE SIGNATURE SITS UNDER THE NEW TEXT, ABOVE THE QUOTED HISTORY", async () => {
+      // 27 Nov 2026: it was appended to the finished document, so a reply to a
+      // long rate offer carried its signature below the other party's whole
+      // vessel list.
+      await outbox.send(on, ME, {
+        ...BASE, quoted_html: "<p>QUOTED OFFER</p>", quoted_text: "QUOTED OFFER",
+      });
+      const p = repo.enqueue.mock.calls[0][1].payload;
+      expect(p.html.indexOf("hello")).toBeLessThan(p.html.indexOf("SIG"));
+      expect(p.html.indexOf("SIG")).toBeLessThan(p.html.indexOf("QUOTED OFFER"));
+      expect(p.text.indexOf("hello")).toBeLessThan(p.text.indexOf("-- \nSIG"));
+      expect(p.text.indexOf("SIG")).toBeLessThan(p.text.indexOf("> QUOTED OFFER"));
+    });
+
+    test("a signature is not a body: an empty reply with no quote is still refused", async () => {
+      const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+      await expect(outbox.send(on, ME, { ...BASE, body_json: EMPTY_DOC }))
+        .rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    });
+
     test("no choice means TEAM: an old client never names its sender on a shared mailbox", async () => {
       await outbox.send(on, ME, BASE);
       expect(spy).toHaveBeenCalledWith(on, expect.objectContaining({ signAs: "TEAM" }));
