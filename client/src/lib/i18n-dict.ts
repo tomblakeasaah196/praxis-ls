@@ -4658,6 +4658,7 @@ export const en = {
     "More ways to write": "More ways to write",
     "Translate": "Translate",
     "Reply All": "Reply All",
+    "Subject written by AI": "Subject written by AI",
   },
   dataRoom: {
     staffDesc: "Document requests from external auditors — share vault documents in answer.",
@@ -9354,6 +9355,7 @@ export const fr: Dict = {
     "More ways to write": "Autres façons d'écrire",
     "Translate": "Traduire",
     "Reply All": "Répondre à tous",
+    "Subject written by AI": "Objet rédigé par l'IA",
   },
   dataRoom: {
     staffDesc: "Demandes de documents des auditeurs externes — partagez les documents du coffre en réponse.",
