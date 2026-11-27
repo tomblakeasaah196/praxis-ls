@@ -737,6 +737,8 @@ async function attachSignature(client, actor, input, html, text) {
     partyLanguage: input.party_language || null,
     repliedMessageLanguage: input.replied_language || null,
     senderUiLanguage: input.ui_language || null,
+    // Only read when the connection is a SHARED mailbox; see signature.teamOf.
+    signAs: input.sign_as || "TEAM",
   });
   return signatures.bake(html, text, resolved);
 }

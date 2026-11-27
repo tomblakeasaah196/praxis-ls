@@ -1187,6 +1187,14 @@ export const removeAttachment = (draftId: string, attachmentId: string) =>
   tenant<{ removed: boolean }>(`/mail/drafts/${draftId}/attachments/${attachmentId}`, { method: "DELETE" });
 
 /* Sending */
+
+/**
+ * How a message from a SHARED mailbox is signed: as the team alone (the
+ * default), or as the team with a "Sent by <sender>" line. Ignored for a
+ * personal mailbox.
+ */
+export type SignAs = "TEAM" | "TEAM_AND_ME";
+
 export const sendMessage = (body: {
   connectionId: string;
   to: string[];
@@ -1203,6 +1211,7 @@ export const sendMessage = (body: {
   quoted_text?: string | null;
   undo_seconds?: number;
   idempotency_key?: string;
+  sign_as?: SignAs;
 }) => tenant<QueuedSend>("/mail/send", { method: "POST", body: body });
 
 export const cancelSend = (queueId: string) =>

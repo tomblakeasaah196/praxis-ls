@@ -131,6 +131,29 @@ describe("send() queues rather than sending", () => {
     expect(p.headers).toEqual(expect.objectContaining({}));
   });
 
+  describe("the signature is chosen per message (sign_as)", () => {
+    const signatures = require("../../src/modules/mail/signature/signature.service");
+    const on = { query: jest.fn(async (sql) => (/feature_state/.test(sql) ? { rows: [{ state: "on" }] } : { rows: [] })) };
+    let spy;
+    beforeEach(() => {
+      spy = jest.spyOn(signatures, "resolveFor").mockResolvedValue({ html: "<p>SIG</p>", text: "SIG" });
+    });
+    afterEach(() => spy.mockRestore());
+
+    test("the composer's choice reaches the signature resolver", async () => {
+      await outbox.send(on, ME, { ...BASE, sign_as: "TEAM_AND_ME" });
+      expect(spy).toHaveBeenCalledWith(on, expect.objectContaining({
+        userId: "user-1", connectionId: "conn-1", signAs: "TEAM_AND_ME",
+      }));
+      expect(repo.enqueue.mock.calls[0][1].payload.text).toContain("SIG");
+    });
+
+    test("no choice means TEAM: an old client never names its sender on a shared mailbox", async () => {
+      await outbox.send(on, ME, BASE);
+      expect(spy).toHaveBeenCalledWith(on, expect.objectContaining({ signAs: "TEAM" }));
+    });
+  });
+
   test("the body is serialized by the SERVER, not taken from the caller", async () => {
     await outbox.send({}, ME, { ...BASE, html: "<p>caller's version</p>" });
     // The document wins: a caller-supplied HTML string has not been through the

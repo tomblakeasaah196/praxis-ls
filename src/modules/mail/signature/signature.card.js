@@ -136,7 +136,10 @@ function fields(model) {
   const contact = m.contact || {};
   const company = m.company || {};
 
-  const phones = [contact.phone_desk, contact.phone_mobile]
+  // A TEAM render (a shared mailbox) carries no personal number by design, so
+  // its phone row is the company line instead of a blank row.
+  const personal = [contact.phone_desk, contact.phone_mobile];
+  const phones = (m.team ? [company.phone] : personal)
     .map((v) => (v === null || v === undefined ? "" : String(v).trim()))
     .filter(Boolean);
 
@@ -176,6 +179,7 @@ function contactRow(name, value, palette) {
  * user approves on screen is the markup that gets screenshotted.
  */
 function body(model, palette, options = {}) {
+  const m = model || {};
   const f = fields(model);
   const showLogo = options.show_logo !== false && Boolean(f.logo_url);
   const showMotto = options.show_motto !== false && Boolean(f.motto);
@@ -199,7 +203,7 @@ function body(model, palette, options = {}) {
     <div class="divider-line"></div>
     <div class="right-info">
       <div class="person-name">${esc(f.name)}</div>
-      <div class="person-title-row"><div class="title-dash"></div><div class="person-title">${esc(f.title)}</div></div>
+      ${f.title || !m.team ? `<div class="person-title-row"><div class="title-dash"></div><div class="person-title">${esc(f.title)}</div></div>` : ""}
       <div class="contact-list">${rows}</div>
     </div>
   </div>

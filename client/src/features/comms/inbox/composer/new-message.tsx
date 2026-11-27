@@ -229,6 +229,7 @@ export function NewMessageDialog({
                 // keystroke never costs the caret.
                 key={draft?.email_draft_id || "new"}
                 connectionId={connId}
+                mailboxKind={chosen?.kind || null}
                 draft={draft}
                 kind={draft?.kind || "NEW"}
                 threadId={draft?.email_thread_id || null}

@@ -82,7 +82,7 @@ function employeeOf(person) {
  */
 const RENDERER_VERSION = 4;
 
-function inputsFor(person, entity, profile, template, mailbox, language, identity, system, branding) {
+function inputsFor(person, entity, profile, template, mailbox, language, identity, system, branding, team = null) {
   return {
     renderer: RENDERER_VERSION,
     employee_updated: person && (person.employee_id || person.job_title || person.department),
@@ -97,6 +97,9 @@ function inputsFor(person, entity, profile, template, mailbox, language, identit
     mailbox: mailbox && mailbox.email_address,
     identity: identity && identity.purpose,
     system: Boolean(system),
+    // The team label and the "Sent by" name ARE the render for a shared
+    // mailbox, so they belong in the hash like every other rendered input.
+    team: team || null,
     // The card's colours and fonts come from tenant branding, so branding IS an
     // input to the render. Leaving it out would mean a tenant changing their
     // brand colour saw the old palette on every cached signature until something
@@ -107,6 +110,7 @@ function inputsFor(person, entity, profile, template, mailbox, language, identit
 
 function modelFrom(person, entity, profile, template, mailbox, language, identity, system, extras = {}) {
   const model = resolveMod.resolve({
+    team: extras.team || null,
     employee: employeeOf(person),
     user: person && { full_name: person.user_full_name },
     entity,
@@ -143,6 +147,32 @@ async function pickTemplate(client, { profile, person, templateId }) {
 }
 
 /**
+ * The team a SHARED mailbox signs as, or null when this is not a team render.
+ *
+ * `signAs` is the sender's per-message choice: "TEAM" (the default) names
+ * nobody, "TEAM_AND_ME" adds a "Sent by <name>" line under the team label.
+ * Anything else is read as the default, so an old client that never sends the
+ * field gets the private behaviour, not the personal one.
+ */
+function teamOf(mailbox, { system, language, signAs, person }) {
+  if (system || !mailbox || mailbox.kind !== "SHARED") return null;
+  const label = (language === "fr" ? mailbox.label_fr : mailbox.label_en)
+    || mailbox.label_en
+    || mailbox.department
+    || mailbox.display_name
+    || null;
+  // No label at all still signs as the team: resolve() puts the company's name
+  // in that slot. Falling back to the PERSONAL signature here would hand the
+  // sender's mobile to everyone writing to a generic address.
+  const name = person && (person.employee_full_name || person.user_full_name);
+  return {
+    label,
+    signed_by: signAs === "TEAM_AND_ME" && name ? String(name).trim() : null,
+    department: mailbox.catalogue_department || mailbox.department || null,
+  };
+}
+
+/**
  * Resolve the signature that should go on a message being sent NOW.
  *
  * @returns {{ html, text, model, language, cached }}
@@ -157,6 +187,7 @@ async function resolveFor(client, {
   tenantDefault = null,
   identity = null,
   system = false,
+  signAs = "TEAM",
   format = "HTML",
   scale = 1,
   tenantSlug = null,
@@ -169,9 +200,31 @@ async function resolveFor(client, {
     tenantDefault,
   });
 
+  /*
+   * The mailbox it is going out from, read FIRST, because it decides what kind
+   * of signature this is. A SHARED mailbox signs as its team (see TEAM renders
+   * in signature.resolve): the mailbox's catalogue label in the sender's
+   * language, then its department, then its display name.
+   */
+  let mailbox = null;
+  if (connectionId) {
+    const { rows } = await client.query(
+      `SELECT c.email_address, c.display_name, c.kind, c.department,
+              k.label_en, k.label_fr, k.department AS catalogue_department
+         FROM email_connection c
+         LEFT JOIN mail_shared_catalogue k ON k.catalogue_key = c.catalogue_key
+        WHERE c.email_connection_id = $1`,
+      [connectionId],
+    );
+    mailbox = rows[0] || null;
+  }
+
   const person = userId && !system ? await repo.loadPerson(client, userId) : null;
+  const team = teamOf(mailbox, { system, language, signAs, person });
   const profile = userId && !system ? await repo.getProfile(client, userId) : null;
-  if (profile && profile.is_enabled === false && !system) {
+  // A person switching THEIR signature off does not switch off the team's: the
+  // signature on a shared mailbox belongs to the mailbox.
+  if (profile && profile.is_enabled === false && !system && !team) {
     return { html: "", text: "", model: null, language, cached: false, disabled: true };
   }
 
@@ -201,22 +254,20 @@ async function resolveFor(client, {
     ? "employee"
     : ((identity && identity.entity_id) ? "mailbox" : "fallback");
   const entity = await repo.loadEntity(client, (person && person.entity_id) || (identity && identity.entity_id) || null);
-  const template = await pickTemplate(client, {
-    profile,
-    person,
-    templateId: profile && profile.signature_template_id,
-  });
+  // A team render takes the company's template for the MAILBOX's department,
+  // never the sender's personal pick: every message from info@ looks the same.
+  const template = team
+    ? await pickTemplate(client, {
+      profile: null,
+      person: { department: team.department, entity_id: person && person.entity_id },
+    })
+    : await pickTemplate(client, {
+      profile,
+      person,
+      templateId: profile && profile.signature_template_id,
+    });
   if (!template) {
     return { html: "", text: "", model: null, language, cached: false };
-  }
-
-  let mailbox = null;
-  if (connectionId) {
-    const { rows } = await client.query(
-      `SELECT email_address, display_name FROM email_connection WHERE email_connection_id = $1`,
-      [connectionId],
-    );
-    mailbox = rows[0] || null;
   }
 
   const branding = await repo.loadBranding(client);
@@ -225,12 +276,18 @@ async function resolveFor(client, {
   const logo = await brandLogo.entityLogo(client, entity);
 
   const hash = resolveMod.sourceHash(
-    inputsFor(person, entity, profile, template, mailbox, language, identity, system, branding),
+    inputsFor(person, entity, profile, template, mailbox, language, identity, system, branding, team),
   );
-  const identityKey = system ? `system:${(identity && identity.purpose) || "NOTIFICATIONS"}` : null;
-  const extras = { branding, logo };
+  // A team render is cached apart from the same person's own signature, per
+  // mailbox and per choice, so answering info@ between two personal messages
+  // does not throw away (and re-screenshot) either one.
+  const identityKey = system
+    ? `system:${(identity && identity.purpose) || "NOTIFICATIONS"}`
+    : (team ? `team:${connectionId}:${userId || "anon"}:${team.signed_by ? "me" : "team"}` : null);
+  const cacheUser = system || team ? null : userId;
+  const extras = { branding, logo, team };
   const cached = await repo.getCached(client, {
-    userId: system ? null : userId,
+    userId: cacheUser,
     identityKey,
     language,
     format,
@@ -276,7 +333,7 @@ async function resolveFor(client, {
     }
     const html = htmlMod.render(model);
     await repo.putCached(client, {
-      user_id: system ? null : userId,
+      user_id: cacheUser,
       identity_key: identityKey,
       language, format, scale, content: html, source_hash: hash,
       storage_path: model.card_png_url ? storagePathOf(model.card_png_url) : null,
@@ -844,7 +901,7 @@ function bake(html, text, resolved) {
 module.exports = {
   RENDERER_VERSION,
   tenantNamespace, tenantMediaOrigin,
-  resolveFor, renderPng, renderBatch, listStaff, cardPreview, getOwnProfile, saveOwnProfile,
+  resolveFor, teamOf, renderPng, renderBatch, listStaff, cardPreview, getOwnProfile, saveOwnProfile,
   listTemplates, updateTemplate, getMotto, saveMotto, getPalette, savePalette,
   invalidateForUser, invalidateForEntity, bake,
 };

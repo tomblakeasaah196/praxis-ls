@@ -125,7 +125,8 @@ function cardHtml({ width, p, c, co, model }) {
     ? `<tr><td style="padding:0 0 14px 0"><img src="${esc(src)}" alt="${esc(alt)}" width="${width}" style="display:block;width:${width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none" /></td></tr>`
     : "";
 
-  const phones = [c.phone_desk, c.phone_mobile].filter(Boolean);
+  // A TEAM render carries no personal number; the company line stands in.
+  const phones = (model.team ? [co.phone] : [c.phone_desk, c.phone_mobile]).filter(Boolean);
   const phoneLine = phones
     .map((v) => link(`tel:${telHref(v)}`, v, "color:#334155"))
     .join('<span style="color:#cbd5e1"> &nbsp;|&nbsp; </span>');
