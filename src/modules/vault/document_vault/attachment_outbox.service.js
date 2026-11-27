@@ -99,6 +99,7 @@ const RECONCILE_METRIC = (result, value = 1) => {
  */
 const OWNER_TABLES = Object.freeze([
   "corporate_entity", "site_leader", "site_partner", "site_credential", "site_image",
+  "vacancy",
   "entity_document", "client_document", "supplier_document",
 ]);
 

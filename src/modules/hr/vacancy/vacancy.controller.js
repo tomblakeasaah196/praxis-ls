@@ -138,6 +138,33 @@ module.exports = {
     res.send(found.buffer);
   }),
 
+  /* ── The careers photograph (14720) ── */
+  setCover: asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => service.setCover(c, {
+      vacancyId: req.params.id,
+      body: req.body,
+      actor: actor(req),
+      slug: req.tenant && req.tenant.slug,
+    }));
+    res.status(201).json({ data });
+  }),
+  removeCover: asyncHandler(async (req, res) => {
+    const data = await req.tenantDb((c) => service.removeCover(c, { vacancyId: req.params.id, actor: actor(req) }));
+    res.json({ data });
+  }),
+  cover: asyncHandler(async (req, res) => {
+    const found = await req.tenantDb((c) => service.coverBytes(c, req.params.id));
+    if (!found) throw new AppError("NOT_FOUND", "This vacancy has no photograph", 404);
+    const meta = vaultController.fileMeta(found.doc);
+    res.setHeader("Content-Type", meta.contentType);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    // Private: this is the staff copy, served for drafts too. The editor
+    // addresses it with the vault id in the query, so a replaced photograph is
+    // a new URL and a day of browser cache is never a stale picture.
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.send(found.buffer);
+  }),
+
   /* ── Custom scoring criteria ── */
   listCriteria: asyncHandler(async (req, res) =>
     res.json({ data: await req.tenantDb((c) => service.listCriteria(c, req.params.id)) })),

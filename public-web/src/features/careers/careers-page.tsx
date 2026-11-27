@@ -13,7 +13,11 @@ import { Panel } from "@/components/ui/panel";
 import { ButtonLink } from "@/components/ui/button";
 import { ErrorState, SuccessState } from "@/components/state";
 import { PageSkeleton } from "@/components/ui/skeleton";
-import { Chip } from "@/components/ui/pill";
+import { Chip, ChipOnDark } from "@/components/ui/pill";
+import { SitePhoto } from "@/components/site/site-photo";
+import { PhotoArt } from "@/components/site/page-hero-art";
+import { HERO_SCRIMS, SCRIM_CARD } from "@/components/site/hero-scrim";
+import type { SiteImage } from "@/lib/site-images";
 import { Markdown } from "@/components/ui/markdown";
 import {
   AlertIcon,
@@ -40,6 +44,7 @@ import { CAREERS_PAGE_KEY, featureList, pickBilingual } from "@/lib/site-api";
 import { LazyCandidateForm } from "./candidate-form-lazy";
 import { NotHiring, StillLooking, UnsubscribePage } from "./careers-empty";
 import { p } from "@/lib/base-path";
+import { cn } from "@/lib/cn";
 // Registers `site.careers.*`, which lives in this chunk rather than in the
 // entry dictionary. Imported for the side effect; see careers-i18n.ts.
 import "./careers-i18n";
@@ -175,24 +180,28 @@ export function CareersPage() {
           <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
             {rows.map((v, i) => (
               <Reveal as="li" key={v.token} delay={(i % 3) as 0 | 1 | 2}>
-                <Link
-                  to={p(`/careers/${encodeURIComponent(v.token)}`)}
-                  className="group flex items-start gap-4 py-6 transition-colors"
-                >
-                  <IconTile icon={departmentIcon(v.department)} />
-                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-                    <div className="min-w-0">
-                      <h2 className="text-title font-semibold leading-snug tracking-tight group-hover:text-primary-ink">
-                        {v.title}
-                      </h2>
-                      <VacancyFacts v={v} />
-                      <VacancyDates v={v} />
+                {v.cover ? (
+                  <VacancyPhotoCard v={v} />
+                ) : (
+                  <Link
+                    to={p(`/careers/${encodeURIComponent(v.token)}`)}
+                    className="group flex items-start gap-4 py-6 transition-colors"
+                  >
+                    <IconTile icon={departmentIcon(v.department)} />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+                      <div className="min-w-0">
+                        <h2 className="text-title font-semibold leading-snug tracking-tight group-hover:text-primary-ink">
+                          {v.title}
+                        </h2>
+                        <VacancyFacts v={v} />
+                        <VacancyDates v={v} />
+                      </div>
+                      <span className="shrink-0 text-sm font-medium text-primary-ink underline-offset-4 group-hover:underline">
+                        {t("site.careers.apply")}
+                      </span>
                     </div>
-                    <span className="shrink-0 text-sm font-medium text-primary-ink underline-offset-4 group-hover:underline">
-                      {t("site.careers.apply")}
-                    </span>
-                  </div>
-                </Link>
+                  </Link>
+                )}
               </Reveal>
             ))}
           </ul>
@@ -399,7 +408,7 @@ function departmentIcon(department?: string | null): IconComponent {
  * Past a year `dateAgo` returns null and the exact date stands in, because
  * "13 months ago" is worse than the date it replaced.
  */
-function VacancyDates({ v }: { v: api.PublicVacancy }) {
+function VacancyDates({ v, onDark = false }: { v: api.PublicVacancy; onDark?: boolean }) {
   const { t } = useTranslation();
   const exact = (d: string) =>
     new Intl.DateTimeFormat(currentLocale(), { dateStyle: "long" }).format(
@@ -411,7 +420,12 @@ function VacancyDates({ v }: { v: api.PublicVacancy }) {
   const closes = v.closes_on ? exact(v.closes_on) : null;
   if (!posted && !closes) return null;
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+    <p
+      className={cn(
+        "mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs",
+        onDark ? "text-[var(--hero-muted)]" : "text-muted-foreground",
+      )}
+    >
       {posted ? (
         <span>
           {t("site.careers.published")} <span className="num">{posted}</span>
@@ -432,7 +446,18 @@ function VacancyDates({ v }: { v: api.PublicVacancy }) {
  *  `enumLabel`+`tr` on the employment type because the API stores `FULL_TIME` and
  *  a job advert that reads "FULL_TIME" to a French candidate is a database dump,
  *  not a page. */
-function VacancyFacts({ v }: { v: api.PublicVacancy }) {
+function VacancyFacts({
+  v,
+  onDark = false,
+  lead = false,
+}: {
+  v: api.PublicVacancy;
+  /** On a photograph, where `--ink` inverts and the light chip is a smudge. */
+  onDark?: boolean;
+  /** Leave out what the photo card already says in its eyebrow (where, and on
+   *  what terms), so the card does not print "Douala" twice. */
+  lead?: boolean;
+}) {
   const { t } = useTranslation();
   const band = api.salaryBand(v, {
     from: t("site.careers.salaryFrom"),
@@ -440,8 +465,8 @@ function VacancyFacts({ v }: { v: api.PublicVacancy }) {
   });
   const chips = [
     v.department,
-    v.location,
-    v.employment_type ? enumText(v.employment_type) : null,
+    lead ? null : v.location,
+    lead ? null : v.employment_type ? enumText(v.employment_type) : null,
     v.experience_years_min
       ? `${v.experience_years_min}+ ${t("site.careers.years")}`
       : null,
@@ -450,9 +475,77 @@ function VacancyFacts({ v }: { v: api.PublicVacancy }) {
   if (!chips.length) return null;
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      {chips.map((c) => (
-        <Chip key={c}>{c}</Chip>
-      ))}
+      {chips.map((c) =>
+        onDark ? <ChipOnDark key={c}>{c}</ChipOnDark> : <Chip key={c}>{c}</Chip>,
+      )}
+    </div>
+  );
+}
+
+/** A role's photograph in the shape the site's picture renderer takes. The
+ *  picture sits behind words that already say what the role is, so it is
+ *  decorative and carries no alt text of its own. */
+function coverImage(v: api.PublicVacancy): SiteImage | null {
+  return v.cover && v.cover.id
+    ? { id: v.cover.id, variants: v.cover.variants, alt: { en: null, fr: null } }
+    : null;
+}
+
+/**
+ * A role with a photograph, as a card (14720).
+ *
+ * The owner's brief was the recruitment poster: the picture fills the card,
+ * where and on what terms in the eyebrow, the role's title large over the
+ * foot, the facts and dates under it. Everything printed is LIVE text rather
+ * than words baked into an image, so it is translated, searchable, and the
+ * closing date can never be stale.
+ *
+ * The words sit over `SCRIM_CARD`, the hero's own colour and measured floor
+ * laid bottom-up, so they read whatever the recruiter uploaded. The card is a
+ * single link, like the plain row it replaces, so the whole picture is the
+ * target and a keyboard user meets one stop per role.
+ */
+function VacancyPhotoCard({ v }: { v: api.PublicVacancy }) {
+  const { t } = useTranslation();
+  const lead = [
+    v.location_city || v.location,
+    v.employment_type ? enumText(v.employment_type) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="py-6">
+      <Link
+        to={p(`/careers/${encodeURIComponent(v.token)}`)}
+        className="group band-hero photo-band flex min-h-[20rem] flex-col justify-end rounded-[var(--radius)] sm:min-h-[24rem]"
+      >
+        <div className="photo-band-art" aria-hidden>
+          <SitePhoto
+            image={coverImage(v)}
+            sizes="(min-width: 80em) 75vw, 100vw"
+            decorative
+          />
+          <div
+            className="photo-band-scrim"
+            style={{ backgroundImage: HERO_SCRIMS.css(SCRIM_CARD) }}
+          />
+        </div>
+        <div className="flex flex-col gap-1 p-5 sm:flex-row sm:items-end sm:justify-between sm:gap-8 sm:p-8">
+          <div className="min-w-0">
+            <SectionHead
+              onDark
+              eyebrow={lead || undefined}
+              title={v.title}
+              titleClass="section-title"
+            />
+            <VacancyFacts v={v} onDark lead />
+            <VacancyDates v={v} onDark />
+          </div>
+          <span className="mt-3 shrink-0 text-sm font-semibold text-hero-foreground underline-offset-4 group-hover:underline sm:mt-0">
+            {t("site.careers.apply")}
+          </span>
+        </div>
+      </Link>
     </div>
   );
 }
@@ -521,45 +614,73 @@ export function VacancyPage() {
     );
   }
 
+  const cover = coverImage(v);
+
   return (
-    <PageShell label={v.title}>
-      {/* Muted, so the advert does not open with two plain bands stacked — the
-          hairline under the body band is not enough on its own (§6.4). */}
-      <section className="band band-muted">
-        <PageContainer size="reading">
-          <nav aria-label={t("site.careers.title")} className="mb-6">
-            <Link
-              to={p("/careers")}
-              className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-            >
-              {t("site.careers.back")}
-            </Link>
-          </nav>
+    <PageShell label={v.title} overlayHeader={Boolean(cover)}>
+      {cover ? (
+        /* 14720: a role with a photograph opens on it, as every other page on
+           the site opens on its own (`PageHero`): the same band, the same
+           measured scrim, the header laid over it. A Test role never has one
+           (the server drops it), so the sandbox note below needs no twin. */
+        <section className="band-hero photo-band" data-size="page">
+          <PhotoArt image={cover} priority />
+          <PageContainer size="reading" className="pb-10">
+            <nav aria-label={t("site.careers.title")} className="mb-6">
+              <Link
+                to={p("/careers")}
+                className="text-sm text-[var(--hero-muted)] underline-offset-4 hover:underline"
+              >
+                {t("site.careers.back")}
+              </Link>
+            </nav>
+            <BadgePill onDark className="mb-4">
+              {t("site.careers.list")}
+            </BadgePill>
+            <SectionHead as="h1" onDark title={v.title} />
+            <VacancyFacts v={v} onDark />
+            <VacancyDates v={v} onDark />
+          </PageContainer>
+        </section>
+      ) : (
+        /* Muted, so the advert does not open with two plain bands stacked — the
+            hairline under the body band is not enough on its own (§6.4). */
+        <section className="band band-muted">
+          <PageContainer size="reading">
+            <nav aria-label={t("site.careers.title")} className="mb-6">
+              <Link
+                to={p("/careers")}
+                className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+              >
+                {t("site.careers.back")}
+              </Link>
+            </nav>
 
-          <BadgePill className="mb-4">{t("site.careers.list")}</BadgePill>
+            <BadgePill className="mb-4">{t("site.careers.list")}</BadgePill>
 
-          {v.environment === "sandbox" && (
-            <p
-              role="note"
-              className="mb-5 flex items-start gap-2 rounded-[calc(var(--radius)-2px)] border border-warn/40 bg-warn-fill/10 p-3 text-sm"
-            >
-              <AlertIcon size={16} className="mt-0.5 text-warn" />
-              <span>{t("site.careers.testPosting")}</span>
-            </p>
-          )}
+            {v.environment === "sandbox" && (
+              <p
+                role="note"
+                className="mb-5 flex items-start gap-2 rounded-[calc(var(--radius)-2px)] border border-warn/40 bg-warn-fill/10 p-3 text-sm"
+              >
+                <AlertIcon size={16} className="mt-0.5 text-warn" />
+                <span>{t("site.careers.testPosting")}</span>
+              </p>
+            )}
 
-          <div className="flex items-start gap-4">
-            <IconTile icon={departmentIcon(v.department)} size="lg" />
-            <div className="min-w-0">
-              {/* The role's own name, so no accent word — see the service
-                  detail page for why we do not split somebody else's noun. */}
-              <SectionHead as="h1" title={v.title} />
-              <VacancyFacts v={v} />
-              <VacancyDates v={v} />
+            <div className="flex items-start gap-4">
+              <IconTile icon={departmentIcon(v.department)} size="lg" />
+              <div className="min-w-0">
+                {/* The role's own name, so no accent word — see the service
+                    detail page for why we do not split somebody else's noun. */}
+                <SectionHead as="h1" title={v.title} />
+                <VacancyFacts v={v} />
+                <VacancyDates v={v} />
+              </div>
             </div>
-          </div>
-        </PageContainer>
-      </section>
+          </PageContainer>
+        </section>
+      )}
 
       <Section divided>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

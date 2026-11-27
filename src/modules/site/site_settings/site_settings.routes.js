@@ -55,6 +55,14 @@ function mediaSlotGate(slotFrom = (req) => (req.body && req.body.slot)) {
     if (slotFrom(req) === "entity-cover") {
       return requireAnyPermission([["MOD-01", "edit"], ["MOD-29", "edit"]])(req, _res, next);
     }
+    /* 14720: a role's careers photograph is recruitment's (MOD-11), uploaded
+       through `/vacancies/:id/cover`. The upload here cannot name it (the
+       shared enum does not list it), but the DELETE looks the slot up in the
+       same register, so a website editor must not be able to strip a role's
+       picture through this door. */
+    if (slotFrom(req) === "vacancy-cover") {
+      return requirePermission("MOD-11", "edit")(req, _res, next);
+    }
     return edit(req, _res, next);
   };
 }

@@ -42,6 +42,11 @@ import {
   DepartmentSelect,
   type DepartmentValue,
 } from "@/components/department-select";
+import { ImageUpload } from "@/components/ui/image-upload";
+import { useConfirm } from "@/components/ui/use-confirm";
+import { NativeSelect } from "@/components/ui/select";
+import { fetchObjectUrl } from "@/lib/api-client";
+import { fileToDataUrl } from "@/lib/image-compress";
 import { errMsg } from "@/lib/use-resource";
 import * as api from "@/lib/hr-api";
 
@@ -61,6 +66,165 @@ const num = (v: number | string | null | undefined) =>
 const maybeNum = (v: string) => (v.trim() === "" ? null : Number(v));
 
 const WORK_MODES = ["On-site", "Hybrid", "Remote"];
+
+/**
+ * The careers photograph (14720).
+ *
+ * Optional. With one, the careers list draws the role as a photo card with the
+ * title over it, the role's own page opens on it, and a shared link shows it.
+ * Without one, all three look exactly as they did.
+ *
+ * Uploaded THE MOMENT IT IS PICKED, like every other website image, rather than
+ * on Save: the bytes go through the website-media pipeline (derivatives, the
+ * replaced picture archived) and a half-finished upload riding on a text Save
+ * is how a recruiter ends up believing a picture saved that did not.
+ *
+ * The thumbnail is read through the staff route, because the public one only
+ * answers once the role is open and published, and a recruiter dressing a
+ * draft still has to see what they chose.
+ */
+function CoverPhoto({
+  vacancyId,
+  coverId,
+  onChanged,
+}: {
+  vacancyId: string;
+  coverId: string | null;
+  onChanged: (coverId: string | null) => void;
+}) {
+  const [provenance, setProvenance] = React.useState<api.CoverProvenance>("owned");
+  const [thumb, setThumb] = React.useState<string | null>(null);
+  const [thumbFailed, setThumbFailed] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [confirm, confirmEl] = useConfirm();
+  const provId = React.useId();
+
+  React.useEffect(() => {
+    setThumb(null);
+    setThumbFailed(false);
+    if (!coverId) return undefined;
+    const ctl = new AbortController();
+    let url: string | null = null;
+    fetchObjectUrl(api.vacancyCoverPath(vacancyId, coverId), ctl.signal)
+      .then((u) => {
+        url = u;
+        setThumb(u);
+      })
+      // A degraded read: the picture is still on the role, only this preview
+      // failed, and the frame says so rather than claiming there is none.
+      .catch(() => {
+        if (!ctl.signal.aborted) setThumbFailed(true);
+      });
+    return () => {
+      ctl.abort();
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [vacancyId, coverId]);
+
+  async function remove() {
+    const ok = await confirm({
+      title: tr("Remove the Careers Photo?"),
+      body: tr("The role goes back to a plain row on the careers page. The file is archived, not deleted."),
+      confirmLabel: tr("Remove Photo"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.removeVacancyCover(vacancyId);
+      onChanged(null);
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const mb = Math.round(api.VACANCY_COVER_LIMITS.maxBytes / (1024 * 1024));
+
+  return (
+    <fieldset className="grid gap-4 rounded-[10px] border p-3 sm:grid-cols-[220px_1fr]">
+      <legend className="px-1 text-sm font-medium text-foreground">
+        {tr("Careers Photo")}
+      </legend>
+      <div className="space-y-2">
+        <div className="aspect-video w-full overflow-hidden rounded-md border border-[var(--border)] bg-[var(--muted)]">
+          {thumb ? (
+            <img
+              src={thumb}
+              alt={tr("Current careers photo")}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center px-2 text-center text-xs text-muted-foreground">
+              {!coverId
+                ? tr("No photo")
+                : thumbFailed
+                  ? tr("Could not load the preview")
+                  : tr("Loading")}
+            </div>
+          )}
+        </div>
+        {coverId && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void remove()}
+          >
+            {tr("Remove Photo")}
+          </Button>
+        )}
+      </div>
+
+      <div className="min-w-0 space-y-3">
+        <Field
+          label={tr("Where This Photo Came From")}
+          htmlFor={provId}
+          about={tr("Shown behind the role's title on the careers page, on the role's own page and when its link is shared. Nothing is public until the role is open and published.")}
+        >
+          <NativeSelect
+            id={provId}
+            value={provenance}
+            disabled={busy}
+            onChange={(e) => setProvenance(e.target.value as api.CoverProvenance)}
+          >
+            <option value="owned">{tr("Ours: we took it")}</option>
+            <option value="licensed">{tr("Licensed: we have the right to use it")}</option>
+            <option value="generated">{tr("Generated: an illustration of the scene")}</option>
+          </NativeSelect>
+        </Field>
+        <ImageUpload<{ cover_vault_id: string }>
+          profile="photo"
+          accept="image/png,image/jpeg,image/webp"
+          maxBytes={api.VACANCY_COVER_LIMITS.maxBytes}
+          disabled={busy}
+          label={coverId ? tr("Replace Photo") : tr("Upload Photo")}
+          hint={`JPEG, PNG or WebP · 16:9 · ${api.VACANCY_COVER_LIMITS.minWidth} px wide or more · ${mb} MB`}
+          send={async (file, ctx) =>
+            api.uploadVacancyCover(
+              vacancyId,
+              {
+                provenance,
+                data_url: await fileToDataUrl(file),
+                original_name: file.name,
+              },
+              ctx.onProgress,
+            )
+          }
+          onAllComplete={(done) => {
+            const last = done[done.length - 1];
+            if (last) onChanged(last.cover_vault_id);
+          }}
+        />
+        {err && <ErrorState message={err} />}
+      </div>
+      {confirmEl}
+    </fieldset>
+  );
+}
 
 /**
  * Find the city, fill the three fields.
@@ -247,6 +411,11 @@ export function VacancyEditor({
     scope_id: vacancy.scope_id || null,
     department: vacancy.department || null,
   });
+  // The photograph saves itself on pick (see CoverPhoto), so it is tracked
+  // apart from the form and the list is told at once.
+  const [coverId, setCoverId] = React.useState<string | null>(
+    vacancy.cover_vault_id || null,
+  );
   const [preview, setPreview] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -356,6 +525,15 @@ export function VacancyEditor({
             onChange={(e) => set("title", e.target.value)}
           />
         </Field>
+
+        <CoverPhoto
+          vacancyId={vacancy.vacancy_id}
+          coverId={coverId}
+          onChanged={(id) => {
+            setCoverId(id);
+            onSaved({ ...vacancy, cover_vault_id: id });
+          }}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field

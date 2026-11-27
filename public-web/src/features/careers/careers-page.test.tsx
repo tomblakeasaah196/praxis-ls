@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { CareersPage } from "./careers-page";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { CareersPage, VacancyPage } from "./careers-page";
+import { SCRIM_CARD, SCRIM_FLOOR } from "@/components/site/hero-scrim";
 import { __resetSitePageCache } from "@/lib/use-site-page";
 import "@/lib/i18n";
 
@@ -296,5 +297,85 @@ describe("the careers page with nothing open", () => {
       expect(screen.getByText("No open roles right now")).toBeInTheDocument(),
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A role with a photograph (14720).
+ *
+ * The owner's brief: a role HR gave a picture to looks like a recruitment
+ * poster on the list and opens on that picture; a role without one looks
+ * exactly as it did. Both halves are pinned, because the second is the one a
+ * redesign quietly breaks.
+ */
+describe("a role's careers photo", () => {
+  const COVER = {
+    id: "11111111-2222-3333-4444-555555555555",
+    variants: { widths: [480, 960], formats: ["avif", "webp"] },
+  };
+  const WITH_PHOTO = { ...VACANCY, token: "tok-2", title: "Customer Service Officer", location_city: "Douala", cover: COVER };
+
+  it("draws a role with a photo as a photo card, with its words as live text", async () => {
+    stubReads({
+      "/careers/settings/public": OFF,
+      "/careers": [WITH_PHOTO, VACANCY],
+      "/site/pages/careers": CAREERS_BLOCKS,
+    });
+    const { container } = renderPage();
+
+    const title = await screen.findByRole("heading", { name: "Customer Service Officer" });
+    const card = title.closest("a")!;
+    expect(card).toHaveAttribute("href", expect.stringContaining("/careers/tok-2"));
+    // The picture, at the widths that exist, behind the words: decorative,
+    // because the title already says what it is.
+    const img = card.querySelector("img")!;
+    expect(img).toHaveAttribute("src", `/api/tenant/public/site/media/${COVER.id}`);
+    expect(img).toHaveAttribute("alt", "");
+    expect(card.querySelector('source[type="image/avif"]')?.getAttribute("srcset")).toContain("/960.avif 960w");
+    // Where and on what terms, once, in the eyebrow; not again as chips.
+    expect(card).toHaveTextContent(/Douala/);
+    expect(card.textContent!.match(/Douala/g)).toHaveLength(1);
+
+    // The role with no photo is the plain row it always was.
+    const plain = screen.getByRole("heading", { name: "Customs declarant" }).closest("a")!;
+    expect(plain.querySelector("img")).toBeNull();
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("opens the role's own page on its photo", async () => {
+    stubReads({ "/careers/tok-2": { ...WITH_PHOTO, environment: "live" } });
+    render(
+      <MemoryRouter initialEntries={["/careers/tok-2"]}>
+        <Routes>
+          <Route path="/careers/:token" element={<VacancyPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const h1 = await screen.findByRole("heading", { level: 1, name: "Customer Service Officer" });
+    const band = h1.closest("section")!;
+    expect(band).toHaveClass("photo-band");
+    expect(band.querySelector("img")).toHaveAttribute("src", `/api/tenant/public/site/media/${COVER.id}`);
+  });
+
+  it("keeps the plain header for a role without one", async () => {
+    stubReads({ "/careers/tok-1": { ...VACANCY, environment: "live", cover: null } });
+    render(
+      <MemoryRouter initialEntries={["/careers/tok-1"]}>
+        <Routes>
+          <Route path="/careers/:token" element={<VacancyPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const h1 = await screen.findByRole("heading", { level: 1, name: "Customs declarant" });
+    expect(h1.closest("section")).not.toHaveClass("photo-band");
+  });
+
+  it("holds every stop under the card's words to the hero's floor", () => {
+    // The words sit over the foot of the card; the stops marked `over` are
+    // where they are, and a recruiter's blown-out photo must not wash them out.
+    const over = SCRIM_CARD.stops.filter((s) => s.over);
+    expect(over.length).toBeGreaterThan(0);
+    for (const stop of over) expect(stop.alpha).toBeGreaterThanOrEqual(SCRIM_FLOOR);
+    expect(SCRIM_CARD.shape).toMatch(/0deg/);
   });
 });

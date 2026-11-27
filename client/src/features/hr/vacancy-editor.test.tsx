@@ -25,11 +25,16 @@ import {
   renderScreen,
 } from "@/test/screen-harness";
 
-vi.mock("@/lib/api-client", async () => apiClientMock());
+const fetchObjectUrl = vi.fn();
+vi.mock("@/lib/api-client", async () => ({
+  ...(await apiClientMock()),
+  fetchObjectUrl: (...a: unknown[]) => fetchObjectUrl(...a),
+}));
 vi.mock("@/app/auth/auth-context", async () => authContextMock());
 
 const updateVacancy = vi.fn();
 const vacancyPlaceSearch = vi.fn();
+const removeVacancyCover = vi.fn();
 vi.mock("@/lib/hr-api", async () => {
   const actual =
     await vi.importActual<typeof import("@/lib/hr-api")>("@/lib/hr-api");
@@ -37,6 +42,7 @@ vi.mock("@/lib/hr-api", async () => {
     ...actual,
     updateVacancy: (...a: unknown[]) => updateVacancy(...a),
     vacancyPlaceSearch: (...a: unknown[]) => vacancyPlaceSearch(...a),
+    removeVacancyCover: (...a: unknown[]) => removeVacancyCover(...a),
   };
 });
 
@@ -236,5 +242,53 @@ describe("the vacancy editor", () => {
   it("has no accessibility violations", async () => {
     const { container } = view();
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/* 14720: the careers photograph. Optional, saved on pick, and read back
+   through the staff route so a DRAFT's picture is visible before the public
+   route would serve it. */
+describe("VacancyEditor: the careers photo", () => {
+  it("offers an upload and nothing to remove when the role has none", () => {
+    view();
+    expect(screen.getByText("No photo")).toBeInTheDocument();
+    expect(screen.getByText("Upload Photo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove Photo" })).toBeNull();
+    expect(fetchObjectUrl).not.toHaveBeenCalled();
+  });
+
+  it("shows a draft's photo from the staff route, keyed by the file", async () => {
+    fetchObjectUrl.mockResolvedValue("blob:https://app.example/cover");
+    view({ ...DRAFT, cover_vault_id: "d1" });
+    expect(await screen.findByAltText("Current careers photo")).toHaveAttribute(
+      "src",
+      "blob:https://app.example/cover",
+    );
+    expect(fetchObjectUrl.mock.calls[0][0]).toBe("/tenant/vacancies/v9/cover?v=d1");
+    expect(screen.getByText("Replace Photo")).toBeInTheDocument();
+  });
+
+  it("says the preview failed rather than claiming there is no photo", async () => {
+    fetchObjectUrl.mockRejectedValue(new Error("offline"));
+    view({ ...DRAFT, cover_vault_id: "d1" });
+    expect(await screen.findByText("Could not load the preview")).toBeInTheDocument();
+  });
+
+  it("asks before removing it, then tells the list at once", async () => {
+    const user = userEvent.setup();
+    fetchObjectUrl.mockResolvedValue("blob:https://app.example/cover");
+    removeVacancyCover.mockResolvedValue({ vacancy_id: "v9", cover_vault_id: null });
+    const { onSaved } = view({ ...DRAFT, cover_vault_id: "d1" });
+
+    await user.click(screen.getByRole("button", { name: "Remove Photo" }));
+    // The dialog names the outcome; nothing is removed until it is confirmed.
+    expect(await screen.findByText("Remove the Careers Photo?")).toBeInTheDocument();
+    expect(removeVacancyCover).not.toHaveBeenCalled();
+    const buttons = screen.getAllByRole("button", { name: "Remove Photo" });
+    await user.click(buttons[buttons.length - 1]);
+
+    expect(removeVacancyCover).toHaveBeenCalledWith("v9");
+    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ cover_vault_id: null }));
+    expect(await screen.findByText("No photo")).toBeInTheDocument();
   });
 });

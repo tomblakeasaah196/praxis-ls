@@ -114,10 +114,11 @@ const RAISED = [
        POST /api/tenant/site-settings/media
        POST /api/tenant/site-brand/images/:slot (14660, the photograph slots)
        POST /api/tenant/success-stories/:id/media
+       POST /api/tenant/vacancies/:id/cover (14720, a role's careers photograph)
 
        The DELETE that removes one image is `…/web/media/:docId` and carries no
        body, so the trailing `$` correctly leaves it on the global parser. */
-    path: /^\/api\/(v\d+\/)?tenant\/(service-types\/[^/]+\/web\/media|insights\/[^/]+\/(cover|gallery|byline-photo)|site-settings\/media|site-brand\/images\/[a-z0-9-]+|success-stories\/[^/]+\/media)\/?$/,
+    path: /^\/api\/(v\d+\/)?tenant\/(service-types\/[^/]+\/web\/media|insights\/[^/]+\/(cover|gallery|byline-photo)|site-settings\/media|site-brand\/images\/[a-z0-9-]+|success-stories\/[^/]+\/media|vacancies\/[^/]+\/cover)\/?$/,
     limit: "15mb",
     advertises: 10 * 1024 * 1024,
     why: "Every picture on the tenant's public website.",

@@ -1,6 +1,7 @@
 /** Vacancy routes — RBAC-gated (MOD-11) + feature "hr.recruitment".
  * Vacancy lifecycle DRAFT → OPEN ⇄ PAUSED → CLOSED via POST /:id/status.
- * Applicants: GET/POST /:id/applicants, PATCH /:id/applicants/:applicantId. */
+ * Applicants: GET/POST /:id/applicants, PATCH /:id/applicants/:applicantId.
+ * Careers photograph: GET/POST/DELETE /:id/cover (14720). */
 "use strict";
 const express = require("express");
 const { authMiddleware } = require("../../../middleware/auth");
@@ -116,6 +117,13 @@ router.get("/:id/applicants/:applicantId/answers", requirePermission(M, "view"),
 router.post("/:id/applicants/:applicantId/answers", requirePermission(M, "edit"), validator.answer, controller.rateAnswer);
 
 router.post("/:id/publish", requirePermission(M, "approve"), validator.publish, controller.setPublished);
+/* The careers photograph (14720). `edit`, not `approve`: choosing a picture
+ * publishes nothing, and the public media route serves it only once somebody
+ * with `approve` has published the role. Reading it back is `view`, for the
+ * editor's own preview of a draft the public route will not serve. */
+router.get("/:id/cover", requirePermission(M, "view"), controller.cover);
+router.post("/:id/cover", requirePermission(M, "edit"), validator.cover, controller.setCover);
+router.delete("/:id/cover", requirePermission(M, "edit"), controller.removeCover);
 router.post("/:id/applicants", requirePermission(M, "edit"), validator.applicant, controller.addApplicant);
 // `edit` and not `create`: putting somebody already on file in front of a role
 // is working the pipeline, not creating a candidate record from nothing.

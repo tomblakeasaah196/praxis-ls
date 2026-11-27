@@ -231,7 +231,8 @@ async function orphanSiteMedia(client, ttlInterval) {
         AND NOT EXISTS (SELECT 1 FROM site_leader o WHERE o.photo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_partner o WHERE o.logo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)
-        AND NOT EXISTS (SELECT 1 FROM site_image o WHERE o.vault_id = v.doc_id)`,
+        AND NOT EXISTS (SELECT 1 FROM site_image o WHERE o.vault_id = v.doc_id)
+        AND NOT EXISTS (SELECT 1 FROM vacancy o WHERE o.cover_vault_id = v.doc_id)`,
     [ttlInterval],
   );
   return rows;
@@ -273,6 +274,7 @@ async function archiveOrphanSiteMediaRow(client, docId) {
         AND NOT EXISTS (SELECT 1 FROM site_partner o WHERE o.logo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_credential o WHERE o.logo_vault_id = v.doc_id)
         AND NOT EXISTS (SELECT 1 FROM site_image o WHERE o.vault_id = v.doc_id)
+        AND NOT EXISTS (SELECT 1 FROM vacancy o WHERE o.cover_vault_id = v.doc_id)
       RETURNING v.doc_id, v.status`,
     [docId],
   );

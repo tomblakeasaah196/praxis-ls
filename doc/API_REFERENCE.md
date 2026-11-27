@@ -6,7 +6,7 @@ Closes API F-25. Derived from `doc/api-contract.json`, which `check-api-contract
 
 | | |
 |---|---|
-| Routes | 1905 |
+| Routes | 1917 |
 | Modules mounted | 141 |
 | API version | v1 |
 
@@ -43,7 +43,7 @@ What IS true and worth stating: 61 authenticated routes carry no `requirePermiss
 
 ## Routes
 
-All 1905 mounted routes, grouped by path prefix.
+All 1917 mounted routes, grouped by path prefix.
 
 ### `platform/ai-vendors`
 
@@ -214,6 +214,7 @@ All 1905 mounted routes, grouped by path prefix.
 | GET | `/api/platform/tenants/:slug` | — |
 | POST | `/api/platform/tenants/:slug/admin` | — |
 | PATCH | `/api/platform/tenants/:slug/capacity` | — |
+| DELETE | `/api/platform/tenants/:slug/domains` | — |
 | PATCH | `/api/platform/tenants/:slug/domains` | — |
 | POST | `/api/platform/tenants/:slug/domains` | — |
 | PATCH | `/api/platform/tenants/:slug/domains/base` | — |
@@ -1068,6 +1069,7 @@ All 1905 mounted routes, grouped by path prefix.
 | PATCH | `/api/tenant/intake/enquiries/:id` | — |
 | GET | `/api/tenant/intake/enquiries/:id/attachments/:docId` | — |
 | POST | `/api/tenant/intake/enquiries/:id/read` | — |
+| POST | `/api/tenant/intake/enquiries/:id/reply-attachments` | — |
 | POST | `/api/tenant/intake/enquiries/:id/respond` | — |
 | POST | `/api/tenant/intake/enquiries/:id/transition` | — |
 | POST | `/api/tenant/intake/enquiries/:id/triage` | — |
@@ -1763,6 +1765,7 @@ All 1905 mounted routes, grouped by path prefix.
 | POST | `/api/tenant/public/sign/:token/verify` | — |
 | GET | `/api/tenant/public/site/about` | — |
 | GET | `/api/tenant/public/site/announcements` | — |
+| GET | `/api/tenant/public/site/card.jpg` | — |
 | GET | `/api/tenant/public/site/copy` | — |
 | GET | `/api/tenant/public/site/documents` | — |
 | GET | `/api/tenant/public/site/documents/:key` | — |
@@ -2010,13 +2013,17 @@ All 1905 mounted routes, grouped by path prefix.
 | PUT | `/api/tenant/service-types/:id/web/faq` | — |
 | POST | `/api/tenant/service-types/:id/web/media` | — |
 | DELETE | `/api/tenant/service-types/:id/web/media/:docId` | — |
+| PUT | `/api/tenant/service-types/:id/web/members` | — |
 | POST | `/api/tenant/service-types/:id/web/publish` | — |
 | PUT | `/api/tenant/service-types/:id/web/related` | — |
+| PUT | `/api/tenant/service-types/:id/web/routing` | — |
 | POST | `/api/tenant/service-types/:id/web/unpublish` | — |
 | GET | `/api/tenant/service-types/web/groups` | — |
 | POST | `/api/tenant/service-types/web/groups` | — |
 | DELETE | `/api/tenant/service-types/web/groups/:groupId` | — |
 | PATCH | `/api/tenant/service-types/web/groups/:groupId` | — |
+| GET | `/api/tenant/service-types/web/routing` | — |
+| PUT | `/api/tenant/service-types/web/routing` | — |
 
 ### `tenant/sessions`
 
@@ -2125,6 +2132,8 @@ All 1905 mounted routes, grouped by path prefix.
 |---|---|---|
 | GET | `/api/tenant/site-settings/about` | — |
 | PUT | `/api/tenant/site-settings/about` | — |
+| GET | `/api/tenant/site-settings/ai-profile` | — |
+| PUT | `/api/tenant/site-settings/ai-profile` | — |
 | GET | `/api/tenant/site-settings/careers` | — |
 | PUT | `/api/tenant/site-settings/careers` | — |
 | GET | `/api/tenant/site-settings/credentials` | — |
@@ -2540,6 +2549,9 @@ All 1905 mounted routes, grouped by path prefix.
 | GET | `/api/tenant/vacancies/:id/applicants/:applicantId/cv` | — |
 | POST | `/api/tenant/vacancies/:id/applicants/:applicantId/score` | — |
 | POST | `/api/tenant/vacancies/:id/consider` | — |
+| DELETE | `/api/tenant/vacancies/:id/cover` | — |
+| GET | `/api/tenant/vacancies/:id/cover` | — |
+| POST | `/api/tenant/vacancies/:id/cover` | — |
 | GET | `/api/tenant/vacancies/:id/criteria` | — |
 | POST | `/api/tenant/vacancies/:id/criteria` | — |
 | DELETE | `/api/tenant/vacancies/:id/criteria/:criterionId` | — |

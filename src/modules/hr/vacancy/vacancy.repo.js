@@ -26,6 +26,36 @@ const ENTITY_COLUMNS = `SELECT entity_id, legal_name, trading_name, description,
                 default_currency, payroll_country, timezone
            FROM corporate_entity`;
 
+/**
+ * What the public careers surface reads about a published role, written once
+ * for the list and the token lookup so the two cannot drift apart.
+ *
+ * NAMED COLUMNS, NEVER `v.*`: this feeds an unauthenticated endpoint, and
+ * `careers.publicVacancy` narrows it again on the way out.
+ *
+ * The 0684 columns were missing from both queries until 14720, which is worse
+ * than it sounds: `publicVacancy` reads `salary_hidden` to decide whether to
+ * OMIT the band, so a role marked confidential published its salary anyway,
+ * and `apply_config` (what the public apply path enforces) was always `{}`.
+ *
+ * The photograph (14720) is joined on the same clauses the public media route
+ * re-asserts (verified, scoped SITE, role ATMOSPHERE), so the JSON never names
+ * a picture the route would then refuse with a 404.
+ */
+const PUBLISHED_SELECT = `SELECT v.vacancy_id, v.public_token, v.title, v.department, v.location,
+                v.employment_type, v.description, v.salary_min, v.salary_max, v.salary_currency,
+                v.salary_hidden, v.experience_years_min, v.skills_required, v.closes_on,
+                v.published_at, v.work_mode, v.working_hours, v.days_on_site, v.days_off_site,
+                v.days_off, v.probation_months, v.location_city, v.location_state,
+                v.location_country, v.target_start_date, v.apply_config,
+                d.doc_id AS cover_id, d.public_media_variants AS cover_variants
+           FROM vacancy v
+           LEFT JOIN document_vault d
+             ON d.doc_id = v.cover_vault_id
+            AND d.status = 'VERIFIED'
+            AND d.public_media_scope = 'SITE'
+            AND d.public_media_role = 'ATMOSPHERE'`;
+
 // vacancy head + job_applicant children. All SQL lives here.
 const base = makeRepo({
   table: "vacancy",
@@ -203,13 +233,10 @@ module.exports = {
   publishedList(client) {
     return client
       .query(
-        `SELECT vacancy_id, public_token, title, department, location, employment_type,
-                description, salary_min, salary_max, salary_currency, experience_years_min,
-                skills_required, closes_on, published_at
-           FROM vacancy
-          WHERE status = 'OPEN' AND public_token IS NOT NULL
-            AND (closes_on IS NULL OR closes_on >= current_date)
-          ORDER BY published_at DESC NULLS LAST`,
+        `${PUBLISHED_SELECT}
+          WHERE v.status = 'OPEN' AND v.public_token IS NOT NULL
+            AND (v.closes_on IS NULL OR v.closes_on >= current_date)
+          ORDER BY v.published_at DESC NULLS LAST`,
       )
       .then((r) => r.rows);
   },
@@ -224,12 +251,9 @@ module.exports = {
   publishedByToken(client, token) {
     return client
       .query(
-        `SELECT vacancy_id, public_token, title, department, location, employment_type,
-                description, salary_min, salary_max, salary_currency, experience_years_min,
-                skills_required, closes_on, published_at
-           FROM vacancy
-          WHERE public_token = $1 AND status = 'OPEN'
-            AND (closes_on IS NULL OR closes_on >= current_date)`,
+        `${PUBLISHED_SELECT}
+          WHERE v.public_token = $1 AND v.status = 'OPEN'
+            AND (v.closes_on IS NULL OR v.closes_on >= current_date)`,
         [token],
       )
       .then((r) => r.rows[0] || null);

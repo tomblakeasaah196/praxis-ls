@@ -197,7 +197,7 @@ function makeUploadClient({ priorCoverId = null, failOn = null } = {}) {
       // The public serve joins, answered with the predicates the SQL carries.
       // The three mark/portrait slots have nothing in these fixtures; the
       // entity-cover join answers from the same state the transaction moved.
-      if (/JOIN (site_leader|site_partner|site_credential|corporate_entity|site_image) o ON o\./.test(q)) {
+      if (/JOIN (site_leader|site_partner|site_credential|corporate_entity|site_image|vacancy) o ON o\./.test(q)) {
         if (!/JOIN corporate_entity/.test(q)) return { rows: [], rowCount: 0 };
         const docId = params[0];
         const wantsScope = /v\.public_media_scope = 'SITE'/.test(q);
@@ -350,7 +350,11 @@ describe("the slot register", () => {
     // Plus `site-image` (14660), whose slots are addressed by their own route
     // (`/site-brand/images/:slot`) rather than by this enum: the photograph
     // slots are keyed by a place on the site, not by a row's id.
-    expect(Object.keys(media.OWNERS).sort()).toEqual([...siteSettings.SITE_MEDIA_SLOT_IDS, "site-image"].sort());
+    // And `vacancy-cover` (14720), uploaded through `/vacancies/:id/cover`
+    // under the recruitment grant rather than this website-settings enum.
+    expect(Object.keys(media.OWNERS).sort()).toEqual(
+      [...siteSettings.SITE_MEDIA_SLOT_IDS, "site-image", "vacancy-cover"].sort(),
+    );
   });
 
   test("every slot is an evidence slot, so none of them accepts generated imagery", () => {
@@ -579,5 +583,62 @@ describe("the entity cover serve join (Q1, CE-27)", () => {
     }
     // And the switch alone was never the whole gate either.
     expect(await media.publicMediaForServe(serveClient("ACTIVE", false), DOC_ID)).toBeNull();
+  });
+});
+
+/* ── a role's careers photograph (14720) ────────────────────────────────────
+ *
+ * The bytes must stop answering the moment the role leaves the careers page,
+ * from the SAME predicate the careers list uses, or the JSON says "not on the
+ * page" while every cached `<img>` keeps loading the picture for a year.
+ */
+describe("the vacancy cover (14720)", () => {
+  const owner = media.OWNERS["vacancy-cover"];
+  const spec = media.SITE_MEDIA_SLOTS["vacancy-cover"];
+
+  test("is an atmosphere slot on the vacancy row, audited under recruitment", () => {
+    expect(spec).toMatchObject({ role: "ATMOSPHERE", evidence: false, transparent: false });
+    expect(owner).toMatchObject({ table: "vacancy", column: "cover_vault_id", moduleKey: "MOD-11" });
+    // `vacancy` has no updated_at / updated_by: a SET naming either is a 42703
+    // on the first upload.
+    expect(owner.set).not.toMatch(/updated_(at|by)/);
+    expect(owner.setParams).toBe(2);
+  });
+
+  test("the serve join carries the careers list's own predicate", () => {
+    expect(owner.serve).toMatch(/JOIN vacancy o ON o\.cover_vault_id = v\.doc_id/);
+    expect(owner.serve).toMatch(/o\.status = 'OPEN'/);
+    expect(owner.serve).toMatch(/o\.public_token IS NOT NULL/);
+    expect(owner.serve).toMatch(/o\.closes_on IS NULL OR o\.closes_on >= current_date/);
+  });
+
+  test("a photograph whose role is no longer on the careers page 404s", async () => {
+    const DOC_ID = "44444444-4444-4444-4444-444444444444";
+    const doc = {
+      doc_id: DOC_ID,
+      storage_path: "t/vault/doc_v.webp",
+      public_media_content_type: "image/webp",
+      public_media_variants: { widths: [480, 960], formats: ["avif", "webp"] },
+    };
+    /** Applies the role predicates the SQL carries to one configured role. */
+    function serveClient(role) {
+      return {
+        async query(text) {
+          const q = String(text);
+          if (!/JOIN vacancy o/.test(q)) return { rows: [] };
+          const open = !/o\.status = 'OPEN'/.test(q) || role.status === "OPEN";
+          const published = !/o\.public_token IS NOT NULL/.test(q) || role.public_token !== null;
+          const current = !/o\.closes_on >= current_date/.test(q) || !role.closed;
+          return { rows: open && published && current ? [doc] : [] };
+        },
+      };
+    }
+    const live = { status: "OPEN", public_token: "tok", closed: false };
+    expect(await media.publicMediaForServe(serveClient(live), DOC_ID)).toMatchObject({ doc_id: DOC_ID });
+    for (const status of ["DRAFT", "PAUSED", "CLOSED"]) {
+      expect(await media.publicMediaForServe(serveClient({ ...live, status }), DOC_ID)).toBeNull();
+    }
+    expect(await media.publicMediaForServe(serveClient({ ...live, public_token: null }), DOC_ID)).toBeNull();
+    expect(await media.publicMediaForServe(serveClient({ ...live, closed: true }), DOC_ID)).toBeNull();
   });
 });

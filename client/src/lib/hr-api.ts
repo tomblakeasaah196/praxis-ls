@@ -1674,6 +1674,8 @@ export type Vacancy = {
   /** The band stays on the row; the PUBLIC payload omits it when this is set. */
   salary_hidden?: boolean | null;
   apply_config?: { require_cover_letter?: boolean; require_portfolio?: boolean } | null;
+  /** 14720: the careers photograph, a website image in the vault. NULL = none. */
+  cover_vault_id?: string | null;
   // 0526 — who is hiring, how many, and where the advert came from.
   entity_id?: string | null;
   headcount?: number | null;
@@ -1781,6 +1783,40 @@ export const createVacancy = (body: {
 }) => tenant<Vacancy>("/vacancies", { method: "POST", body });
 /** Edit the advert itself. The wizard drafts straight into a saved DRAFT row,
  *  so this — not `createVacancy` — is what the editor writes through. */
+/* ── The careers photograph (14720) ───────────────────────────────────────
+ *
+ * Uploaded the moment it is picked (like every website image), so it never
+ * half-saves with the editor's text fields. Public only once the role is OPEN
+ * and published; the editor reads it back through the staff route below,
+ * which answers for drafts too. */
+export type CoverProvenance = "owned" | "licensed" | "generated";
+
+/** The careers slot's own caps, stated before the file dialog opens. The
+ *  server enforces the same numbers (`site_settings.media`, `vacancy-cover`). */
+export const VACANCY_COVER_LIMITS = { maxBytes: 10 * 1024 * 1024, minWidth: 960 };
+
+export const uploadVacancyCover = (
+  id: string,
+  body: { provenance: CoverProvenance; data_url: string; original_name?: string },
+  onProgress: (percent: number) => void,
+) =>
+  tenantWithProgress<{ vacancy_id: string; cover_vault_id: string }>(
+    `/vacancies/${encodeURIComponent(id)}/cover`,
+    body,
+    onProgress,
+  );
+
+export const removeVacancyCover = (id: string) =>
+  tenant<{ vacancy_id: string; cover_vault_id: null }>(
+    `/vacancies/${encodeURIComponent(id)}/cover`,
+    { method: "DELETE" },
+  );
+
+/** The staff copy's address. The vault id rides in the query so a replaced
+ *  photograph is a new URL, never a day-old cached picture. */
+export const vacancyCoverPath = (id: string, coverId: string) =>
+  `/tenant/vacancies/${encodeURIComponent(id)}/cover?v=${encodeURIComponent(coverId)}`;
+
 export const updateVacancy = (
   id: string,
   patch: {

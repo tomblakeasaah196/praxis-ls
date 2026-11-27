@@ -75,6 +75,37 @@ describe("careers — the token chooses the environment", () => {
     expect(out.title).toBe("Real");
   });
 
+  it("carries a live role's photograph, and drops a Test role's (14720)", async () => {
+    const cover = { cover_id: "d1", cover_variants: { widths: [480, 960], formats: ["avif", "webp"] } };
+    global.__live = { vacancy_id: "v1", title: "Accountant", public_token: "tok", skills_required: [], ...cover };
+    expect((await service.get(fakeReq(), "tok")).cover).toEqual({
+      id: "d1",
+      variants: { widths: [480, 960], formats: ["avif", "webp"] },
+    });
+
+    // The public media route reads LIVE only: a Test role's picture is not an
+    // address a candidate's browser could load, so the JSON does not name it.
+    delete global.__live;
+    global.__sandbox = { vacancy_id: "v2", title: "Rehearsal", public_token: "tok", skills_required: [], ...cover };
+    expect((await service.get(fakeReq(), "tok")).cover).toBeNull();
+  });
+
+  it("names no photograph when the recruiter chose none", async () => {
+    global.__live = { vacancy_id: "v1", title: "Accountant", public_token: "tok", skills_required: [], cover_id: null };
+    expect((await service.get(fakeReq(), "tok")).cover).toBeNull();
+  });
+
+  it("keeps a confidential salary out of the public JSON", async () => {
+    global.__live = {
+      vacancy_id: "v1", title: "Accountant", public_token: "tok", skills_required: [],
+      salary_hidden: true, salary_min: "400000", salary_max: "600000", salary_currency: "XAF",
+    };
+    const out = await service.get(fakeReq(), "tok");
+    expect(out.salary_hidden).toBe(true);
+    expect(out).not.toHaveProperty("salary_min");
+    expect(out).not.toHaveProperty("salary_max");
+  });
+
   it("does not pay for a second lookup on a workspace with no Test schema", async () => {
     const req = fakeReq({ hasSandbox: false });
     await expect(service.get(req, "tok")).rejects.toMatchObject({ status: 404 });
@@ -212,5 +243,39 @@ describe("vacancy.scoring — reading the CV", () => {
     const out = await scoring.readCv({}, null);
     expect(out).toEqual({ text: null, reason: null });
     expect(vault.fetchBytes).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The columns the public careers queries read (14720).
+ *
+ * `publicVacancy` decides what to omit from fields the QUERY must supply. The
+ * 0684 columns were missing from both statements, so `salary_hidden` was
+ * always undefined and a confidential band was published anyway, and
+ * `apply_config` was always `{}` so the required covering note was never
+ * required. Pinned on the SQL itself, since a mocked repo cannot see it.
+ */
+describe("careers — the public queries select what the public shape reads", () => {
+  const COLUMNS = [
+    "salary_hidden", "apply_config", "work_mode", "working_hours", "days_on_site",
+    "days_off_site", "days_off", "probation_months", "location_city", "location_state",
+    "location_country", "target_start_date", "cover_id", "cover_variants",
+  ];
+  const capture = () => {
+    const seen = [];
+    return { seen, client: { query: async (text) => { seen.push(String(text)); return { rows: [] }; } } };
+  };
+
+  it.each(["publishedList", "publishedByToken"])("%s", async (fn) => {
+    // The file-level beforeEach stubs the token lookup; this reads the real SQL.
+    jest.restoreAllMocks();
+    const { seen, client } = capture();
+    await vacancyRepo[fn](client, "tok");
+    for (const c of COLUMNS) expect(seen[0]).toMatch(new RegExp(`\\b${c}\\b`));
+    // The photograph is joined on the clauses the public media route
+    // re-asserts, so the JSON never names a picture the route would 404.
+    expect(seen[0]).toMatch(/d\.public_media_scope = 'SITE'/);
+    expect(seen[0]).toMatch(/d\.public_media_role = 'ATMOSPHERE'/);
+    expect(seen[0]).toMatch(/d\.status = 'VERIFIED'/);
   });
 });
