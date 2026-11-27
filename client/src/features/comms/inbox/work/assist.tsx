@@ -33,6 +33,8 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { Callout } from "@/components/ui/callout";
 import { Select } from "@/components/ui/modal";
+import { DropdownItem, DropdownMenu } from "@/components/ui/dropdown-menu";
+import { ChevronIcon, SparklesIcon } from "@/components/ui/icons";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingRow } from "@/components/ui/states";
 import { VoiceInput } from "@/components/voice-input";
@@ -125,6 +127,7 @@ export function AssistToolbar({
   language,
   getSubject,
   getRecipients,
+  voiceOpen = false,
 }: {
   threadId?: string | null;
   getText: () => string;
@@ -144,12 +147,17 @@ export function AssistToolbar({
    */
   getSubject?: () => string;
   getRecipients?: () => string[];
+  /**
+   * Whether the dictation panel is showing. The microphone that opens it is
+   * in the composer's toolbar (27 Nov 2026), so the toolbar owns the state.
+   */
+  voiceOpen?: boolean;
 }) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<api.AssistDraft | null>(null);
   const [tone, setTone] = React.useState<api.AssistTone>("formal");
   const [dictation, setDictation] = React.useState("");
-  const [showVoice, setShowVoice] = React.useState(false);
+  const showVoice = voiceOpen;
   /* §8.3's "Other…" — a sentence of brief in the operator's own words, beside
    * the ten named tones. A preset says HOW to write; this says WHAT about. */
   const [brief, setBrief] = React.useState("");
@@ -174,67 +182,84 @@ export function AssistToolbar({
 
   const hasText = () => Boolean(getText().trim());
 
+  /* The subject, the addressees and the brief all ride along. Before they did,
+   * this on a blank new message asked the model to write about nothing and got
+   * exactly that back. */
+  const compose = () =>
+    run("compose", () => api.assistCompose({
+      tone,
+      language,
+      thread_id: threadId || undefined,
+      draft: getText() || undefined,
+      subject: getSubject?.().trim() || undefined,
+      to: getRecipients?.().length ? getRecipients() : undefined,
+      instruction: brief.trim() || undefined,
+    }));
+
   return (
     <div className="space-y-2 rounded-lg border border-border bg-card/40 px-3 py-2">
-      <div className="flex flex-wrap items-center gap-2">
+      {/* TWO rows, at every width (27 Nov 2026). The one thing most people
+          came for, the tone and Draft a Reply, on the first; every other
+          verb as a chip on ONE swiping row under it. As buttons they wrapped
+          to four rows on a phone, a third of the screen above the Send
+          button. Dictation is the microphone in the editor's toolbar. */}
+      <div className="flex items-center gap-2">
         <Select
           value={tone}
           onChange={(e) => setTone(e.target.value as api.AssistTone)}
           aria-label={tr("Tone")}
-          className="h-8 w-auto text-xs"
+          className="h-9 min-w-0 flex-1 text-xs sm:w-auto sm:flex-none"
         >
           {TONES.map((t) => (
             <option key={t.value} value={t.value}>{tr(t.label)}</option>
           ))}
         </Select>
 
-        {threadId && (
+        {threadId ? (
           <Button
             size="sm"
+            icon={<SparklesIcon width={16} height={16} />}
             disabled={busy !== null}
             onClick={() => run("draft", () => api.assistDraft({ thread_id: threadId, tone, language }))}
+            className="flex-1 sm:flex-none"
           >
-            {busy === "draft" ? tr("Drafting…") : tr("Draft a reply")}
+            {busy === "draft" ? tr("Drafting…") : tr("Draft a Reply")}
+          </Button>
+        ) : (
+          // A new message has nothing to reply to, so writing it is the first
+          // row's job here; the chip below would only repeat it.
+          <Button
+            size="sm"
+            icon={<SparklesIcon width={16} height={16} />}
+            disabled={busy !== null}
+            onClick={compose}
+            className="flex-1 sm:flex-none"
+          >
+            {busy === "compose" ? tr("Writing…") : hasText() ? tr("Rewrite in This Tone") : tr("Write It for Me")}
           </Button>
         )}
+      </div>
 
-        {/* The subject, the addressees and the brief all ride along. Before
-            they did, this button on a blank new message asked the model to
-            write about nothing and got exactly that back. */}
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy !== null}
-          onClick={() =>
-            run("compose", () => api.assistCompose({
-              tone,
-              language,
-              thread_id: threadId || undefined,
-              draft: getText() || undefined,
-              subject: getSubject?.().trim() || undefined,
-              to: getRecipients?.().length ? getRecipients() : undefined,
-              instruction: brief.trim() || undefined,
-            }))
-          }
-        >
-          {busy === "compose" ? tr("Writing…") : hasText() ? tr("Rewrite in this tone") : tr("Write it for me")}
-        </Button>
-
-        <Button
-          size="sm"
-          variant="ghost"
+      <div className="scroll-strip -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5" role="group" aria-label={tr("More ways to write")}>
+        {threadId && (
+          <button type="button" className="chip" disabled={busy !== null} onClick={compose}>
+            {busy === "compose" ? tr("Writing…") : hasText() ? tr("Rewrite in This Tone") : tr("Write It for Me")}
+          </button>
+        )}
+        <button
+          type="button"
+          className={brief.trim() ? "chip on" : "chip"}
           aria-expanded={showBrief}
           onClick={() => setShowBrief((v) => !v)}
           title={tr("Tell it what the email should say, in your own words")}
         >
-          {brief.trim() ? tr("Brief ✓") : tr("Other…")}
-        </Button>
-
+          {tr("Brief…")}
+        </button>
         {ACTIONS.map((a) => (
-          <Button
+          <button
             key={a.value}
-            size="sm"
-            variant="ghost"
+            type="button"
+            className="chip disabled:opacity-50"
             disabled={busy !== null || !hasText()}
             onClick={() =>
               run(a.value, () => api.assistRewrite({
@@ -243,28 +268,37 @@ export function AssistToolbar({
             }
           >
             {busy === a.value ? "…" : tr(a.label)}
-          </Button>
+          </button>
         ))}
-
-        {(["fr", "en"] as const).map((to) => (
-          <Button
-            key={to}
-            size="sm"
-            variant="ghost"
-            disabled={busy !== null || !hasText()}
-            onClick={() =>
-              run(`to_${to}`, () => api.assistTranslate({
-                text: getText(), to, thread_id: threadId || undefined,
-              }))
-            }
-          >
-            {busy === `to_${to}` ? "…" : to === "fr" ? "En français" : "In English"}
-          </Button>
-        ))}
-
-        <Button size="sm" variant="ghost" onClick={() => setShowVoice((v) => !v)}>
-          {tr("Dictate")}
-        </Button>
+        {/* One chip, two languages behind it: the product serves a corridor
+            that writes both, and two side-by-side chips spent a whole chip on
+            the direction nobody needed this time. */}
+        <DropdownMenu
+          align="start"
+          trigger={
+            <button
+              type="button"
+              className="chip disabled:opacity-50"
+              disabled={busy !== null || !hasText()}
+            >
+              {busy?.startsWith("to_") ? "…" : tr("Translate")}
+              <ChevronIcon width={12} height={12} />
+            </button>
+          }
+        >
+          {(["fr", "en"] as const).map((to) => (
+            <DropdownItem
+              key={to}
+              onSelect={() =>
+                run(`to_${to}`, () => api.assistTranslate({
+                  text: getText(), to, thread_id: threadId || undefined,
+                }))
+              }
+            >
+              {to === "fr" ? "En français" : "In English"}
+            </DropdownItem>
+          ))}
+        </DropdownMenu>
       </div>
 
       {showBrief && (
@@ -337,9 +371,6 @@ export function AssistToolbar({
         <p className="text-xs text-muted-foreground">{result.note}</p>
       )}
       {result && <DraftProvenance draft={result} />}
-      <p className="text-xs text-muted-foreground">
-        {tr("Everything here lands in the composer. Nothing is sent, and nothing is written to a record.")}
-      </p>
     </div>
   );
 }

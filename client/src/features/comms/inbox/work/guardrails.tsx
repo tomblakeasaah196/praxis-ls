@@ -39,6 +39,8 @@
  * client can decide whether the rule applies.
  */
 import { Callout } from "@/components/ui/callout";
+import { ShieldIcon } from "@/components/ui/icons";
+import { cn } from "@/lib/cn";
 import { Pill, type Tone } from "@/components/ui/pill";
 import { Textarea } from "@/components/ui/textarea";
 import { tr } from "@/lib/i18n";
@@ -68,12 +70,18 @@ const VERDICT: Record<api.AuthVerdict, { tone: Tone; label: string; why: string 
 };
 
 /**
- * The banner over an inbound message.
+ * The banner over an inbound message: ONLY for the two verdicts that ask the
+ * reader to do something.
  *
- * UNVERIFIED renders quietly, because most threads are and a loud banner on all
- * of them is one nobody reads by week two. SUSPICIOUS and LIKELY_IMPERSONATION
- * are loud, and they name the action — confirm by phone — rather than leaving
- * the reader to work out what "suspicious" is supposed to make them do.
+ * UNVERIFIED draws nothing here. It used to print a grey sentence ("Not
+ * Verified. We have no confirmation that this domain belongs to the party on
+ * this thread…") over nearly every message, because nearly every domain is
+ * unverified, and a sentence on every message is one nobody reads by week two.
+ * The tenant's verdict on 27 Nov 2026, with thousands of mails a month, was to
+ * make it an icon: `VerdictIcon`, beside the sender's name, carries it now.
+ * SUSPICIOUS and LIKELY_IMPERSONATION stay loud, and they name the action
+ * (confirm by phone) rather than leaving the reader to work out what
+ * "suspicious" is supposed to make them do.
  */
 export function VerdictBanner({
   verdict,
@@ -82,23 +90,51 @@ export function VerdictBanner({
   verdict?: api.AuthVerdict | null;
   detail?: string | null;
 }) {
-  if (!verdict || verdict === "VERIFIED") return null;
+  if (verdict !== "SUSPICIOUS" && verdict !== "LIKELY_IMPERSONATION") return null;
   const v = VERDICT[verdict];
-  if (!v) return null;
-
-  if (verdict === "UNVERIFIED") {
-    return (
-      <p className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-        {tr(v.label)}. {tr(v.why)}
-      </p>
-    );
-  }
 
   return (
     <Callout tone={verdict === "SUSPICIOUS" ? "warn" : "bad"} title={tr(v.label)}>
       {tr(v.why)}
       {detail ? <> {detail}</> : null}
     </Callout>
+  );
+}
+
+const ICON_INK: Record<api.AuthVerdict, string> = {
+  VERIFIED: "text-ok",
+  UNVERIFIED: "text-muted-foreground/70",
+  SUSPICIOUS: "text-warn",
+  LIKELY_IMPERSONATION: "text-bad",
+};
+
+/**
+ * The sender check as a glyph beside the sender's name: a shield, coloured by
+ * the verdict, named for a screen reader and explained on hover. Drawn inside
+ * the message header's toggle button, so it is an image and not a control:
+ * its name joins the header's ("Fred, Not Verified"), which is the information
+ * the old banner carried, in four words instead of thirty.
+ */
+export function VerdictIcon({
+  verdict,
+  className,
+}: {
+  verdict?: api.AuthVerdict | null;
+  className?: string;
+}) {
+  if (!verdict) return null;
+  const v = VERDICT[verdict];
+  if (!v) return null;
+  const label = tr(v.label);
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={`${label}. ${tr(v.why)}`}
+      className={cn("inline-flex shrink-0", ICON_INK[verdict], className)}
+    >
+      <ShieldIcon width={14} height={14} />
+    </span>
   );
 }
 

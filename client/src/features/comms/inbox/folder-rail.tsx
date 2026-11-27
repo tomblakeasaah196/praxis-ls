@@ -120,6 +120,17 @@ function RailButton({
   );
 }
 
+/** One place a reader can go: what the rail draws as a row and the phone draws
+ *  as an option. Computed once so the two layouts cannot disagree about what
+ *  exists, what it counts or which one is open. */
+type Place = {
+  key: string;
+  label: string;
+  count?: number;
+  active: boolean;
+  patch: Partial<RailSelection>;
+};
+
 export function FolderRail({
   mailboxes,
   folders,
@@ -128,6 +139,7 @@ export function FolderRail({
   humanUnread,
   systemUnread,
   outboxWaiting = 0,
+  compact = false,
 }: {
   mailboxes: Mailbox[];
   folders: Folder[];
@@ -137,6 +149,14 @@ export function FolderRail({
   systemUnread: number;
   /** Messages in the Outbox that have not gone yet. */
   outboxWaiting?: number;
+  /**
+   * The phone layout: the mailbox and the folder as two dropdowns on ONE row
+   * instead of a column of eight rows. On a phone the rail stacked above the
+   * list, and the first conversation started three quarters of the way down
+   * the screen (tenant review, 27 Nov 2026). Same places, same counts, same
+   * `go()`: only the drawing changes.
+   */
+  compact?: boolean;
 }) {
   /** A rail row is a place: going to one drops the filter and the other list. */
   const go = (patch: Partial<RailSelection>) =>
@@ -155,69 +175,51 @@ export function FolderRail({
   const synced = folders.some((f) => f.canonical);
   const inFolder = !selection.pending;
 
-  return (
-    <nav aria-label={tr("Mail folders")} className="space-y-0.5">
-      {/* A person with one mailbox should not be asked to choose it, but the
-          rail is still SCOPED to that mailbox whether or not the picker is
-          drawn. There is no "all my mailboxes" option, because there is no such
-          rail to draw: folders and their counts belong to one connection. */}
-      {mailboxes.length > 1 && (
-        <div className="pb-2">
-          <Field label={tr("Mailbox")}>
-            <Select
-              value={selection.connectionId ?? mailboxes[0].email_connection_id}
-              onChange={(e) => go({ connectionId: e.target.value, folder: "INBOX", stream: "HUMAN" })}
-            >
-              {mailboxes.map((m) => (
-                <option key={m.email_connection_id} value={m.email_connection_id}>
-                  {m.email_address}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      )}
+  const places: Place[] = [
+    {
+      key: "INBOX:HUMAN",
+      label: tr("Inbox"),
+      count: humanUnread,
+      active: inFolder && selection.folder === "INBOX" && selection.stream !== "SYSTEM",
+      patch: { folder: "INBOX", stream: "HUMAN" },
+    },
+    {
+      key: "INBOX:SYSTEM",
+      label: tr("Notices"),
+      count: systemUnread,
+      active: inFolder && selection.folder === "INBOX" && selection.stream === "SYSTEM",
+      patch: { folder: "INBOX", stream: "SYSTEM" },
+    },
+    {
+      key: "pending:DRAFTS",
+      label: tr("Drafts"),
+      active: selection.pending === "DRAFTS",
+      patch: { pending: "DRAFTS" },
+    },
+    ...(outboxWaiting > 0 || selection.pending === "OUTBOX"
+      ? [{
+          key: "pending:OUTBOX",
+          label: tr("Outbox"),
+          count: outboxWaiting,
+          active: selection.pending === "OUTBOX",
+          patch: { pending: "OUTBOX" } as Partial<RailSelection>,
+        }]
+      : []),
+    ...canonical.map((f) => ({
+      key: f.email_folder_id,
+      label: folderLabel(f),
+      count: f.unread_count,
+      active: inFolder && selection.folder === f.canonical,
+      patch: { folder: f.canonical as MailFolder },
+    })),
+  ];
 
-      <RailButton
-        active={inFolder && selection.folder === "INBOX" && selection.stream !== "SYSTEM"}
-        onClick={() => go({ folder: "INBOX", stream: "HUMAN" })}
-        count={humanUnread}
-      >
-        {tr("Inbox")}
-      </RailButton>
-      <RailButton
-        active={inFolder && selection.folder === "INBOX" && selection.stream === "SYSTEM"}
-        onClick={() => go({ folder: "INBOX", stream: "SYSTEM" })}
-        count={systemUnread}
-      >
-        {tr("Notices")}
-      </RailButton>
-      <RailButton
-        active={selection.pending === "DRAFTS"}
-        onClick={() => go({ pending: "DRAFTS" })}
-      >
-        {tr("Drafts")}
-      </RailButton>
-      {(outboxWaiting > 0 || selection.pending === "OUTBOX") && (
-        <RailButton
-          active={selection.pending === "OUTBOX"}
-          onClick={() => go({ pending: "OUTBOX" })}
-          count={outboxWaiting}
-        >
-          {tr("Outbox")}
-        </RailButton>
-      )}
-      {canonical.map((f) => (
-        <RailButton
-          key={f.email_folder_id}
-          active={inFolder && selection.folder === f.canonical}
-          onClick={() => go({ folder: f.canonical as MailFolder })}
-          count={f.unread_count}
-        >
-          {folderLabel(f)}
-        </RailButton>
-      ))}
+  const mailboxValue = selection.connectionId ?? mailboxes[0]?.email_connection_id;
+  const pickMailbox = (connectionId: string) =>
+    go({ connectionId, folder: "INBOX", stream: "HUMAN" });
 
+  const notes = (
+    <>
       {!synced && mailboxes.length > 0 && (
         // Not an error. Gated on knowing WHICH mailbox, because "this mailbox
         // has no folders" is a claim, and for the half-second before the
@@ -244,6 +246,77 @@ export function FolderRail({
           </ul>
         </div>
       )}
+    </>
+  );
+
+  if (compact) {
+    const current = places.find((p) => p.active) ?? places[0];
+    return (
+      <nav aria-label={tr("Mail folders")}>
+        <div className="flex items-center gap-2">
+          {/* One mailbox: no picker, and the folder takes the whole row. */}
+          {mailboxes.length > 1 && (
+            <Select
+              aria-label={tr("Mailbox")}
+              className="min-w-0 flex-1 truncate"
+              value={mailboxValue}
+              onChange={(e) => pickMailbox(e.target.value)}
+            >
+              {mailboxes.map((m) => (
+                <option key={m.email_connection_id} value={m.email_connection_id}>
+                  {m.email_address}
+                </option>
+              ))}
+            </Select>
+          )}
+          <Select
+            aria-label={tr("Folder")}
+            className="min-w-0 flex-1"
+            value={current.key}
+            onChange={(e) => {
+              const next = places.find((p) => p.key === e.target.value);
+              if (next) go(next.patch);
+            }}
+          >
+            {places.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.count ? `${p.label} · ${p.count}` : p.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {notes}
+      </nav>
+    );
+  }
+
+  return (
+    <nav aria-label={tr("Mail folders")} className="space-y-0.5">
+      {/* A person with one mailbox should not be asked to choose it, but the
+          rail is still SCOPED to that mailbox whether or not the picker is
+          drawn. There is no "all my mailboxes" option, because there is no such
+          rail to draw: folders and their counts belong to one connection. */}
+      {mailboxes.length > 1 && (
+        <div className="pb-2">
+          <Field label={tr("Mailbox")}>
+            <Select value={mailboxValue} onChange={(e) => pickMailbox(e.target.value)}>
+              {mailboxes.map((m) => (
+                <option key={m.email_connection_id} value={m.email_connection_id}>
+                  {m.email_address}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+      )}
+
+      {places.map((p) => (
+        <RailButton key={p.key} active={p.active} onClick={() => go(p.patch)} count={p.count}>
+          {p.label}
+        </RailButton>
+      ))}
+
+      {notes}
     </nav>
   );
 }

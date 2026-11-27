@@ -223,3 +223,78 @@ test.describe("Smart Mail as a workstation", () => {
     expect(await hasHorizontalScroll(page)).toBe(false);
   });
 });
+
+/*
+ * ── ON A PHONE ──────────────────────────────────────────────────────────────
+ *
+ * The owner's screenshot of 27 Nov 2026: on a phone the first conversation
+ * started three quarters of the way down the screen. A Compose button and a
+ * search form with its own Search button took two rows, the mailbox picker a
+ * third, and the folder rail eight more, all stacked over the list. These are
+ * the numbers that would show any of it coming back.
+ */
+test.describe("Smart Mail on a phone", () => {
+  test("THE FIRST CONVERSATION IS NEAR THE TOP: two rows of chrome, not thirteen", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openScreen(page, "/comms/mail", /^Mail$/);
+    const row = page.locator(ROWS).first();
+    await row.waitFor();
+
+    // Folders are a dropdown, not a column of buttons.
+    await expect(page.getByLabel("Folder", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Mail folders" }).getByRole("button"),
+    ).toHaveCount(0);
+    // And the search box has no button of its own: it searches as you pause.
+    // Scoped to <main>: the app bar's magnifier is also called "Search".
+    await expect(
+      page.locator("main").getByRole("button", { name: "Search", exact: true }),
+    ).toHaveCount(0);
+
+    const spent = await page.evaluate((sel) => {
+      const li = document.querySelector(sel)!;
+      const main = document.querySelector("main")!;
+      return Math.round(li.getBoundingClientRect().y - main.getBoundingClientRect().y);
+    }, ROWS);
+    // Measured from <main>, so the shell's own bars are not counted. The
+    // stacked rail put this past 1,100px.
+    expect(spent, `${spent}px of chrome above the first conversation`).toBeLessThan(260);
+    expect(await hasHorizontalScroll(page)).toBe(false);
+  });
+
+  test("Compose is a pen at the end of the search row, lined up with the folder dropdown", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openScreen(page, "/comms/mail", /^Mail$/);
+    await page.locator(ROWS).first().waitFor();
+
+    const pen = await page.getByRole("button", { name: "Compose" }).boundingBox();
+    const search = await page.getByRole("searchbox", { name: "Search mail" }).boundingBox();
+    const folder = await page.getByLabel("Folder", { exact: true }).boundingBox();
+    // Same row as the search box, after it, the same height.
+    expect(Math.abs(pen!.y - search!.y)).toBeLessThanOrEqual(1);
+    expect(pen!.x).toBeGreaterThan(search!.x);
+    expect(Math.abs(pen!.height - search!.height)).toBeLessThanOrEqual(1);
+    // And its right edge is the dropdown's right edge.
+    expect(Math.abs(pen!.x + pen!.width - (folder!.x + folder!.width))).toBeLessThanOrEqual(1);
+  });
+
+  test("the conversation's strip is ONE row, with Forward behind Reply's ▾", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openScreen(page, "/comms/mail", /^Mail$/);
+    await page.locator(ROW_BUTTON).first().click();
+    const dialog = page.getByRole("dialog");
+    const reply = dialog.getByRole("button", { name: "Reply", exact: true });
+    await reply.waitFor();
+
+    const tops = await Promise.all(
+      ["Reply", "More reply options", "Archive", "Summarise", "Conversation actions"].map(
+        async (name) => (await dialog.getByRole("button", { name, exact: true }).boundingBox())!.y,
+      ),
+    );
+    expect(Math.max(...tops) - Math.min(...tops), `strip rows at ${tops.join(", ")}`).toBeLessThanOrEqual(2);
+
+    await dialog.getByRole("button", { name: "More reply options" }).click();
+    await expect(page.getByRole("menuitem", { name: "Forward" })).toBeVisible();
+    expect(await hasHorizontalScroll(page)).toBe(false);
+  });
+});

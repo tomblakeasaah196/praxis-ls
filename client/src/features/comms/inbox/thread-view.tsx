@@ -29,6 +29,15 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { MoreMenu } from "@/components/ui/more-menu";
+import { SplitButton } from "@/components/ui/split-button";
+import {
+  ArchiveIcon,
+  ForwardIcon,
+  MailIcon,
+  MailOpenIcon,
+  ReplyIcon,
+  SparklesIcon,
+} from "@/components/ui/icons";
 import { DropdownItem, DropdownSeparator } from "@/components/ui/dropdown-menu";
 import { ErrorState, LoadingRow } from "@/components/ui/states";
 import { dateTimeFmt } from "@/lib/format";
@@ -47,11 +56,10 @@ import {
 } from "@/lib/mail-api";
 import { useObjectUrl } from "../chat/use-object-url";
 import { NewMessageDialog } from "./composer/new-message";
-import { SignatureSlot } from "./composer/signature-slot";
 import { ThreadSummary } from "./work/assist";
 import { BindingChip } from "./work/binding";
 import { ConvertDialog } from "./work/convert";
-import { VerdictBanner } from "./work/guardrails";
+import { VerdictBanner, VerdictIcon } from "./work/guardrails";
 import {
   matchInlineParts,
   referencedCids,
@@ -583,7 +591,10 @@ function MessageBlock({
         className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left"
       >
         <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">{who}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-medium">{who}</span>
+            {message.direction === "IN" && <VerdictIcon verdict={message.auth_verdict} />}
+          </span>
           {!open && (
             <span className="block truncate text-xs text-muted-foreground">
               {message.body_preview || "—"}
@@ -651,6 +662,49 @@ function MessageBlock({
   );
 }
 
+/** A square icon button on the conversation strip: named, with a tooltip,
+ *  and the same 36px as the split button beside it. */
+function StripIcon({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors",
+        "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Reply All: the reply arrow, doubled. */
+function ReplyAllGlyph() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M8 17 3 12l5-5" />
+      <path d="M13 17 8 12l5-5" />
+      <path d="M22 18v-2a4 4 0 0 0-4-4H8" />
+    </svg>
+  );
+}
+
 export function ThreadView({
   thread,
   loading,
@@ -662,7 +716,6 @@ export function ThreadView({
   onLabel,
   onToggleRead,
   onDelete,
-  onClose,
   onReplied,
   onLinked,
   busy,
@@ -694,7 +747,9 @@ export function ThreadView({
    * assuming a success.
    */
   onDelete?: () => void;
-  onClose: () => void;
+  /** Kept for the callers: the sheet that holds this pane on a phone owns
+   *  closing it now, so the pane itself draws no Close. */
+  onClose?: () => void;
   /** Called once a reply is accepted into the send queue, so the list refreshes. */
   onReplied?: () => void;
   /**
@@ -860,62 +915,73 @@ export function ThreadView({
                 <Pill tone="blue">{thread.entity_label || thread.entity_ref}</Pill>
               </span>
             )}
-            <Button size="sm" variant="ghost" onClick={onClose} className="lg:hidden">
-              {tr("Close")}
-            </Button>
+            {/* No Close here. Below `lg` the pane is a sheet with its own ✕
+                in its title bar, and a second "Close" one line down spent
+                the subject's width on a word (27 Nov 2026). */}
           </div>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <Button size="sm" onClick={() => setReplying("REPLY")}>
-            {tr("Reply")}
-          </Button>
-          {/* Offered only when there IS somebody else on it. A "Reply all"
-              that produces the same message as "Reply" is a button that
-              teaches people the two are interchangeable — and then they use
-              it on the thread where they are not. */}
-          {replyAllCc.length > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setReplying("REPLY_ALL")}
-              title={`${tr("Also copies")} ${replyAllCc.join(", ")}`}
-            >
-              {`${tr("Reply All")} (${replyAllCc.length + replyTo.length})`}
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => setReplying("FORWARD")}>
-            {tr("Forward")}
-          </Button>
+        {/* ONE row at every width (27 Nov 2026). Reply is a split button with
+            Reply All and Forward behind its ▾, and the three triage verbs are
+            icons. As six labelled buttons the strip wrapped to two or three
+            rows on a phone, above the message it was about. Each icon carries
+            its name in `aria-label` and `title`, so it is never the glyph
+            alone. */}
+        <div className="mt-2 flex items-center gap-1.5">
+          <SplitButton
+            label={tr("Reply")}
+            icon={<ReplyIcon width={16} height={16} />}
+            onClick={() => setReplying("REPLY")}
+            menuLabel={tr("More reply options")}
+          >
+            {/* Offered only when there IS somebody else on it. A "Reply all"
+                that produces the same message as "Reply" is an item that
+                teaches people the two are interchangeable, and then they use
+                it on the thread where they are not. */}
+            {replyAllCc.length > 0 && (
+              <DropdownItem onSelect={() => setReplying("REPLY_ALL")}>
+                <ReplyAllGlyph />
+                <span className="min-w-0">
+                  <span className="block">{`${tr("Reply All")} (${replyAllCc.length + replyTo.length})`}</span>
+                  <span className="num block truncate text-xs text-muted-foreground">
+                    {`${tr("Also copies")} ${replyAllCc.join(", ")}`}
+                  </span>
+                </span>
+              </DropdownItem>
+            )}
+            <DropdownItem onSelect={() => setReplying("FORWARD")}>
+              <ForwardIcon width={16} height={16} />
+              {tr("Forward")}
+            </DropdownItem>
+          </SplitButton>
 
           <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />
 
           {folder !== "ARCHIVE" && (
-            <Button
-              size="sm"
-              variant="ghost"
+            <StripIcon
+              label={tr("Archive")}
               disabled={busy}
               onClick={() => onMove("ARCHIVE")}
             >
-              {tr("Archive")}
-            </Button>
+              <ArchiveIcon width={18} height={18} />
+            </StripIcon>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
+          <StripIcon
+            label={thread.unread_count > 0 ? tr("Mark Read") : tr("Mark Unread")}
             disabled={busy}
             onClick={() => onToggleRead(thread.unread_count > 0)}
           >
-            {thread.unread_count > 0 ? tr("Mark Read") : tr("Mark Unread")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
+            {thread.unread_count > 0
+              ? <MailOpenIcon width={18} height={18} />
+              : <MailIcon width={18} height={18} />}
+          </StripIcon>
+          <StripIcon
+            label={tr("Summarise")}
             disabled={summarising}
             onClick={() => setSummarising(true)}
           >
-            {tr("Summarise")}
-          </Button>
+            <SparklesIcon width={18} height={18} />
+          </StripIcon>
 
           {/* Everything a reader does once in a while, most-used first and the
               irreversible one last behind a separator — more-menu.tsx's own
@@ -1075,7 +1141,6 @@ export function ThreadView({
               entityRef={thread.entity_ref || null}
               onClose={() => setReplying(null)}
               onSent={onReplied}
-              slots={{ "composer.footer.left": <SignatureSlot /> }}
             />
           </React.Suspense>
         </footer>
