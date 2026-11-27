@@ -2584,9 +2584,14 @@
   .prose-site ol {
     margin: 0.9em 0;
   }
+  /* The preflight sets `list-style: none` on every list, which is right for a
+     nav or a card grid and wrong here: an advert's bullets rendered as indented
+     paragraphs with no markers. `revert` hands each list back to the browser's
+     own default, a disc for `ul` and a number for `ol`, in one declaration. */
   .prose-site ul,
   .prose-site ol {
     padding-left: 1.25rem;
+    list-style: revert;
   }
   .prose-site li + li {
     margin-top: 0.3em;
