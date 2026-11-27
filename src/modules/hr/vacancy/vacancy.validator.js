@@ -149,6 +149,19 @@ const answer = z.object({
 const publish = z.object({ published: z.boolean() });
 
 /**
+ * The careers photograph (14720). The same three provenance values the website
+ * images record (13789): the vault row needs one, and the slot is ATMOSPHERE so
+ * all three are accepted. The cap is far above the slot's own `maxBytes`, so an
+ * oversized picture is refused by the slot, with the slot's number in the
+ * message, rather than here with a message about a string's length.
+ */
+const cover = z.object({
+  provenance: z.enum(["owned", "licensed", "generated"]),
+  data_url: z.string().min(1).max(14_000_000),
+  original_name: z.string().trim().max(200).optional(),
+}).strict();
+
+/**
  * The interview answers (0526).
  *
  * `passthrough()`, and that is the point: the later questions are GENERATED, so
@@ -193,7 +206,7 @@ const aiUpdate = createShape.partial().extend({ vacancy_id: z.string().guid() })
 const aiStatus = status.extend({ vacancy_id: z.string().guid() });
 const aiApplicant = applicant.extend({ vacancy_id: z.string().guid() });
 const aiApplicantStatus = applicantStatus.extend({ vacancy_id: z.string().guid(), applicant_id: z.string().guid() });
-const schemas = { create, update, status, applicant, applicantStatus, consider, criterion, question, answer, publish, intake, transcribe, placeSearch, aiUpdate, aiStatus, aiApplicant, aiApplicantStatus };
+const schemas = { create, update, status, applicant, applicantStatus, consider, criterion, question, answer, publish, cover, intake, transcribe, placeSearch, aiUpdate, aiStatus, aiApplicant, aiApplicantStatus };
 
 const mw = (k) => (req, _res, next) => {
   const p = schemas[k].safeParse(req.body);
@@ -222,6 +235,7 @@ module.exports = {
   question: mw("question"),
   answer: mw("answer"),
   publish: mw("publish"),
+  cover: mw("cover"),
   intake: mw("intake"),
   transcribe: mw("transcribe"),
   placeSearch: qmw("placeSearch"),

@@ -79,6 +79,21 @@ const SITE_MEDIA_SLOTS = {
     minWidth: SITE_IMAGE_LIMITS.minWidth,
     aspect: "16:9",
   },
+  /* 14720: the photograph behind a role on the careers page (list card, the
+     role's header band, its share card). A scene behind a headline, never a
+     named person or another company's mark, so ATMOSPHERE like `site-image`,
+     and a generated scene is accepted for the same reason. 960 px is the
+     middle rung of the derivative ladder: anything narrower is a thumbnail
+     stretched across a phone, and every phone camera and phone screenshot
+     clears it. */
+  "vacancy-cover": {
+    role: "ATMOSPHERE",
+    evidence: false,
+    transparent: false,
+    maxBytes: SITE_IMAGE_LIMITS.maxBytes,
+    minWidth: 960,
+    aspect: "16:9",
+  },
 };
 
 /** What the vault's own sniffer can verify (`document_vault.service.js`), and
@@ -237,6 +252,41 @@ const OWNERS = {
                AND v.public_media_scope = 'SITE'
                AND v.public_media_role = $2
                AND v.public_media_content_type = ANY($3::text[])`,
+  },
+  /* 14720: a role's careers photograph. Recruitment owns the row (MOD-11), so
+     the upload is reached through `/vacancies/:id/cover` rather than the
+     website-settings route; this entry is only the pointer and the gate. The
+     last three predicates are the careers list's own (`vacancy.repo
+     .publishedList`), restated on the owner join so the bytes and the JSON
+     cannot disagree: a closed, paused or unpublished role's photograph stops
+     answering the moment the role leaves the page. `vacancy` has neither
+     `updated_at` nor `updated_by`, so `set` takes two parameters, like the
+     entity cover. */
+  "vacancy-cover": {
+    refPrefix: "vacancy",
+    table: "vacancy",
+    // Audited where the row lives: a recruiter changing a role's picture is
+    // recruitment work, and the vacancy's own trail is where it is looked for.
+    event: "vacancy.cover_updated",
+    moduleKey: "MOD-11",
+    read: `SELECT cover_vault_id AS vault_id FROM vacancy WHERE vacancy_id = $1`,
+    lock: `SELECT cover_vault_id AS vault_id FROM vacancy WHERE vacancy_id = $1 FOR UPDATE`,
+    set: `UPDATE vacancy
+             SET cover_vault_id = $2
+           WHERE vacancy_id = $1 RETURNING *`,
+    setParams: 2,
+    column: "cover_vault_id",
+    serve: `SELECT v.doc_id, v.public_media_content_type, v.public_media_variants, v.storage_path
+              FROM document_vault v
+              JOIN vacancy o ON o.cover_vault_id = v.doc_id
+             WHERE v.doc_id = $1
+               AND v.status = 'VERIFIED'
+               AND v.public_media_scope = 'SITE'
+               AND v.public_media_role = $2
+               AND v.public_media_content_type = ANY($3::text[])
+               AND o.status = 'OPEN'
+               AND o.public_token IS NOT NULL
+               AND (o.closes_on IS NULL OR o.closes_on >= current_date)`,
   },
 };
 
@@ -520,7 +570,7 @@ async function upload(client, { slot, ownerId, dataUrl, originalName, provenance
       await audit(client, {
         actorUserId: actor.user_id || null,
         action: owner.event,
-        moduleKey: events.MODULE,
+        moduleKey: owner.moduleKey || events.MODULE,
         entityRef: ref(owner.refPrefix, ownerId),
         before: { [owner.column]: replacedId },
         after: { [owner.column]: created.doc_id, provenance },
@@ -554,7 +604,7 @@ async function remove(client, { slot, ownerId, actor = {} }) {
     await audit(client, {
       actorUserId: actor.user_id || null,
       action: owner.event,
-      moduleKey: events.MODULE,
+      moduleKey: owner.moduleKey || events.MODULE,
       entityRef: ref(owner.refPrefix, ownerId),
       before: { [owner.column]: before.vault_id },
       after: { [owner.column]: null },

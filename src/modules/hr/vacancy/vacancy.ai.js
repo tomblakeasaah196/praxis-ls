@@ -29,6 +29,11 @@ module.exports = {
     },
   ],
 
+  /* The careers photograph (14720, `POST /:id/cover`) is deliberately not a
+     write here: it is an image picked from a device and sent through the
+     website-media pipeline, which a chat turn has no bytes for. `get_vacancy`
+     returns `cover_vault_id`, so the assistant can still say whether a role
+     has one. */
   writes: [
     {
       key: "create_vacancy",

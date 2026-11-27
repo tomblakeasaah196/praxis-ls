@@ -675,10 +675,10 @@ describe("the tables that may own an upload (14661)", () => {
     }
   });
 
-  test("the list is the one 13980's CHECK held, plus site_image", () => {
+  test("the list is the one 13980's CHECK held, plus site_image and vacancy (14720)", () => {
     expect([...outbox.OWNER_TABLES].sort()).toEqual([
       "client_document", "corporate_entity", "entity_document", "site_credential",
-      "site_image", "site_leader", "site_partner", "supplier_document",
+      "site_image", "site_leader", "site_partner", "supplier_document", "vacancy",
     ]);
   });
 });

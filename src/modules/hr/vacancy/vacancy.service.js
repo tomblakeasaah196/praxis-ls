@@ -14,6 +14,10 @@ const rules = require("../onboarding/onboarding.rules");
 const onboarding = require("../onboarding/onboarding.service");
 const transcription = require("../../../services/ai/transcription.service");
 const vault = require("../../vault/document_vault/document_vault.service");
+// 14720: the careers photograph goes through the one website-media pipeline
+// (sniffing, size and width caps, AVIF/WebP derivatives, the replaced picture
+// archived, the attempt booked in the outbox). Slot `vacancy-cover`.
+const siteMedia = require("../../site/site_settings/site_settings.media");
 const { logger } = require("../../../config/logger");
 
 /** Matches the careers form's limits — the same document either way, so a file
@@ -516,6 +520,39 @@ module.exports = {
     if (!applicant || applicant.vacancy_id !== vacancyId) return null;
     if (!applicant.cv_vault_id) return null;
     return vault.fetchBytes(client, applicant.cv_vault_id);
+  },
+
+  /* ── The careers photograph (14720) ──
+   *
+   * Optional, and independent of Save: the picture is uploaded the moment it
+   * is picked, like every other website image, so the editor's text fields and
+   * the photograph cannot half-save each other. Nothing about it is public
+   * until the role is OPEN and published — the public media route re-asserts
+   * that on every request (`site_settings.media` OWNERS["vacancy-cover"]).
+   */
+  async setCover(client, { vacancyId, body, actor = {}, slug }) {
+    const done = await siteMedia.upload(client, {
+      slot: "vacancy-cover",
+      ownerId: vacancyId,
+      dataUrl: body.data_url,
+      originalName: body.original_name,
+      provenance: body.provenance,
+      actor,
+      slug,
+    });
+    return { vacancy_id: vacancyId, cover_vault_id: done.doc_id, variants: done.variants || null };
+  },
+  async removeCover(client, { vacancyId, actor = {} }) {
+    await siteMedia.remove(client, { slot: "vacancy-cover", ownerId: vacancyId, actor });
+    return { vacancy_id: vacancyId, cover_vault_id: null };
+  },
+  /** The photograph's bytes for the EDITOR. The public route only answers for
+   *  a role that is on the careers page, and a recruiter choosing a picture for
+   *  a draft must still be able to see what they chose. */
+  async coverBytes(client, vacancyId) {
+    const row = await repo.findById(client, vacancyId);
+    if (!row || !row.cover_vault_id) return null;
+    return vault.fetchBytes(client, row.cover_vault_id);
   },
 
   /* ── Custom scoring criteria ── */

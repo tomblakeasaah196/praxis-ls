@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1905,
+  "route_count": 1917,
   "tiers": {
-    "public": 88,
+    "public": 89,
     "self-scoped": 117,
-    "gated": 1700
+    "gated": 1711
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -34,6 +34,12 @@
       "tier": "gated"
     },
     "DELETE /api/platform/roles/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/platform/tenants/:slug/domains": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -748,6 +754,12 @@
       "tier": "gated"
     },
     "DELETE /api/tenant/vacancies/:id": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "DELETE /api/tenant/vacancies/:id/cover": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -4131,6 +4143,12 @@
       "validated": false,
       "tier": "public"
     },
+    "GET /api/tenant/public/site/card.jpg": {
+      "auth": false,
+      "rbac": false,
+      "validated": false,
+      "tier": "public"
+    },
     "GET /api/tenant/public/site/copy": {
       "auth": false,
       "rbac": false,
@@ -4653,6 +4671,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/service-types/web/routing": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/sessions/": {
       "auth": true,
       "rbac": true,
@@ -4816,6 +4840,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/site-settings/about": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/site-settings/ai-profile": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -5536,6 +5566,12 @@
       "tier": "gated"
     },
     "GET /api/tenant/vacancies/:id/applicants/:applicantId/cv": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "GET /api/tenant/vacancies/:id/cover": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -8194,6 +8230,12 @@
       "tier": "gated"
     },
     "POST /api/tenant/intake/enquiries/:id/read": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "POST /api/tenant/intake/enquiries/:id/reply-attachments": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -10917,6 +10959,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "POST /api/tenant/vacancies/:id/cover": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "POST /api/tenant/vacancies/:id/criteria": {
       "auth": true,
       "rbac": true,
@@ -11355,7 +11403,25 @@
       "validated": false,
       "tier": "gated"
     },
+    "PUT /api/tenant/service-types/:id/web/members": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "PUT /api/tenant/service-types/:id/web/related": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/service-types/:id/web/routing": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/service-types/web/routing": {
       "auth": true,
       "rbac": true,
       "validated": false,
@@ -11374,6 +11440,12 @@
       "tier": "gated"
     },
     "PUT /api/tenant/site-settings/about": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
+    "PUT /api/tenant/site-settings/ai-profile": {
       "auth": true,
       "rbac": true,
       "validated": false,

@@ -12,4 +12,6 @@ module.exports = {
   CRITERIA_CHANGED: "vacancy.criteria_changed",
   QUESTIONS_CHANGED: "vacancy.questions_changed",
   PUBLISHED: "vacancy.published",
+  // 14720. Written by the website-media pipeline (OWNERS["vacancy-cover"]).
+  COVER_UPDATED: "vacancy.cover_updated",
 };

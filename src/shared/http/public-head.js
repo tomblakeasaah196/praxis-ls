@@ -429,8 +429,13 @@ const ROUTES = [
   },
   {
     test: /^\/careers\/([^/]+)\/?$/,
+    // The repo's token lookup, not `careers.service.findByToken`: that one
+    // takes a REQUEST (it chooses between the live and Test schemas), and was
+    // handed this pg client, so it threw on every call and every shared role
+    // link unfurled as the generic home card. The head is LIVE, like the
+    // public media route the photograph is fetched through.
     load: (client, token) =>
-      require("../../modules/hr/careers/careers.service").findByToken(
+      require("../../modules/hr/vacancy/vacancy.repo").publishedByToken(
         client,
         decodeURIComponent(token),
       ),
@@ -440,6 +445,9 @@ const ROUTES = [
         : {
             title: v.title || null,
             description: summarise(v.summary || v.description),
+            // 14720: the role's own photograph on its share card, through the
+            // same fail-closed media lookup a visitor's browser uses.
+            image: v.cover_id ? "/api/tenant/public/site/media/" + v.cover_id : null,
             trail: [
               { name: "Careers", path: "/careers" },
               { name: v.title || "Vacancy", path: null },

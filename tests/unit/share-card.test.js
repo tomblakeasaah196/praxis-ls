@@ -124,6 +124,33 @@ describe("the page table", () => {
   function tree(s) {
     return { site: { share: s } };
   }
+
+  /* 14720. The vacancy entry handed its pg client to `careers.findByToken`,
+     which takes a REQUEST, so it threw on every call and every shared role
+     link unfurled as the generic home card. It now reads the token through the
+     repo, and a role with a photograph puts it on its card. */
+  test("a vacancy is read by token through the repo, and its photograph is its card's", async () => {
+    const vacancyRepo = require("../../src/modules/hr/vacancy/vacancy.repo");
+    const spy = jest.spyOn(vacancyRepo, "publishedByToken").mockResolvedValue({
+      title: "Customer Service Officer",
+      description: "Be the first voice our clients hear.",
+      cover_id: "d1",
+    });
+    try {
+      const r = head.ROUTES.find((x) => x.test.test("/careers/tok%20en"));
+      const client = { query: jest.fn() };
+      const row = await r.load(client, "tok%20en");
+      expect(spy).toHaveBeenCalledWith(client, "tok en");
+      expect(r.shape(row)).toMatchObject({
+        title: "Customer Service Officer",
+        image: "/api/tenant/public/site/media/d1",
+      });
+      // No photograph: the card falls back to the site's own, as before.
+      expect(r.shape({ ...row, cover_id: null }).image).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe("the head", () => {

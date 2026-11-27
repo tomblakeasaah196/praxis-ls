@@ -12,6 +12,7 @@
  */
 import { publicApi, publicGet } from "./api";
 import { currentLocale } from "./i18n";
+import type { MediaVariants } from "./site-api";
 
 /** What the server chooses to make public — an allow-list built in
  *  `careers.service`, never a database row. Anything absent here is absent on
@@ -21,6 +22,9 @@ export type PublicVacancy = {
   title: string;
   department?: string | null;
   location?: string | null;
+  /** The structured town (0684), for the photo card's short eyebrow; the
+   *  composed `location` line is what the facts print. */
+  location_city?: string | null;
   employment_type?: string | null;
   description?: string | null;
   experience_years_min?: number | null;
@@ -45,6 +49,14 @@ export type PublicVacancy = {
    * live-only.
    */
   environment?: "live" | "sandbox";
+  /**
+   * The role's careers photograph (14720), or null when the recruiter chose
+   * none. The id is a public website-media id and `variants` the derivative
+   * ladder actually written, which is all a `<picture>` needs. With one, the
+   * list draws the role as a photo card and its page opens on the picture;
+   * without one, both look as they always did.
+   */
+  cover?: { id: string; variants: MediaVariants } | null;
 };
 
 export type ApplyInput = {

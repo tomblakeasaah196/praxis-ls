@@ -94,6 +94,10 @@ function publicVacancy(v) {
     apply_config: v.apply_config || {},
     closes_on: v.closes_on,
     published_at: v.published_at,
+    // The careers photograph (14720): the public media id and the derivative
+    // ladder actually written, which is all a `<picture>` needs. `null` when
+    // the recruiter chose none, and the page then draws the role as before.
+    cover: v.cover_id ? { id: v.cover_id, variants: v.cover_variants || null } : null,
   };
 }
 
@@ -138,7 +142,12 @@ async function findByToken(req, token) {
 async function get(req, token) {
   const found = await findByToken(req, token);
   if (!found) throw new AppError("NOT_FOUND", "This role is no longer accepting applications", 404);
-  return { ...publicVacancy(found.row), environment: found.env };
+  const out = { ...publicVacancy(found.row), environment: found.env };
+  // The public media route reads LIVE only, so a Test role's photograph is not
+  // an address a stranger can load. Named as absent rather than left to 404 in
+  // the candidate's browser.
+  if (found.env !== "live") out.cover = null;
+  return out;
 }
 
 /**

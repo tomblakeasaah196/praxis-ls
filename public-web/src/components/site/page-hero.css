@@ -85,3 +85,48 @@
   width: 100%;
 }
 
+
+/* ── the careers photo card and the role's photo band (14720) ────────
+   Here rather than as Tailwind utilities: used nowhere else on the site, and
+   as utilities they landed in the ENTRY stylesheet every visitor downloads,
+   which put the site's first paint over budget (scripts/check-bundle.mjs).
+   This file already travels with the routes that draw a photo band. */
+
+/* Tall enough that the words sit inside SCRIM_CARD's floored lower 62 %
+   (hero-scrim.ts) on a phone and on a wide screen. */
+.vacancy-card {
+  min-height: 20rem;
+}
+
+.vacancy-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.25rem;
+}
+
+.vacancy-card-apply {
+  margin-top: 0.75rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 40em) {
+  .vacancy-card {
+    min-height: 24rem;
+  }
+  .vacancy-card-body {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 2rem;
+  }
+  .vacancy-card-apply {
+    margin-top: 0;
+  }
+}
+
+/* The role's own photo band: room under the dates before the advert. */
+.vacancy-band-body {
+  padding-bottom: 2.5rem;
+}
