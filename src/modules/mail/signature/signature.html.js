@@ -240,9 +240,21 @@ function joinPhoneWeb(co) {
  * Append a signature fragment below a serialized message without re-parsing it.
  * The serializer already produced a full HTML document; we inject before </body>.
  */
+/** The signature fragment in the rule-topped block every message carries it in. */
+function blockHtml(signatureHtml) {
+  return signatureHtml
+    ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb">${signatureHtml}</div>`
+    : "";
+}
+
+/** The plain-text signature, behind the conventional "-- " delimiter. */
+function blockText(signatureText) {
+  return signatureText ? `-- \n${String(signatureText).trimStart()}` : "";
+}
+
 function appendToHtml(html, signatureHtml) {
   if (!signatureHtml) return html || "";
-  const block = `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb">${signatureHtml}</div>`;
+  const block = blockHtml(signatureHtml);
   const src = String(html || "");
   if (/<\/body>/i.test(src)) return src.replace(/<\/body>/i, `${block}</body>`);
   return src + block;
@@ -251,8 +263,7 @@ function appendToHtml(html, signatureHtml) {
 function appendToText(text, signatureText) {
   if (!signatureText) return text || "";
   const body = String(text || "").trimEnd();
-  const sig = String(signatureText).trimStart();
-  return body ? `${body}\n\n-- \n${sig}` : `-- \n${sig}`;
+  return body ? `${body}\n\n${blockText(signatureText)}` : blockText(signatureText);
 }
 
-module.exports = { render, appendToHtml, appendToText, textContent, esc };
+module.exports = { render, appendToHtml, appendToText, blockHtml, blockText, textContent, esc };
