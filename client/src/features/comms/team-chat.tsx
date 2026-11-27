@@ -34,7 +34,8 @@ import { useResource, errMsg } from "@/lib/use-resource";
 import { useAuth } from "@/app/auth/auth-context";
 import { cn } from "@/lib/cn";
 import { INDEX_ROW_IDLE, INDEX_ROW_OPEN } from "@/components/ui/index-row";
-import { PlusIcon, PhoneIcon } from "@/components/ui/icons";
+import { PlusIcon, PhoneIcon, ArrowLeftIcon } from "@/components/ui/icons";
+import { useImmersive } from "@/lib/immersive";
 import { ThreadCallStrip } from "./call/thread-call-strip";
 import { useCallCapabilities } from "./call/call-capabilities";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,6 +49,8 @@ import { PinnedCallSummary } from "./call/pinned-call-summary";
 import { Composer } from "./chat/composer";
 import { MessageBubble } from "./chat/message-bubble";
 import { ForwardDialog } from "./chat/forward-dialog";
+import { DayDivider, JumpToLatest } from "./chat/thread-aids";
+import { NEAR_BOTTOM_PX, startsNewDay, useLatestTracker } from "./chat/thread-days";
 
 /* avatar colouring — a fixed per-person palette (pixie parity), not the brand accent */
 const AVATAR_COLOURS = [
@@ -517,6 +520,11 @@ export function TeamChatPage() {
     return true;
   });
 
+  /* An open conversation on a phone takes the whole screen: the shell hides
+     its chrome and this card loses its frame (lib/immersive.ts). The list
+     keeps the shell, so Mailbox, Clients and Calls are one tap away. */
+  useImmersive(!!activeId);
+
   const select = (id: string) => {
     const n = new URLSearchParams(params);
     n.set("channel", id);
@@ -526,7 +534,12 @@ export function TeamChatPage() {
   return (
     <section className="animate-fade-in flex min-h-0 flex-1 flex-col">
       {/* Size from the shell's remaining space, never from a guessed viewport offset. */}
-      <div className="chat-shell grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[320px_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "chat-shell grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[320px_minmax(0,1fr)]",
+          activeId && "max-md:rounded-none max-md:border-0 max-md:!shadow-none",
+        )}
+      >
         {/* conversation list */}
         <div
           className={cn(
@@ -624,6 +637,8 @@ export function TeamChatPage() {
           className={cn(
             "flex min-h-0 min-w-0 flex-col overflow-hidden",
             activeId ? "flex" : "hidden md:flex",
+            // The home indicator, edge to edge; zero while the keyboard is up.
+            "max-md:pb-[var(--immersive-safe-bottom,env(safe-area-inset-bottom))]",
           )}
         >
           {activeId ? (
@@ -836,16 +851,26 @@ function Thread({
     () => new Map(msgs.map((m) => [m.message_id, m])),
     [msgs],
   );
+  const latest = useLatestTracker(
+    scrollerRef,
+    msgs,
+    (m) => !!meId && m.sender_user_id === meId,
+  );
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-card/70 px-3 py-2.5 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-card/70 px-3 py-2.5 backdrop-blur-sm max-md:gap-1.5 max-md:pl-1 max-md:pt-[calc(0.625rem+env(safe-area-inset-top))]">
+        {/* The way out of a full-screen conversation, back to the list and the
+            shell. Android's system back does the same, because opening a
+            conversation pushed `?channel=` onto the history. */}
         <button
-          className="text-muted-foreground hover:text-foreground md:hidden"
+          type="button"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
           onClick={onBack}
-          aria-label={tr("Back")}
+          aria-label={tr("Back to chats")}
+          title={tr("Back to chats")}
         >
-          ←
+          <ArrowLeftIcon width={20} height={20} />
         </button>
         <Avatar
           name={channelTitle(ch.data)}
@@ -899,7 +924,8 @@ function Thread({
         ref={scrollerRef}
         onScroll={(event) => {
           const el = event.currentTarget;
-          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+          latest.onScroll(el);
         }}
         className={cn(
           "chat-thread-bg min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-3 py-4 sm:px-6",
@@ -930,9 +956,12 @@ function Thread({
         ) : thread.error ? (
           <ErrorState message={thread.error} />
         ) : msgs.length ? (
-          msgs.map((m) => (
+          msgs.map((m, i) => (
+            <React.Fragment key={m.message_id}>
+            {startsNewDay(m.created_at, msgs[i - 1]?.created_at) && m.created_at && (
+              <DayDivider iso={m.created_at} />
+            )}
             <MessageBubble
-              key={m.message_id}
               message={m}
               mine={!!meId && m.sender_user_id === meId}
               meId={meId}
@@ -949,6 +978,7 @@ function Thread({
               }
               onReacted={() => setRevealedId(null)}
             />
+            </React.Fragment>
           ))
         ) : (
           <div className="flex h-full items-center justify-center micro">
@@ -956,6 +986,11 @@ function Thread({
           </div>
         )}
       </div>
+      <JumpToLatest
+        show={!latest.atBottom && msgs.length > 0}
+        unseen={latest.unseen}
+        onJump={latest.jump}
+      />
 
       {typingName && (
         <div className="px-4 pb-1 text-[11px] italic text-muted-foreground">

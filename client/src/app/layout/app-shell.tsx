@@ -112,6 +112,7 @@ import { RouteAccessGate } from "@/app/layout/route-access-gate";
 import { useCanOpenRoute } from "@/lib/route-access";
 import { useAiEnabled } from "@/components/ai-actions";
 import { cn } from "@/lib/cn";
+import { useIsImmersive, useImmersiveViewport } from "@/lib/immersive";
 
 /**
  * The grouped nav the phone drawer draws: only what this person can open.
@@ -747,6 +748,12 @@ export function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const chatWorkstation = /^\/comms\/?$/.test(location.pathname);
+  /* An open conversation on a phone takes the whole screen (lib/immersive.ts):
+     every piece of chrome below reads this and hides itself under `md`, and
+     the shell's root follows the visible viewport so the keyboard does not
+     cover the composer. Desktop never reads it. */
+  const immersive = useIsImmersive();
+  useImmersiveViewport(immersive);
   const qc = useQueryClient();
   // The one scroll container (index.css: html/body/#root are overflow:hidden).
   // Handed to <PullToRefresh> so the pull only arms at the true top of the
@@ -954,7 +961,14 @@ export function AppShell() {
             read the same punch state, so the page runs one location watcher
             and one location card, not two (clock-punch.tsx). */}
         <ClockPunchProvider>
-        <div className="flex h-full flex-col">
+        <div
+          className={cn(
+            "flex h-full flex-col",
+            // `top`, not a transform: a transform would make this the
+            // containing block for every `position: fixed` descendant.
+            immersive && "max-md:relative max-md:top-[var(--immersive-top,0px)] max-md:h-[var(--immersive-h,100%)]",
+          )}
+        >
           {/*
         Skip link (audit F13, WCAG 2.4.1). With 12 of 16 areas behind the More
         drawer, a keyboard user previously tabbed the entire header on every
@@ -992,7 +1006,12 @@ export function AppShell() {
         child opts out via the `:is(button, a, input…)` rule there, which
         top-shell.test.tsx pins.
       */}
-          <div className="wco wco-surface relative z-40 flex flex-none items-center gap-2 px-3">
+          <div
+            className={cn(
+              "wco wco-surface relative z-40 flex flex-none items-center gap-2 px-3",
+              immersive && "max-md:!hidden",
+            )}
+          >
             <div className="wco-art" aria-hidden />
             <button
               type="button"
@@ -1136,7 +1155,12 @@ export function AppShell() {
           was the route a thumb could take by accident while reading the banner
           that explains why it matters. */}
           {env === "sandbox" && (
-            <div className="flex flex-none items-center justify-center gap-2 border-b border-[rgb(var(--warn-fill)_/_0.35)] bg-[rgb(var(--warn-fill)_/_0.14)] px-4 py-2 text-center text-xs font-medium text-[rgb(var(--warn))]">
+            <div
+              className={cn(
+                "flex flex-none items-center justify-center gap-2 border-b border-[rgb(var(--warn-fill)_/_0.35)] bg-[rgb(var(--warn-fill)_/_0.14)] px-4 py-2 text-center text-xs font-medium text-[rgb(var(--warn))]",
+                immersive && "max-md:hidden",
+              )}
+            >
               <AlertIcon width={14} height={14} className="shrink-0" />
               <span>{t("shell.testMode")}</span>
               <SwitchToLiveButton onSwitch={switchEnv} />
@@ -1199,7 +1223,10 @@ export function AppShell() {
                 key={env}
                 className={cn(
                   "relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain overflow-x-hidden p-4 pb-24 focus:outline-none md:p-6 md:pb-6 2xl:px-8",
-                  chatWorkstation && "overflow-hidden",
+                  (chatWorkstation || immersive) && "overflow-hidden",
+                  // Edge to edge: no gutter, and no clearance for a bottom nav
+                  // that is not drawn.
+                  immersive && "max-md:p-0",
                 )}
               >
                 {/* App-wide pull-to-refresh. It wraps every routed screen rather
@@ -1213,7 +1240,7 @@ export function AppShell() {
                 <PullToRefresh
                   onRefresh={softRefresh}
                   scrollRef={mainRef}
-                  disabled={chatWorkstation}
+                  disabled={chatWorkstation || immersive}
                 >
                   {/* Per-route boundary, keyed on the path so navigating away from a
                   crashed screen clears the error rather than stranding the user on it.
@@ -1256,7 +1283,10 @@ export function AppShell() {
                     overlaps the bottom of a section that bleeds into <main>'s
                     padding with negative margins.
                   */}
-                  <div aria-hidden className="pointer-events-none h-24 md:h-6" />
+                  <div
+                    aria-hidden
+                    className={cn("pointer-events-none h-24 md:h-6", immersive && "max-md:hidden")}
+                  />
                 </PullToRefresh>
               </main>
             </div>
@@ -1307,11 +1337,15 @@ export function AppShell() {
 
               The overlap is solved where it is caused: the composer publishes
               `--fab-floor` and the cluster anchors above it (floating-actions.tsx). */}
+          {/* Not in a full-screen conversation: it sat on the composer's mic,
+              and the conversation's back arrow returns to a screen that has it. */}
+          {!immersive && (
           <FloatingActions
             badge={unread.messages + unread.notifications}
             messageBadge={unread.messages}
             notificationBadge={unread.notifications}
           />
+          )}
           {/* Env-switch interstitial. Shown from the confirmed switch until the
           browser has replaced the document (switchEnv above). `onReload` is
           the escape hatch the overlay offers if the reload was refused. */}

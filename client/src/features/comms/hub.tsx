@@ -31,6 +31,7 @@ import { CallRecordPage } from "./call/call-record";
 import { useCallCapabilities } from "./call/call-capabilities";
 import { ClientInboxPage } from "./client-inbox";
 import { useCanUseModule } from "@/lib/route-access";
+import { useIsImmersive } from "@/lib/immersive";
 
 const TABS = [
   { to: "/comms", label: "Chat", end: true },
@@ -81,6 +82,8 @@ export function CommsHub() {
   // The Client inbox only for the people who answer clients; a deep link from
   // an alert still opens it, and the API answers for itself.
   const inboxOn = useCanUseModule("MOD-64C");
+  // An open conversation on a phone takes the whole screen, this bar included.
+  const immersive = useIsImmersive();
   const tabs = TABS.filter(
     (t) =>
       (t.to !== "/comms/calls" || callsOn || section === "calls") &&
@@ -131,7 +134,10 @@ export function CommsHub() {
       )}
     >
       <nav
-        className="mb-4 flex shrink-0 items-end gap-1 overflow-x-auto border-b border-border whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={cn(
+          "mb-4 flex shrink-0 items-end gap-1 overflow-x-auto border-b border-border whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          immersive && "max-md:hidden",
+        )}
         aria-label="Comms sections"
       >
         {tabs.map((t) => (

@@ -31,6 +31,7 @@ import {
   type RibbonFamily,
 } from "./ribbon-model";
 import { useShell } from "./shell-context";
+import { useIsImmersive } from "@/lib/immersive";
 import { GridIcon } from "./nav-icons";
 
 /** Everything inside one family, as a phone reads it: area, then its screens. */
@@ -124,6 +125,10 @@ export function BottomNav({ onMenu }: { onMenu?: () => void }) {
   const active = locate(families, pathname).family;
 
   React.useEffect(() => setOpen(null), [pathname]);
+  // A full-screen conversation (lib/immersive.ts). This bar is touch-only, so
+  // not drawing it changes nothing on desktop.
+  const immersive = useIsImmersive();
+  if (immersive) return null;
 
   return (
     <>

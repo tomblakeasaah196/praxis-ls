@@ -235,7 +235,7 @@ describe("the open conversation", () => {
     mount();
     await user.click(await screen.findByRole("button", { name: /Acme Trading/ }));
     await screen.findByRole("heading", { name: "Acme Trading" });
-    await user.click(screen.getByRole("button", { name: "Back" }));
+    await user.click(screen.getByRole("button", { name: "Back to clients" }));
     expect(screen.queryByRole("heading", { name: "Acme Trading" })).toBeNull();
     expect(screen.getByText("Pick a conversation to start.")).toBeInTheDocument();
   });
