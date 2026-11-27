@@ -173,7 +173,7 @@ describe("quoted history", () => {
 
 /* ── 14410: bodies keep their stylesheets, and the frame is handed one parse ── */
 
-import { matchInlineParts, referencedCids, renderBody, styleBlocks } from "./message-body";
+import { matchInlineParts, proxiableUrl, referencedCids, remoteImageRefs, renderBody, styleBlocks } from "./message-body";
 
 describe("remote content inside a <style> block", () => {
   it("holds back a remote url() and @import, counts them, and restores them", () => {
@@ -200,10 +200,46 @@ describe("renderBody", () => {
     expect(out.blocked).toBe(1);
   });
 
-  it("blocks nothing once the reader or a trusted sender allows remote images", () => {
-    const out = renderBody('<img src="https://t.example/p.gif">', { showRemote: true });
+  it("once images are shown, draws each from the proxy's object URL and never from the sender", () => {
+    const out = renderBody('<img src="https://t.example/p.gif">', {
+      showRemote: true,
+      remoteUrls: { "https://t.example/p.gif": "blob:https://app/9" },
+    });
     expect(out.blocked).toBe(0);
-    expect(out.html).toContain(' src="https://t.example/p.gif"');
+    expect(out.html).toContain(' src="blob:https://app/9"');
+    expect(out.html).not.toContain("t.example");
+  });
+
+  it("drops a shown image the proxy has not returned, rather than leaving it pointing at the sender", () => {
+    const out = renderBody('<img src="https://t.example/p.gif" alt="Logo"><img src="/relative.png">', { showRemote: true });
+    expect(out.html).not.toContain("t.example");
+    expect(out.html).not.toContain("relative.png");
+    expect(out.html).toContain('alt="Logo"');
+  });
+
+  it("swaps every kind of reference: srcset, background, inline style and stylesheet url()", () => {
+    const html = [
+      '<style>.h{background:url("https://t.example/sheet.png")}</style>',
+      '<img srcset="https://cdn.example/w_600,h_400/a.jpg 1x, https://cdn.example/b.jpg 2x">',
+      '<table><tr><td background="//t.example/tile.gif" style="background-image:url(https://t.example/cell.png)">x</td></tr></table>',
+      '<div style="background:url(https://t.example/gone.png)">y</div>',
+    ].join("");
+    const out = renderBody(html, {
+      showRemote: true,
+      remoteUrls: {
+        "https://t.example/sheet.png": "blob:x/1",
+        "https://cdn.example/w_600,h_400/a.jpg": "blob:x/2",
+        "https://t.example/tile.gif": "blob:x/3",
+        "https://t.example/cell.png": "blob:x/4",
+      },
+    });
+    expect(out.html).toContain("url(blob:x/1)");
+    expect(out.html).toContain('src="blob:x/2"');
+    expect(out.html).not.toContain("srcset");
+    expect(out.html).toContain('background="blob:x/3"');
+    expect(out.html).toContain("url(blob:x/4)");
+    expect(out.html).toContain("background:none");
+    expect(out.html).not.toMatch(/t\.example|cdn\.example/);
   });
 
   it("light mode is the original; dark mode recolours", () => {
@@ -217,6 +253,37 @@ describe("renderBody", () => {
     const out = renderBody(html, { showRemote: true, dark: DARK });
     expect(out.ownDark).toBe(true);
     expect(out.html).toContain("color:#000");
+  });
+});
+
+describe("the remote images a body draws", () => {
+  it("remoteImageRefs names each fetchable image once, as the proxy will be asked for it", () => {
+    const html = [
+      '<style>.h{background:url("https://t.example/sheet.png")}@font-face{src:url(https://f.example/a.woff2)}</style>',
+      '<img src="https://t.example/p.gif?a=1&amp;b=2"><img src="https://t.example/p.gif?a=1&amp;b=2">',
+      '<img srcset="https://cdn.example/w_600,h_400/a.jpg 1x, https://cdn.example/b.jpg 2x">',
+      '<img src="https://t.example/has-src.png" srcset="https://cdn.example/ignored.jpg 2x">',
+      '<table><tr><td background="//t.example/tile.gif" style="background-image:url(\'https://t.example/cell.png\')">x</td></tr></table>',
+      '<img src="cid:logo@x"><img src="data:image/png;base64,AA"><img src="/relative.png">',
+    ].join("");
+    expect(remoteImageRefs(html).sort()).toEqual([
+      "https://cdn.example/w_600,h_400/a.jpg",
+      "https://t.example/cell.png",
+      "https://t.example/has-src.png",
+      "https://t.example/p.gif?a=1&b=2",
+      "https://t.example/sheet.png",
+      "https://t.example/tile.gif",
+    ]);
+  });
+
+  it("proxiableUrl is what the server compares: absolute http(s), protocol-relative as https", () => {
+    expect(proxiableUrl(" https://a.example/x.png ")).toBe("https://a.example/x.png");
+    expect(proxiableUrl("http://a.example/x.png")).toBe("http://a.example/x.png");
+    expect(proxiableUrl("//a.example/x.png")).toBe("https://a.example/x.png");
+    for (const local of ["cid:a", "data:image/png;base64,AA", "blob:x", "/x.png", "x.png", "javascript:alert(1)", ""]) {
+      expect(proxiableUrl(local)).toBeNull();
+    }
+    expect(proxiableUrl(`https://a.example/${"x".repeat(3000)}`)).toBeNull();
   });
 });
 

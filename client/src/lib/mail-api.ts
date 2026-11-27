@@ -369,6 +369,16 @@ export async function attachmentObjectUrl(attachmentId: string, signal?: AbortSi
   return tenantObjectUrl(`/mail/attachments/${attachmentId}/download`, signal);
 }
 
+/**
+ * One remote image in a message, fetched by OUR server and handed back as an
+ * object URL, so the reader's browser never contacts the sender. The server
+ * serves only a URL that message's body references (remote-image.service.js).
+ */
+export async function remoteImageObjectUrl(messageId: string, url: string, signal?: AbortSignal): Promise<string> {
+  const { tenantObjectUrl } = await import("./api-client");
+  return tenantObjectUrl(`/mail/thread/${messageId}/remote-image?url=${encodeURIComponent(url)}`, signal);
+}
+
 /* ── 14410: the body, repaired on open, and the original on request ─────── */
 
 export type MessageBody = {

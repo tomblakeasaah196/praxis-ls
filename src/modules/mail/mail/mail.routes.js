@@ -29,6 +29,7 @@ const { requireFeature } = require("../../../middleware/feature-gate");
 const c = require("./mail.controller");
 const v = require("./mail.validator");
 const { singleFile } = require("../../../shared/http/upload.middleware");
+const { makeLimiter } = require("../../../shared/http/rate-limit");
 
 const {
   requireVisibleThread,
@@ -298,6 +299,18 @@ router.get("/thread/:id/attachments", core, requirePermission(M, "view"), requir
  * holds it, for View source and Download original. */
 router.get("/thread/:id/body", core, requirePermission(M, "view"), requireVisibleMessage("id"), c.messageBody);
 router.get("/thread/:id/source", core, requirePermission(M, "view"), requireVisibleMessage("id"), c.messageSource);
+/* Remote images, fetched by us so the reader's browser never contacts the
+ * sender (remote-image.service.js has the whole story). Per user, not per IP:
+ * an office behind one NAT is many readers. A newsletter can carry sixty
+ * images, so the budget is a person paging through mail, not a crawler. */
+const remoteImageLimiter = makeLimiter({
+  name: "mail-remote-image",
+  max: 600,
+  windowMs: 5 * 60 * 1000,
+  keyGenerator: (req) => `mail-img:${req.user && req.user.user_id ? req.user.user_id : req.ip}`,
+});
+router.get("/thread/:id/remote-image", core, requirePermission(M, "view"), remoteImageLimiter,
+  requireVisibleMessage("id"), c.remoteImage);
 router.get("/client/:id/timeline", core, requirePermission(M, "view"), c.clientTimeline);
 router.post("/thread/:id/link", core, requirePermission(M, "create"), requireVisibleMessage("id"), v.threadLink, c.linkThread);
 router.post("/thread/:id/read", core, requirePermission(M, "edit"), requireVisibleMessage("id"), c.markRead);

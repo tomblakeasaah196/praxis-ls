@@ -45,17 +45,24 @@ function safeDecode(v: string): string {
   }
 }
 
-/** The document the frame renders. Exported so the policy can be asserted. */
+/**
+ * The document the frame renders. Exported so the policy can be asserted.
+ *
+ * Images come from `data:` and `blob:` and nowhere else, shown or not. A remote
+ * image the reader asks for arrives as a `blob:` from our own proxy
+ * (`message-body.ts`), so the frame never needs `https:`, and anything the
+ * rendering passes miss is refused here rather than fetched from the sender.
+ * Web fonts likewise: an email's own font falls back to the stack it names.
+ */
 export function buildSrcDoc(
   html: string,
-  { showRemote, ink, scheme }: { showRemote: boolean; ink: EmailInk; scheme: "light" | "dark" },
+  { ink, scheme }: { ink: EmailInk; scheme: "light" | "dark" },
 ): string {
-  const remote = showRemote ? " https:" : "";
   const csp = [
     "default-src 'none'",
-    `img-src data: blob:${remote}`,
+    "img-src data: blob:",
     "style-src 'unsafe-inline'",
-    `font-src data:${remote}`,
+    "font-src data:",
     "media-src 'none'",
     "frame-src 'none'",
     "form-action 'none'",

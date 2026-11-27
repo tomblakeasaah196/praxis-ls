@@ -9,20 +9,22 @@ const cspOf = (doc: string) => /Content-Security-Policy" content="([^"]*)"/.exec
 
 describe("buildSrcDoc", () => {
   it("allows no script, no frames and no forms, ever", () => {
-    const csp = cspOf(buildSrcDoc("<p>x</p>", { showRemote: true, ink: INK, scheme: "light" }));
+    const csp = cspOf(buildSrcDoc("<p>x</p>", { ink: INK, scheme: "light" }));
     expect(csp).toContain("default-src 'none'");
     expect(csp).not.toMatch(/script-src/);
     expect(csp).toContain("frame-src 'none'");
     expect(csp).toContain("form-action 'none'");
   });
 
-  it("fetches remote images only once they are allowed", () => {
-    expect(cspOf(buildSrcDoc("", { showRemote: false, ink: INK, scheme: "light" }))).toContain("img-src data: blob:;");
-    expect(cspOf(buildSrcDoc("", { showRemote: true, ink: INK, scheme: "light" }))).toContain("img-src data: blob: https:;");
+  it("never lets the frame fetch from another site: shown images arrive as blob: from our proxy", () => {
+    const csp = cspOf(buildSrcDoc("", { ink: INK, scheme: "light" }));
+    expect(csp).toContain("img-src data: blob:;");
+    expect(csp).toContain("font-src data:;");
+    expect(csp).not.toMatch(/https?:/);
   });
 
   it("sends every link to a new tab and draws with the tenant's ink", () => {
-    const doc = buildSrcDoc("<p>x</p>", { showRemote: false, ink: INK, scheme: "dark" });
+    const doc = buildSrcDoc("<p>x</p>", { ink: INK, scheme: "dark" });
     expect(doc).toContain('<base target="_blank">');
     expect(doc).toContain("color:rgb(1, 2, 3)");
     expect(doc).toContain("a{color:rgb(4, 5, 6)}");

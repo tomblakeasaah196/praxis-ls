@@ -52,6 +52,7 @@ import {
   getMessageBody,
   listMsgAttachments,
   messageSourceText,
+  remoteImageObjectUrl,
   trustImageSender,
 } from "@/lib/mail-api";
 import { useObjectUrl } from "../chat/use-object-url";
@@ -63,6 +64,7 @@ import { VerdictBanner, VerdictIcon } from "./work/guardrails";
 import {
   matchInlineParts,
   referencedCids,
+  remoteImageRefs,
   renderBody,
   splitQuotedHtml,
   splitQuotedText,
@@ -167,6 +169,75 @@ function useInlineImages(rows: Attachment[] | null, html: string) {
 
   const drawn = React.useMemo(() => new Set(matches.map((m) => m.part.email_attachment_id)), [matches]);
   return { urls, drawn };
+}
+
+/** How many remote images are fetched at once: a newsletter can carry sixty. */
+const REMOTE_IMAGE_CONCURRENCY = 6;
+/** Images that land within this long of each other are drawn in one redraw of the frame. */
+const REMOTE_IMAGE_BATCH_MS = 150;
+
+/**
+ * Object URLs for the remote images the body draws, fetched through OUR server
+ * once they are shown, and revoked on unmount.
+ *
+ * The reader's browser never contacts the sender: each image comes from
+ * `GET /mail/thread/:id/remote-image`, which serves only a URL this message
+ * references (`remote-image.service.js`). Results are drawn as they land, a
+ * short batch at a time, because every change to the frame's document reloads
+ * it and sixty reloads for sixty images would flicker. An image that fails
+ * stays an empty box and costs the others nothing.
+ */
+function useRemoteImages(messageId: string, html: string, wanted: boolean) {
+  const refs = React.useMemo(() => (wanted && html ? remoteImageRefs(html) : []), [wanted, html]);
+  const [urls, setUrls] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    setUrls({});
+    if (!refs.length) return undefined;
+    let live = true;
+    const controller = new AbortController();
+    const made: string[] = [];
+    let pending: Record<string, string> = {};
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      const batch = pending;
+      pending = {};
+      if (live) setUrls((prev) => ({ ...prev, ...batch }));
+    };
+
+    let next = 0;
+    const worker = async () => {
+      while (live && next < refs.length) {
+        const url = refs[next];
+        next += 1;
+        try {
+          const objectUrl = await remoteImageObjectUrl(messageId, url, controller.signal);
+          if (!live) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          made.push(objectUrl);
+          pending[url] = objectUrl;
+          if (!timer) timer = setTimeout(flush, REMOTE_IMAGE_BATCH_MS);
+        } catch {
+          /* @silent:parse the defined fallback: an image the proxy would not
+             serve (refused, gone, not an image) is dropped from the frame and
+             draws as its empty box, without costing the other images */
+        }
+      }
+    };
+    for (let i = 0; i < Math.min(REMOTE_IMAGE_CONCURRENCY, refs.length); i += 1) void worker();
+
+    return () => {
+      live = false;
+      controller.abort();
+      if (timer) clearTimeout(timer);
+      for (const u of made) URL.revokeObjectURL(u);
+    };
+  }, [messageId, refs]);
+
+  return urls;
 }
 
 const isImage = (a: Attachment) => /^image\//i.test(String(a.content_type || ""));
@@ -342,21 +413,22 @@ function MessageBody({
   const showRemote = asked || trusted;
 
   const { urls } = useInlineImages(attachments, html);
+  const remoteUrls = useRemoteImages(message.email_message_id, html, showRemote);
   const parts = React.useMemo(
     () => (html ? splitQuotedHtml(html) : splitQuotedText(message.body_text || "")),
     [html, message.body_text],
   );
   const styles = React.useMemo(() => (html ? styleBlocks(html) : ""), [html]);
-  const opts = { showRemote, cidUrls: urls, dark: palette.dark };
+  const opts = { showRemote, remoteUrls, cidUrls: urls, dark: palette.dark };
   const visible = React.useMemo(
     () => (html ? renderBody(parts.visible, opts) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [html, parts.visible, showRemote, urls, palette],
+    [html, parts.visible, showRemote, remoteUrls, urls, palette],
   );
   const quoted = React.useMemo(
     () => (html && parts.quoted ? renderBody(styles + parts.quoted, opts) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [html, parts.quoted, styles, showRemote, urls, palette],
+    [html, parts.quoted, styles, showRemote, remoteUrls, urls, palette],
   );
 
   const blocked = (visible?.blocked || 0) + (quoted?.blocked || 0);
@@ -413,7 +485,6 @@ function MessageBody({
         <EmailFrame
           html={visible.html}
           title={who}
-          showRemote={showRemote}
           ink={palette.ink}
           scheme={scheme}
           onMailto={onMailto}
@@ -444,8 +515,7 @@ function MessageBody({
                 <EmailFrame
                   html={quoted.html}
                   title={tr("Earlier messages")}
-                  showRemote={showRemote}
-                  ink={palette.ink}
+                          ink={palette.ink}
                   scheme={scheme}
                   onMailto={onMailto}
                 />
