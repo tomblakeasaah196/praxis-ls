@@ -61,6 +61,9 @@ const grounding = require("./assist.grounding");
 const guardrails = require("./assist.guardrails");
 const prompts = require("./assist.prompts");
 const { resolveLanguage } = require("../signature/language");
+const {
+  detectLanguage, conversationLanguage, resolveDraftLanguage, resolveRewriteLanguage,
+} = require("./assist.language");
 const governance = require("../../ai/governance/governance.service");
 const llm = require("../../../services/ai/llm.service");
 const transcription = require("../../../services/ai/transcription.service");
@@ -77,6 +80,21 @@ const FEATURE = "mail_ai";
 
 /** How many new messages force a stale summary to be regenerated (§8.5). */
 const SUMMARY_TRIGGER = 5;
+
+/**
+ * Which model writes the tenant's mail. Pinned here, not left to the
+ * platform's chat primary, because mail is the one place the model's prose
+ * goes out under the tenant's name: the tenant reviewed DeepSeek's reply drafts
+ * and judged them poor, and Gemini handles French and English business mail
+ * markedly better. DeepSeek stays as the second hop so a Gemini outage (or a
+ * Gemini credential that is missing or misconfigured; `llm.chat` falls through
+ * on those too, and logs them loudly) still leaves the operator a draft rather
+ * than the stub. Same shape as the call-summary pin in Smart Comms.
+ *
+ * Transcription (`transcribe` below) is a different vendor and a different
+ * service and is NOT governed by this.
+ */
+const MAIL_VENDOR = Object.freeze({ vendorName: "gemini", fallbackVendor: "deepseek" });
 
 /* ── 1. The gate ───────────────────────────────────────────────────────────── */
 
@@ -207,6 +225,8 @@ async function generate(client, { user, callType, system, prompt, temperature = 
       client,
       messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
       temperature,
+      vendorName: MAIL_VENDOR.vendorName,
+      fallbackVendor: MAIL_VENDOR.fallbackVendor,
     });
     return out;
   } catch (err) {
@@ -304,6 +324,34 @@ function finish(generated, factStrings, preserveFrom = null) {
   };
 }
 
+/* ── Language ──────────────────────────────────────────────────────────────── */
+
+/** The two rewrite actions whose output language is the action itself. */
+const TRANSLATE_TO = Object.freeze({ to_fr: "fr", to_en: "en" });
+
+/**
+ * Which language `compose` writes in. It is three requests behind one route,
+ * and each has its own right answer:
+ *
+ *   · a translation action (to_fr / to_en): the target, always. Before this
+ *     the system message said "Write in English" while the action said
+ *     "Translate to French" whenever the client was recorded as English.
+ *   · a draft the operator already wrote ("Rewrite in this tone", or an action
+ *     on their text): their text keeps its language, as in `rewrite`.
+ *   · a fresh composition: the conversation's language, as in `draft`.
+ *
+ * The composer's explicit choice wins in the last two. In the first, the
+ * target IS the explicit choice.
+ */
+function composeLanguage(input, ctx, msgs) {
+  if (TRANSLATE_TO[input.action]) return { language: TRANSLATE_TO[input.action], source: "action" };
+  const conversation = conversationLanguage(msgs);
+  const ownLanguage = input.draft ? detectLanguage(input.draft) : null;
+  return ownLanguage
+    ? resolveRewriteLanguage({ explicit: input.language, text: ownLanguage, conversation, party: ctx.client_language })
+    : resolveDraftLanguage({ explicit: input.language, conversation, party: ctx.client_language });
+}
+
 /* ── The endpoints ─────────────────────────────────────────────────────────── */
 
 /**
@@ -317,7 +365,11 @@ function finish(generated, factStrings, preserveFrom = null) {
 async function compose(client, input = {}, user = null) {
   await assertAiOn(client, user);
   const ctx = input.thread_id ? await threadContext(client, input.thread_id) : {};
-  const lang = resolveLanguage({ explicit: input.language, partyLanguage: ctx.client_language });
+  // Read once: the conversation decides the language AND, when there is no
+  // draft, is the material. 12 for the language (an operator's "OK" should not
+  // hide the client's last real message), the last 6 as the seed, as before.
+  const msgs = input.thread_id ? await threadMessages(client, input.thread_id, 12) : [];
+  const { language: lang, source: languageSource } = composeLanguage(input, ctx, msgs);
 
   const styleInstruction = input.action
     ? prompts.resolveAction(input.action, lang)
@@ -329,9 +381,7 @@ async function compose(client, input = {}, user = null) {
     : { facts: [], sources: [], withheld: [] };
   const factStrings = grounding.factText(ground.facts);
 
-  const seed = input.draft || (input.thread_id
-    ? transcriptOf(await threadMessages(client, input.thread_id, 6))
-    : "");
+  const seed = input.draft || (input.thread_id ? transcriptOf(msgs.slice(-6)) : "");
 
   /* ── What the assistant is actually writing ABOUT ─────────────────────────
    *
@@ -364,6 +414,7 @@ async function compose(client, input = {}, user = null) {
       draft_text: "",
       prompt: styleInstruction,
       language: lang,
+      language_source: languageSource,
       mode: input.mode || "compose",
       tone: input.tone || null,
       action: input.action || null,
@@ -394,6 +445,7 @@ async function compose(client, input = {}, user = null) {
     draft_text: done.text,
     prompt: styleInstruction,
     language: lang,
+    language_source: languageSource,
     mode: input.mode || "compose",
     tone: input.tone || null,
     action: input.action || null,
@@ -418,17 +470,27 @@ async function compose(client, input = {}, user = null) {
 async function draft(client, { threadId, tone, language, instruction } = {}, user = null) {
   await assertAiOn(client, user);
   const ctx = await threadContext(client, threadId);
-  const lang = resolveLanguage({ explicit: language, partyLanguage: ctx.client_language });
 
   // The thread transcript is correspondence, not public prompt material. Route
   // middleware normally guarantees an identity, but keep the service boundary
-  // closed as well for jobs/tests and future callers.
+  // closed as well for jobs/tests and future callers. That includes not reading
+  // the messages to detect their language: the answer here uses only what the
+  // caller supplied and the thread's binding.
   if (!user || !user.user_id) {
+    const fallback = resolveDraftLanguage({ explicit: language, party: ctx.client_language });
     return {
       draft_text: "", facts: [], sources: [], withheld: [], confidence: 0,
-      language: lang, note: "An authenticated user is required to draft from this conversation.",
+      language: fallback.language, language_source: fallback.source,
+      note: "An authenticated user is required to draft from this conversation.",
     };
   }
+
+  // A reply answers in the language the correspondent is writing in, ahead of
+  // the language recorded on their client card. See assist.language.
+  const msgs = await threadMessages(client, threadId, 12);
+  const { language: lang, source: languageSource } = resolveDraftLanguage({
+    explicit: language, conversation: conversationLanguage(msgs), party: ctx.client_language,
+  });
 
   const ground = await grounding.collect(client, ctx, user);
   const factStrings = grounding.factText(ground.facts);
@@ -438,7 +500,6 @@ async function draft(client, { threadId, tone, language, instruction } = {}, use
   // every ordinary conversation with no client/file binding, despite the full
   // thread being available. ERP grounding enriches a reply; it is not a
   // prerequisite for understanding what the correspondent just wrote.
-  const msgs = await threadMessages(client, threadId, 12);
   const conversationEvidence = msgs
     .map((m) => cleanConversationBody(m.body_text).slice(0, 4000))
     .filter(Boolean);
@@ -476,6 +537,7 @@ async function draft(client, { threadId, tone, language, instruction } = {}, use
     sources: ground.sources,
     withheld: ground.withheld,
     language: lang,
+    language_source: languageSource,
     tone: tone || "formal",
     fence: done.fence,
     protected_terms_restored: done.protected_terms_restored,
@@ -503,7 +565,16 @@ async function rewrite(client, { threadId, text, action, language } = {}, user =
   await assertAiOn(client, user);
   if (!text || !String(text).trim()) throw new AppError("EMPTY_DRAFT", "There is nothing to rewrite.", 422);
   const ctx = threadId ? await threadContext(client, threadId) : {};
-  const lang = resolveLanguage({ explicit: language, partyLanguage: ctx.client_language });
+  // The text keeps its own language. The thread is read only when the text is
+  // too short to tell, the one case where its language is consulted at all.
+  const target = TRANSLATE_TO[action] || null;
+  const ownLanguage = target ? null : detectLanguage(text);
+  const conversation = !target && !ownLanguage && threadId
+    ? conversationLanguage(await threadMessages(client, threadId, 12))
+    : null;
+  const { language: lang, source: languageSource } = target
+    ? { language: target, source: "action" }
+    : resolveRewriteLanguage({ explicit: language, text: ownLanguage, conversation, party: ctx.client_language });
 
   const styleInstruction = prompts.resolveAction(action, lang);
   if (!styleInstruction) throw new AppError("UNKNOWN_ACTION", `No such assist action: ${action}`, 422);
@@ -526,6 +597,7 @@ async function rewrite(client, { threadId, text, action, language } = {}, user =
     draft_text: done.text,
     action,
     language: lang,
+    language_source: languageSource,
     fence: done.fence,
     protected_terms_restored: done.protected_terms_restored,
     needs_review: done.needs_review,
@@ -770,7 +842,13 @@ async function voice(client, { threadId, transcript: spoken, tone, language } = 
   await assertAiOn(client, user);
   if (!spoken || !String(spoken).trim()) throw new AppError("EMPTY_TRANSCRIPT", "Nothing was dictated.", 422);
   const ctx = threadId ? await threadContext(client, threadId) : {};
-  const lang = resolveLanguage({ explicit: language, partyLanguage: ctx.client_language });
+  // Dictation is an instruction to us ("tell them it cleared"), often spoken
+  // in the operator's own language; the email it becomes answers the thread,
+  // so the thread's language decides, not the language of the dictation.
+  const conversation = threadId ? conversationLanguage(await threadMessages(client, threadId, 12)) : null;
+  const { language: lang, source: languageSource } = resolveDraftLanguage({
+    explicit: language, conversation, party: ctx.client_language,
+  });
 
   const ground = threadId ? await grounding.collect(client, ctx, user) : { facts: [], sources: [], withheld: [] };
   const factStrings = [...grounding.factText(ground.facts), String(spoken)];
@@ -794,6 +872,7 @@ async function voice(client, { threadId, transcript: spoken, tone, language } = 
   return {
     draft_text: done.text,
     language: lang,
+    language_source: languageSource,
     transcript: String(spoken),
     fence: done.fence,
     needs_review: done.needs_review,
@@ -812,5 +891,5 @@ module.exports = {
   compose, draft, rewrite, translate, summary, voice, transcribe,
   runFence, runGlossary, runGuardrails,
   assertAiOn, threadContext, threadMessages,
-  FEATURE, SUMMARY_TRIGGER,
+  FEATURE, SUMMARY_TRIGGER, MAIL_VENDOR,
 };
