@@ -16,6 +16,7 @@ import { getLang, tStatic } from "@/lib/i18n";
 import { caseLabel } from "@/lib/label-case";
 import { dateFmt } from "@/lib/format";
 import { p } from "@/lib/base-path";
+import { cn } from "@/lib/cn";
 import { useDocumentMeta } from "@/lib/use-document-meta";
 import { useSiteName, withSiteName } from "@/lib/use-share-meta";
 import { PageShell } from "@/components/site/page-shell";
@@ -27,6 +28,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState, LoadingState, NotFoundState } from "@/components/state";
 import { Byline, ReadingTime, ShareLinks } from "./insight-parts";
+import "@/components/site/desktop.css";
 
 /**
  * `/public/insights/:slug` — one article.
@@ -108,7 +110,7 @@ export function InsightPage() {
   return (
     <PageShell label={title || t("site.insights.title")} footer>
       <Section>
-        <p className="mb-6">
+        <p className="article-back mb-6">
           <Link
             to={p("/insights")}
             className="text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
@@ -200,7 +202,7 @@ function Article({
      * document somebody has already chosen to read, and animating its title is
      * the kind of flourish that makes a serious piece read as marketing.
      */
-    <article ref={progressRef} className="article mx-auto max-w-prose">
+    <article ref={progressRef} className="article article-wide mx-auto max-w-prose">
       {/*
         THE READING-PROGRESS AFFORDANCE.
 
@@ -243,7 +245,7 @@ function Article({
         {/* The byline as printed on the article's date (14680): a name and the
             role then held, with a photograph when one was uploaded. The name is
             data, never a translated string. */}
-        <Byline article={article} className="mt-4 text-sm" />
+        <Byline article={article} className="mt-4 text-sm xl:hidden" />
       </header>
 
       {src && coverOk && (
@@ -251,73 +253,106 @@ function Article({
           src={src}
           alt=""
           onError={() => setCoverOk(false)}
-          className="mt-8 w-full rounded-[var(--radius)] object-cover"
+          className="article-cover mt-8 w-full rounded-[var(--radius)] object-cover"
         />
       )}
 
-      {body ? (
-        <div className="prose-site mt-8">
-          <Markdown text={body} />
-        </div>
-      ) : (
-        // Publishing refuses an article with no body, so this is only reachable
-        // for a piece written in the OTHER language — say so rather than
-        // printing a heading over white space.
-        <p className="mt-8 text-muted-foreground">{t("site.insights.otherLanguageOnly")}</p>
-      )}
+      {/* From 1280px the piece and a side panel stand side by side: the byline,
+          the date, sharing and what to read next, held in view while the
+          reader scrolls. Below that width the wrappers are plain blocks and
+          the panel is not drawn, so the phone reads exactly as before. */}
+      <div className="article-cols">
+        <div className="min-w-0">
+          {body ? (
+            <div className="prose-site mt-8">
+              <Markdown text={body} />
+            </div>
+          ) : (
+            // Publishing refuses an article with no body, so this is only reachable
+            // for a piece written in the OTHER language — say so rather than
+            // printing a heading over white space.
+            <p className="mt-8 text-muted-foreground">{t("site.insights.otherLanguageOnly")}</p>
+          )}
 
-      {/* The gallery, below the body rather than inside it.
+          {/* The gallery, below the body rather than inside it.
 
-          In-prose placement would need a marker in the prose, and the marker
-          would be image markup — which `Markdown` refuses on purpose: it builds
-          React nodes directly with no `dangerouslySetInnerHTML`, and that is
-          what keeps tenant-authored text safe on a page a stranger loads. A
-          fixed strip underneath is the honest version of the feature.
+              In-prose placement would need a marker in the prose, and the marker
+              would be image markup — which `Markdown` refuses on purpose: it builds
+              React nodes directly with no `dangerouslySetInnerHTML`, and that is
+              what keeps tenant-authored text safe on a page a stranger loads. A
+              fixed strip underneath is the honest version of the feature.
 
-          Each image drops itself on error rather than leaving a broken frame.
-          The media route 404s a document whose article is not published, and it
-          404s one removed from the gallery since this page was rendered — both
-          are ordinary, and a grey box with a torn-page icon is not the way to
-          say so. */}
-      {gallery.length > 0 && (
-        <figure className="mt-10">
-          <div className="grid grid-cols-2 gap-3">
-            {gallery.map((id) => (
-              <img
-                key={id}
-                src={coverUrl(id) || undefined}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                onError={() => setBroken((b) => [...b, id])}
-                className="aspect-[4/3] w-full rounded-[calc(var(--radius)-2px)] border object-cover"
-              />
-            ))}
+              Each image drops itself on error rather than leaving a broken frame.
+              The media route 404s a document whose article is not published, and it
+              404s one removed from the gallery since this page was rendered — both
+              are ordinary, and a grey box with a torn-page icon is not the way to
+              say so. */}
+          {gallery.length > 0 && (
+            <figure className="mt-10">
+              <div className="grid grid-cols-2 gap-3">
+                {gallery.map((id) => (
+                  <img
+                    key={id}
+                    src={coverUrl(id) || undefined}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => setBroken((b) => [...b, id])}
+                    className="aspect-[4/3] w-full rounded-[calc(var(--radius)-2px)] border object-cover"
+                  />
+                ))}
+              </div>
+              {/* No caption is invented. The allowlist that let these through
+                  carries no alt text, and a screen reader told "Warehouse" under a
+                  photograph nobody has described is a lie about a picture. */}
+              <figcaption className="mt-2 text-xs text-muted-foreground">
+                {t("site.insights.gallery")}
+              </figcaption>
+            </figure>
+          )}
+
+          {/* Share (14680), at the END of the piece: the moment somebody has read
+              it is the moment they decide whether it is worth passing on. The URL
+              is the page's own address without query or hash, which is the URL the
+              server-built head describes, so the card on LinkedIn or WhatsApp
+              shows this article's title, description and image. */}
+          <div className="mt-12 border-t pt-6 xl:hidden">
+            <ShareLinks
+              url={typeof window === "undefined" ? "" : window.location.origin + window.location.pathname}
+              title={title}
+            />
           </div>
-          {/* No caption is invented. The allowlist that let these through
-              carries no alt text, and a screen reader told "Warehouse" under a
-              photograph nobody has described is a lie about a picture. */}
-          <figcaption className="mt-2 text-xs text-muted-foreground">
-            {t("site.insights.gallery")}
-          </figcaption>
-        </figure>
-      )}
 
-      {/* Share (14680), at the END of the piece: the moment somebody has read
-          it is the moment they decide whether it is worth passing on. The URL
-          is the page's own address without query or hash, which is the URL the
-          server-built head describes, so the card on LinkedIn or WhatsApp
-          shows this article's title, description and image. */}
-      <div className="mt-12 border-t pt-6">
-        <ShareLinks
-          url={typeof window === "undefined" ? "" : window.location.origin + window.location.pathname}
-          title={title}
-        />
+          {(article.related?.length ?? 0) > 0 && (
+            <RelatedArticles items={article.related || []} lang={lang} className="xl:hidden" />
+          )}
+        </div>
+
+        <aside className="article-aside hidden">
+          <div className="space-y-8">
+            <div className="space-y-2 text-sm">
+              <Byline article={article} />
+              <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                {article.published_at && (
+                  <time dateTime={article.published_at} className="num">
+                    {dateFmt(article.published_at)}
+                  </time>
+                )}
+                <ReadingTime minutes={article.reading_minutes} />
+              </div>
+            </div>
+            <div className="border-t pt-6">
+              <ShareLinks
+                url={typeof window === "undefined" ? "" : window.location.origin + window.location.pathname}
+                title={title}
+              />
+            </div>
+            {(article.related?.length ?? 0) > 0 && (
+              <RelatedArticles items={article.related || []} lang={lang} idSuffix="aside" />
+            )}
+          </div>
+        </aside>
       </div>
-
-      {(article.related?.length ?? 0) > 0 && (
-        <RelatedArticles items={article.related || []} lang={lang} />
-      )}
     </article>
   );
 }
@@ -327,11 +362,24 @@ function Article({
  * the tags they share with this one. Titles, dates and bylines only; a related
  * list with images competes with the piece the reader has just finished.
  */
-function RelatedArticles({ items, lang }: { items: InsightCard[]; lang: string }) {
+function RelatedArticles({
+  items,
+  lang,
+  className,
+  idSuffix = "",
+}: {
+  items: InsightCard[];
+  lang: string;
+  className?: string;
+  /** The list is drawn twice (in the flow, and in the desktop side panel),
+   *  and only one is ever displayed; the heading ids must still differ. */
+  idSuffix?: string;
+}) {
   const { t } = useTranslation();
+  const headingId = idSuffix ? `related-heading-${idSuffix}` : "related-heading";
   return (
-    <section aria-labelledby="related-heading" className="mt-12">
-      <h2 id="related-heading" className="font-display text-title font-semibold tracking-tight">
+    <section aria-labelledby={headingId} className={cn("mt-12", className)}>
+      <h2 id={headingId} className="font-display text-title font-semibold tracking-tight">
         {t("site.insights.related")}
       </h2>
       <ul className="mt-4 divide-y border-y">

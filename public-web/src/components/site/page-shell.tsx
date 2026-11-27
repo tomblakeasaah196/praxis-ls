@@ -106,8 +106,10 @@ export function PageContainer({
 }) {
   const max = {
     reading: "max-w-reading",
-    standard: "max-w-standard",
-    wide: "max-w-wide",
+    // From 1280px the frame (`.wrap`) is the limit, not a second cap inside
+    // it: a 1280px column inside a 1728px frame is the stretched-phone look.
+    standard: "max-w-standard xl:max-w-none",
+    wide: "max-w-wide xl:max-w-none",
   }[size];
   // `.wrap` owns the gutters, the inner div owns the measure. Collapsing them
   // into one element is how a container ends up with `px-0` fighting the

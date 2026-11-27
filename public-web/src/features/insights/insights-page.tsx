@@ -258,7 +258,7 @@ export function InsightsPage() {
         {state.kind === "loading" ? (
           <LoadingState
             label={t("site.insights.loading")}
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
           >
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="lux-card overflow-hidden">
@@ -303,7 +303,7 @@ export function InsightsPage() {
                 archive when every card is the same size. Filtered views stay a
                 plain grid, because there the reader is choosing, not browsing. */}
             {showLead && <LeadCard article={state.view.articles[0]} lang={lang} />}
-            <ul className={cn("grid gap-6 sm:grid-cols-2 lg:grid-cols-3", showLead && "mt-10")}>
+            <ul className={cn("grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4", showLead && "mt-10")}>
               {(showLead ? state.view.articles.slice(1) : state.view.articles).map((a, i) => (
                 <Reveal
                   as="li"

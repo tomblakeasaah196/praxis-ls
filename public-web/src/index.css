@@ -1227,6 +1227,29 @@
     padding-inline: clamp(1rem, 4vw, 2.5rem);
   }
 
+  /* THE DESKTOP FRAME. From 1280px up the page stops being a 1408px column
+     centred on the screen: the frame runs to 2400px with fluid 5% margins, so
+     a 1920 screen gets 1728px of layout instead of 1280. Below 1280 nothing in
+     this block applies, which is how phone and tablet stay exactly as they
+     were. Every value is continuous with the clamp() it replaces at 1280, so
+     crossing the breakpoint does not jump. Body copy keeps its own measure
+     (`max-w-prose`, `--measure`): the width goes to layout, not to lines. */
+  @media (min-width: 80em) {
+    :root {
+      --py-band: calc(3.2rem + 4vw);
+    }
+    .wrap {
+      max-width: 150rem;
+      padding-inline: 5vw;
+    }
+    .hero-title {
+      font-size: min(calc(2.25rem + 2.5vw), 6.5rem);
+    }
+    .section-title {
+      font-size: calc(1.75rem + 0.9375vw);
+    }
+  }
+
   /* The Maersk-style content page: a hairline above each section, one column of
      prose, generous vertical air. The rule is the design — no card needed. */
   .rule-top {

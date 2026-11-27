@@ -1186,3 +1186,21 @@
     transform: translateY(250%);
   }
 }
+
+/* ── The desktop frame (from 1280px) ────────────────────────────────────
+ *
+ * The frame is wider from here (`.wrap` in index.css), and the hero spends it:
+ * the copy column takes more of the row so the headline, which now grows with
+ * the screen, keeps to two lines, and the tracking plate sits against the
+ * frame's right edge rather than in the middle of the screen. The lead keeps
+ * its reading measure (SectionHead caps it). The photograph was already full
+ * bleed; it is the band's ground. */
+@media (min-width: 80em) {
+  .hero-band > .hero-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+    column-gap: 5vw;
+  }
+  .hero-copy {
+    max-width: 60rem;
+  }
+}

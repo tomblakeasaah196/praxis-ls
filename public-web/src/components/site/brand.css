@@ -554,6 +554,27 @@
   }
 }
 
+/* From 1280px the logos grow with the screen, and each copy of the row is at
+   least a screen wide. The track slides by one copy, so a copy narrower than
+   the viewport (eight logos are about 1400px) left a blank stretch at the end
+   of every loop on a wide monitor. */
+@media (min-width: 80em) {
+  .logo-marquee-item {
+    width: clamp(11rem, 10vw, 15rem);
+    height: 5rem;
+  }
+  .logo-marquee-item .proof-mark-img {
+    max-height: 3.5rem;
+  }
+}
+
+@media (min-width: 80em) and (prefers-reduced-motion: no-preference) {
+  .logo-marquee-row {
+    min-width: 100vw;
+    justify-content: space-around;
+  }
+}
+
 /* ── For Partners, Trust and Compliance, the documents, the legal pages ── */
 
 .doc-page {
@@ -797,4 +818,84 @@
   overflow: hidden;
   border-radius: var(--radius);
   background: var(--muted);
+}
+
+/* ── The step sequence on a desktop screen ─────────────────────────────
+ *
+ * From 1280px the photographs grow with the column. From 1536px the steps
+ * stand side by side, one column each, and the rail turns horizontal: on a
+ * wide screen a vertical list of three steps left two thirds of the band
+ * empty. The dot, the fill and the arrival dimming are the same rules. */
+@media (min-width: 80em) {
+  .stage-figure {
+    max-width: 30rem;
+  }
+}
+
+@media (min-width: 96em) {
+  .stage-seq {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    column-gap: 3vw;
+  }
+  .stage-item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    gap: 0;
+    padding-bottom: 0;
+  }
+  .stage-figure {
+    grid-column: 1;
+    grid-row: 1;
+    max-width: none;
+    margin: 0 0 1.75rem;
+  }
+  .stage-rail {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: stretch;
+    width: auto;
+    height: 1px;
+    min-height: 0;
+    margin-bottom: 1.5rem;
+  }
+  .stage-item:not(:last-child) .stage-rail {
+    margin-right: -3vw;
+  }
+  .stage-item:last-child .stage-rail {
+    background: linear-gradient(90deg, var(--border) 0 1.25rem, transparent 1.25rem);
+  }
+  .stage-dot {
+    top: -4px;
+    left: 0;
+    margin-left: 0;
+  }
+  .stage-body {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+/* ── About on a wide screen ────────────────────────────────────────────
+ *
+ * On a wide screen the principles beside the photograph and the sectors over
+ * the photograph stand in one row rather than two by two: each item is a short
+ * paragraph, so the row stays readable, and the band stops being a block in
+ * the left half of the screen. Layout only; the copy is the tenant's. */
+@media (min-width: 112em) {
+  /* From 1792px: below that the text column beside the photograph fits three
+     principles to a row, and four principles as three and one reads broken. */
+  .about-split-text:has(> .about-principles) {
+    max-width: none;
+  }
+  .about-principles {
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  }
+}
+
+@media (min-width: 96em) {
+  .about-sectors {
+    max-width: none;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
 }

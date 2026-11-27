@@ -12,6 +12,7 @@ import { p } from "@/lib/base-path";
 // Registers `site.careers.*`, which lives in this chunk rather than in the
 // entry dictionary. Imported for the side effect; see careers-i18n.ts.
 import "./careers-i18n";
+import "@/components/site/desktop.css";
 
 /**
  * The job-alert form, loaded when it is opened. It is mounted by a click on
@@ -72,7 +73,9 @@ export function NotHiring({ settings }: { settings: api.CareersSettings }) {
   const canAlert = settings.alerts_enabled;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    // From 1280px an opened form stands beside the card rather than under it
+    // (`.careers-ask` in desktop.css). Closed, the card stays centred.
+    <div className="careers-ask mx-auto max-w-3xl" data-open={open ? "" : undefined}>
       <Card className="p-8 text-center sm:p-10">
         <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--ink)/0.06)] text-muted-foreground">
           <ClockIcon size={20} />

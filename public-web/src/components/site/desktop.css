@@ -1,0 +1,157 @@
+/*
+ * DESKTOP LAYOUTS: the routes that change SHAPE from 1280px, not just width.
+ *
+ * The frame itself widens in `index.css` (`.wrap`), because every page needs
+ * it on the first paint. What is here is per-route composition (an article
+ * beside its side panel, a service page's columns, a quote form beside its
+ * next steps) and it travels with those routes' lazy chunks, so the first-paint
+ * stylesheet does not carry it for a visitor who never opens one.
+ *
+ * EVERY RULE IS INSIDE THE ONE MEDIA QUERY BELOW. Below 1280px this file draws
+ * nothing, which is the guarantee that phones and tablets render exactly as
+ * they did. The classes it styles are placed on the elements unconditionally;
+ * without these rules they are plain blocks.
+ *
+ * Not in an `@layer`, for the reason `brand.css` gives: an `@layer components`
+ * block here would become a native cascade layer of its own and lose to the
+ * Tailwind utilities it is meant to override at this width.
+ */
+
+@media (min-width: 80em) {
+  /* ── An article: the reading column, a side panel, a wider cover ───── */
+
+  /* The article becomes a group: a 42rem reading column (about 70 characters)
+     and a 20rem side panel, centred together. Its header and cover span the
+     group, so the cover is wider than the text without the text growing. */
+  .article-wide,
+  .article-back {
+    max-width: calc(42rem + 5vw + 20rem);
+    margin-inline: auto;
+  }
+
+  .article-wide h1 {
+    font-size: calc(1.75rem + 1.25vw);
+    line-height: 1.1;
+  }
+
+  .article-cover {
+    max-height: 36rem;
+  }
+
+  .article-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 42rem) minmax(0, 20rem);
+    column-gap: 5vw;
+    align-items: start;
+  }
+
+  .article-aside {
+    display: block;
+    position: sticky;
+    top: var(--sticky-top);
+    margin-top: 2rem;
+  }
+
+  /* ── A service page: the copy on the left, the side panel on the right ── */
+
+  /* The copy keeps its reading measure; the panel (the quote button, what is
+     included, the coverage, related services) holds the frame's right edge. */
+  .svc-cols {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
+    column-gap: 6vw;
+  }
+
+  /* ── The quote band: the form, and what happens after it ──────────── */
+
+  .quote-band {
+    display: grid;
+    grid-template-columns: minmax(0, 48rem) minmax(0, 30rem);
+    column-gap: 5vw;
+    align-items: start;
+  }
+
+  .quote-band-steps {
+    display: block;
+    position: sticky;
+    top: var(--sticky-top);
+  }
+}
+
+@media (min-width: 80em) {
+  /* ── Track: the answer and what to do about it, side by side ──────── */
+
+  .track-verdict:has(> .track-outcome) {
+    max-width: none;
+  }
+
+  .track-outcome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 4vw;
+    align-items: start;
+  }
+
+  .track-outcome > * {
+    grid-column: 1;
+  }
+
+  /* The explanation, then the actions, in the right-hand column from the top. */
+  .track-outcome > div {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin-top: 0;
+  }
+
+  .track-outcome > div + div {
+    grid-row: 4;
+    margin-top: 1.5rem;
+  }
+
+  /* ── Careers: an opened form beside the card that opened it ──────── */
+
+  .careers-ask[data-open] {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    column-gap: 4vw;
+    align-items: start;
+  }
+
+  .careers-ask[data-open] > :nth-child(n + 2) {
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 80em) {
+  /* ── Shared pieces ─────────────────────────────────────────────────── */
+
+  /* The side panel's own copy of the related list sits flush under sharing. */
+  .article-aside section {
+    margin-top: 0;
+  }
+
+  /* A form (or a pitch) beside its supporting points: more air between the
+     two columns, and the points kept to a reading measure however wide the
+     column gets. */
+  .desk-split {
+    column-gap: 5vw;
+  }
+
+  .desk-split > :last-child {
+    max-width: 34rem;
+  }
+
+  /* Drawn from 1280px only. The element also carries `hidden`, which is what
+     keeps it out of every narrower layout. */
+  .desk-flex {
+    display: flex;
+  }
+
+  .desk-block {
+    display: block;
+  }
+
+  .desk-center {
+    justify-self: center;
+  }
+}

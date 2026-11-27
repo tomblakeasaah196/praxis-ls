@@ -16,6 +16,7 @@ import * as React from "react";
 import { p } from "@/lib/base-path";
 import { phoneDisplay, phoneHref } from "@/lib/brand-api";
 import { PageHero } from "@/components/site/page-hero";
+import "@/components/site/desktop.css";
 
 /**
  * `/contact` — the general enquiry desk, on its own page.
@@ -191,7 +192,7 @@ export function ContactPage() {
       </PageHero>
 
       <Section>
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] desk-split">
           <Card padded>
             <ContactForm />
           </Card>

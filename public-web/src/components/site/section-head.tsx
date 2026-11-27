@@ -102,7 +102,9 @@ export function SectionHead({
   return (
     <div
       className={cn(
-        "max-w-prose",
+        // The heading may run wider than the body measure from 1280px, where
+        // the title grows with the screen; the lead below keeps the measure.
+        "max-w-prose xl:max-w-[56rem]",
         centred && "mx-auto text-center",
         className,
       )}
@@ -186,7 +188,7 @@ export function SectionHead({
       {lead && (
         <p
           className={cn(
-            "mt-3 text-lg",
+            "mt-3 max-w-prose text-lg",
             centred && "mx-auto",
             onDark ? "text-[var(--hero-muted)]" : "text-muted-foreground",
             leadClass,
