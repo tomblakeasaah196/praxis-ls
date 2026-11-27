@@ -716,7 +716,6 @@ export function ThreadView({
   onLabel,
   onToggleRead,
   onDelete,
-  onClose,
   onReplied,
   onLinked,
   busy,
@@ -748,7 +747,9 @@ export function ThreadView({
    * assuming a success.
    */
   onDelete?: () => void;
-  onClose: () => void;
+  /** Kept for the callers: the sheet that holds this pane on a phone owns
+   *  closing it now, so the pane itself draws no Close. */
+  onClose?: () => void;
   /** Called once a reply is accepted into the send queue, so the list refreshes. */
   onReplied?: () => void;
   /**
@@ -914,9 +915,9 @@ export function ThreadView({
                 <Pill tone="blue">{thread.entity_label || thread.entity_ref}</Pill>
               </span>
             )}
-            <Button size="sm" variant="ghost" onClick={onClose} className="lg:hidden">
-              {tr("Close")}
-            </Button>
+            {/* No Close here. Below `lg` the pane is a sheet with its own ✕
+                in its title bar, and a second "Close" one line down spent
+                the subject's width on a word (27 Nov 2026). */}
           </div>
         </div>
 

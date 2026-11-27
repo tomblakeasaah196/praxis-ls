@@ -246,7 +246,10 @@ test.describe("Smart Mail on a phone", () => {
       page.getByRole("navigation", { name: "Mail folders" }).getByRole("button"),
     ).toHaveCount(0);
     // And the search box has no button of its own: it searches as you pause.
-    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveCount(0);
+    // Scoped to <main>: the app bar's magnifier is also called "Search".
+    await expect(
+      page.locator("main").getByRole("button", { name: "Search", exact: true }),
+    ).toHaveCount(0);
 
     const spent = await page.evaluate((sel) => {
       const li = document.querySelector(sel)!;

@@ -998,7 +998,7 @@ export function Composer({
       )}
       {/* §8.8. Warnings ride along and refuse nothing; the one hard block asks
           for a reason that goes to the permanent ledger. */}
-      {(guardrails?.warnings.length || guardrails?.blocks.length) ? (
+      {(guardrails?.warnings?.length || guardrails?.blocks?.length) ? (
         <div className="border-t border-border px-3 py-2">
           <GuardrailBar
             result={guardrails}
