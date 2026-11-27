@@ -128,6 +128,7 @@ export function AssistToolbar({
   getSubject,
   getRecipients,
   voiceOpen = false,
+  subjectFill,
 }: {
   threadId?: string | null;
   getText: () => string;
@@ -152,6 +153,18 @@ export function AssistToolbar({
    * in the composer's toolbar (27 Nov 2026), so the toolbar owns the state.
    */
   voiceOpen?: boolean;
+  /**
+   * The Subject field, when the assistant may write it (27 Nov 2026).
+   *
+   * `canFill` is asked at the moment a button is pressed: true while the field
+   * is empty, or still holds exactly what the assistant last wrote there. Then
+   * the call goes with `want_subject` and WITHOUT the old subject, and the
+   * subject that comes back replaces it. Once the operator has typed their own,
+   * `canFill` is false, their subject goes as the brief, and it is never
+   * touched. A reply or forward arrives with "Re:" or "Fwd:" already in the
+   * field, so it is never fillable either.
+   */
+  subjectFill?: { canFill: () => boolean; fill: (subject: string) => void };
 }) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<api.AssistDraft | null>(null);
@@ -163,7 +176,11 @@ export function AssistToolbar({
   const [brief, setBrief] = React.useState("");
   const [showBrief, setShowBrief] = React.useState(false);
 
-  async function run(key: string, fn: () => Promise<api.AssistDraft>) {
+  async function run(
+    key: string,
+    fn: () => Promise<api.AssistDraft>,
+    { fillSubject = false }: { fillSubject?: boolean } = {},
+  ) {
     setBusy(key);
     setResult(null);
     try {
@@ -173,6 +190,9 @@ export function AssistToolbar({
       // returns an empty draft with a note explaining why, and overwriting the
       // operator's text with "" would be the assistant deleting their work.
       if (out.draft_text) setText(out.draft_text);
+      // Same rule for the subject: only one that came back, only into a field
+      // that was the assistant's to fill when the button was pressed.
+      if (fillSubject && out.subject_text) subjectFill?.fill(out.subject_text);
     } catch (err) {
       reportActionError(err);
     } finally {
@@ -185,16 +205,21 @@ export function AssistToolbar({
   /* The subject, the addressees and the brief all ride along. Before they did,
    * this on a blank new message asked the model to write about nothing and got
    * exactly that back. */
-  const compose = () =>
-    run("compose", () => api.assistCompose({
+  const compose = () => {
+    const fillSubject = subjectFill?.canFill() ?? false;
+    return run("compose", () => api.assistCompose({
       tone,
       language,
       thread_id: threadId || undefined,
       draft: getText() || undefined,
-      subject: getSubject?.().trim() || undefined,
+      // A subject the assistant wrote last time is not the operator's brief:
+      // it is left out, and a fresh one comes back with the fresh draft.
+      subject: fillSubject ? undefined : getSubject?.().trim() || undefined,
+      want_subject: fillSubject || undefined,
       to: getRecipients?.().length ? getRecipients() : undefined,
       instruction: brief.trim() || undefined,
-    }));
+    }), { fillSubject });
+  };
 
   return (
     <div className="space-y-2 rounded-lg border border-border bg-card/40 px-3 py-2">
@@ -347,9 +372,13 @@ export function AssistToolbar({
             size="sm"
             disabled={busy !== null || !dictation.trim()}
             onClick={() =>
-              run("voice", () => api.assistVoice({
-                transcript: dictation, thread_id: threadId || undefined, tone, language,
-              })).then(() => setDictation(""))
+              (() => {
+                const fillSubject = subjectFill?.canFill() ?? false;
+                return run("voice", () => api.assistVoice({
+                  transcript: dictation, thread_id: threadId || undefined, tone, language,
+                  want_subject: fillSubject || undefined,
+                }), { fillSubject });
+              })().then(() => setDictation(""))
             }
           >
             {busy === "voice" ? tr("Turning it into an email…") : tr("Make it an email")}

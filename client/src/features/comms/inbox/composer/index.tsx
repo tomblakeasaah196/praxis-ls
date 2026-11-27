@@ -229,6 +229,11 @@ export function Composer({
   // The AI tools are shut until asked for; see the one button on the toolbar.
   const [aiOpen, setAiOpen] = React.useState(false);
   const [voiceOpen, setVoiceOpen] = React.useState(false);
+  /* The last subject the assistant wrote into the field. While the field still
+   * holds exactly this, it is the assistant's to replace on the next draft;
+   * the first keystroke makes it the operator's. */
+  const [aiSubject, setAiSubject] = React.useState<string | null>(null);
+  const subjectByAi = aiSubject !== null && subject.trim() !== "" && subject === aiSubject;
   const [pasteMessage, setPasteMessage] = React.useState<string | null>(null);
 
   const [slash, setSlash] = React.useState<{ open: boolean; query: string }>({ open: false, query: "" });
@@ -862,12 +867,29 @@ export function Composer({
         )}
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <label htmlFor="composer-subject" className="text-xs text-muted-foreground sm:w-10 sm:shrink-0">{tr("Subject")}</label>
-          <Input
-            id="composer-subject"
-            value={subject}
-            onChange={(e) => setField("subject", e.target.value, (() => setSubject(e.target.value)) as never)}
-            className="h-8"
-          />
+          <div className="relative min-w-0 flex-1">
+            <Input
+              id="composer-subject"
+              value={subject}
+              onChange={(e) => setField("subject", e.target.value, (() => setSubject(e.target.value)) as never)}
+              className={cn("h-8", subjectByAi && "pr-8")}
+            />
+            {/* The assistant wrote this subject and nobody has touched it since.
+                A SIBLING of the input, not inside the label: an image's name
+                inside a <label> joins the field's accessible name. It goes the
+                moment the operator edits the subject, because then it is
+                theirs, and a later draft leaves it alone. */}
+            {subjectByAi && (
+              <span
+                role="img"
+                aria-label={tr("Subject written by AI")}
+                title={tr("Subject written by AI")}
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-primary-ink"
+              >
+                <SparklesIcon width={14} height={14} />
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1000,6 +1022,13 @@ export function Composer({
             getSubject={() => subject}
             getRecipients={() => splitAddresses(to)}
             voiceOpen={voiceOpen}
+            subjectFill={{
+              canFill: () => !subject.trim() || (aiSubject !== null && subject === aiSubject),
+              fill: (s) => {
+                setAiSubject(s);
+                setField("subject", s, setSubject as never);
+              },
+            }}
           />
         </div>
       )}

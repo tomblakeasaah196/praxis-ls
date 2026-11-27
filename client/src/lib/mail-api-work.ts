@@ -226,6 +226,10 @@ export type FenceVerdict = { ok: boolean; violations: string[] };
 
 export type AssistDraft = {
   draft_text: string;
+  /** A subject line, written only when the call sent `want_subject` and no
+   *  `subject` (compose and voice). Null otherwise, and when the model gave
+   *  none: then the Subject field simply stays as it was. */
+  subject_text?: string | null;
   language: "en" | "fr";
   facts?: AssistFact[];
   sources?: AssistSource[];
@@ -263,6 +267,8 @@ export const assistCompose = (body: {
   instruction?: string;
   language?: "en" | "fr";
   mode?: string;
+  /** The Subject field is empty: write one too. */
+  want_subject?: boolean;
 }) => tenant<AssistDraft>("/mail/assist/compose", { method: "POST", body });
 
 /**
@@ -330,6 +336,7 @@ export const assistVoice = (body: {
   thread_id?: string;
   tone?: AssistTone;
   language?: "en" | "fr";
+  want_subject?: boolean;
 }) => tenant<AssistDraft>("/mail/assist/voice", { method: "POST", body });
 
 
