@@ -63,7 +63,9 @@ import { useToast } from "@/components/ui/toast";
 import { useLiveNotifications } from "@/lib/use-live-notifications";
 import { useLiveRefresh, useOpenInApp, useWorkerNavigation } from "@/lib/open-in-app";
 import { ShareAppDialog } from "@/components/pwa/share-app-dialog";
-import { SendIcon } from "@/components/ui/icons";
+import { MailIcon, RefreshIcon, SendIcon } from "@/components/ui/icons";
+import { openRaiseTicket } from "@/features/support/raise-ticket-bus";
+import { applyPendingUpdate, useUpdateReady } from "@/lib/pwa-update";
 import { playOnce, tierFor } from "@/lib/notif-sound";
 import { applyTabBadge } from "@/lib/tab-badge";
 import { tokenStore } from "@/lib/token-store";
@@ -441,6 +443,7 @@ function UserMenu({
   // address to copy, send on WhatsApp or scan — installing it needs nobody to
   // explain where the app lives any more.
   const [sharing, setSharing] = React.useState(false);
+  const updateReady = useUpdateReady();
 
   // Was a hand-rolled role="menu" (audit F13). It declared menu semantics —
   // which promise arrow keys, Home/End, type-ahead and a managed focus cycle,
@@ -522,6 +525,23 @@ function UserMenu({
         )}
         <DropdownItem onSelect={() => setSharing(true)}>
           <SendIcon /> {tr("Share the app")}
+        </DropdownItem>
+        {/* Out of the phone's floating menu and into here (owner's decision,
+            28 Nov 2026): both are things a person does now and then, not
+            daily. Feedback is the same Raise a ticket door the Help page and
+            the desktop rail open. Reload is the same full service-worker
+            handover the floating menu did: the waiting build when one is
+            staged, otherwise a hard reload. */}
+        <DropdownItem onSelect={() => openRaiseTicket()}>
+          <MailIcon width={16} height={16} /> {t("shell.sendFeedback")}
+        </DropdownItem>
+        <DropdownItem onSelect={() => (updateReady ? applyPendingUpdate() : window.location.reload())}>
+          <RefreshIcon width={16} height={16} /> {t("shell.reloadApp")}
+          {updateReady && (
+            <span className="ml-auto inline-flex h-5 items-center rounded-full bg-primary px-1.5 text-[11px] font-bold leading-none text-primary-foreground">
+              {t("shell.newVersion")}
+            </span>
+          )}
         </DropdownItem>
         <DropdownSeparator />
         {/* Theme + density are collapsible so the menu stays a scannable list
@@ -1340,11 +1360,10 @@ export function AppShell() {
           {/* Not in a full-screen conversation: it sat on the composer's mic,
               and the conversation's back arrow returns to a screen that has it. */}
           {!immersive && (
-          <FloatingActions
-            badge={unread.messages + unread.notifications}
-            messageBadge={unread.messages}
-            notificationBadge={unread.notifications}
-          />
+          /* Messages only: notifications have the top bar's bell, which is
+              where they are read, and a count on this button that opening it
+              cannot clear is a count nobody can act on (28 Nov 2026). */
+          <FloatingActions badge={unread.messages} messageBadge={unread.messages} />
           )}
           {/* Env-switch interstitial. Shown from the confirmed switch until the
           browser has replaced the document (switchEnv above). `onReload` is

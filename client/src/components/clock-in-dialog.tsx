@@ -29,8 +29,9 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/modal";
-import { GeolocationAllow } from "@/components/geolocation-allow";
+import { GeolocationAllow, type GeolocationOutcome } from "@/components/geolocation-allow";
 import { deviceLocationSteps, geoRecoverySteps, supportsGeolocationElement } from "@/lib/geo-permission";
+import { isStandalone } from "@/lib/pwa-install";
 
 /** Why the location step is showing: never asked yet, or what the last reading failed with. */
 export type LocationAsk = "prompt" | "denied" | "os_off" | "unavailable";
@@ -83,6 +84,22 @@ export function ClockInDialog({
   }, [step]);
   const s = step || shown;
 
+  /*
+   * Whether the written steps are showing, held HERE because the footer reads
+   * it too. While the browser's own button is the way through, it is the one
+   * thing to press, and an orange Try Again beside it read as the main action
+   * (it re-asks a blocked site, which fails at once). Try Again comes back with
+   * the steps, which is when it means something: after a setting was changed.
+   * A new cause starts closed again.
+   */
+  const native = s?.kind === "location" && s.cause === "denied" && supportsGeolocationElement();
+  const locationKey = s?.kind === "location" ? s.cause : null;
+  const [stepsOpen, setStepsOpen] = React.useState(false);
+  React.useEffect(() => {
+    setStepsOpen(false);
+  }, [locationKey]);
+  const offerTryAgain = !native || stepsOpen;
+
   return (
     <Dialog
       open={step !== null}
@@ -103,9 +120,11 @@ export function ClockInDialog({
             <Button variant="outline" onClick={onWithoutLocation} disabled={busy}>
               {i18n.t("hr.clockInWithoutLocation")}
             </Button>
-            <Button onClick={onRetryLocation} loading={busy}>
-              {s.cause === "prompt" ? i18n.t("hr.allowLocation") : i18n.t("hr.tryAgain")}
-            </Button>
+            {offerTryAgain && (
+              <Button onClick={onRetryLocation} loading={busy}>
+                {s.cause === "prompt" ? i18n.t("hr.allowLocation") : i18n.t("hr.tryAgain")}
+              </Button>
+            )}
           </>
         ) : s?.kind === "device" ? (
           <>
@@ -128,7 +147,18 @@ export function ClockInDialog({
         ) : null
       }
     >
-      {s?.kind === "location" && <LocationStep step={s} onRetryLocation={onRetryLocation} />}
+      {/* Keyed by cause: a new cause is a new step, and the browser button's
+          notes and the opened steps belong to the cause they were about. */}
+      {s?.kind === "location" && (
+        <LocationStep
+          key={s.cause}
+          step={s}
+          native={native}
+          stepsOpen={!native || stepsOpen}
+          onOpenSteps={() => setStepsOpen(true)}
+          onRetryLocation={onRetryLocation}
+        />
+      )}
       {s?.kind === "device" && <DeviceStep busy={busy} onNameDevice={onNameDevice} />}
       {s?.kind === "failed" && (
         <Callout tone="bad" title={i18n.t("hr.punchFailed")}>
@@ -139,47 +169,94 @@ export function ClockInDialog({
   );
 }
 
+/** What the last tap on the browser's own button came to, in words. */
+const NATIVE_NOTE: Record<Exclude<GeolocationOutcome, "granted" | "answered">, string> = {
+  "not-ready": "hr.locationButtonNotReady",
+  dismissed: "hr.locationButtonDismissed",
+  "no-answer": "hr.locationButtonNoAnswer",
+};
+
 function LocationStep({
   step,
+  native,
+  stepsOpen,
+  onOpenSteps,
   onRetryLocation,
 }: {
   step: Extract<ClockInStep, { kind: "location" }>;
+  /** The browser has its own location button, and the site is blocked. */
+  native: boolean;
+  stepsOpen: boolean;
+  onOpenSteps: () => void;
   onRetryLocation: () => void;
 }) {
   /*
-   * The browser's own button, where it exists: the one way back from a blocked
-   * site that does not go through settings. It works here and did not in the
-   * old card, because nothing above it in this dialog blurs what is behind it.
-   * The written steps stay beside it whatever: a button that might not work is
-   * never the only way through.
+   * The browser's own button, where it exists, is THE way through: one tap puts
+   * the browser's question back even after a block, which no page can do any
+   * other way (no page may open the browser's settings). So it is the main
+   * action, large, and the written steps wait behind "Use Settings Instead".
+   * They come forward by themselves when a tap gets no answer: a button that
+   * might not work on some phone is never the only way through.
    */
-  const native = step.cause === "denied" && supportsGeolocationElement();
+  const [note, setNote] = React.useState<keyof typeof NATIVE_NOTE | null>(null);
   const steps = React.useMemo(
     () =>
       step.cause === "denied"
-        ? geoRecoverySteps()
+        ? geoRecoverySteps(undefined, { standalone: isStandalone() })
         : step.cause === "os_off" || step.cause === "unavailable"
           ? deviceLocationSteps()
           : [],
     [step.cause],
   );
+  const onOutcome = React.useCallback(
+    (o: GeolocationOutcome) => {
+      if (o === "granted" || o === "answered") {
+        setNote(null);
+        onRetryLocation();
+        return;
+      }
+      setNote(o);
+      if (o === "no-answer") onOpenSteps();
+    },
+    [onRetryLocation, onOpenSteps],
+  );
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <Callout tone={step.cause === "prompt" ? "info" : "warn"} title={i18n.t(LOCATION_LEAD[step.cause])}>
-        {step.cause === "prompt" ? i18n.t("hr.locationPrimerBody") : i18n.t("hr.locationFixBody")}
+        {step.cause === "prompt"
+          ? i18n.t("hr.locationPrimerBody")
+          : native
+            ? i18n.t("hr.locationTapButtonBody")
+            : i18n.t("hr.locationFixBody")}
       </Callout>
+      {/* Wrapped: the browser lays its own element out and ignores the
+          spacing rule above, so the wrapper carries the gap and the centring. */}
       {native && (
-        <div className="flex justify-center py-1">
-          <GeolocationAllow onSettled={onRetryLocation} />
+        <div className="flex justify-center pt-1">
+          <GeolocationAllow onOutcome={onOutcome} />
         </div>
       )}
-      {steps.length > 0 && (
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-foreground">
-          {steps.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ol>
+      {note && (
+        <p role="status" className="text-sm font-medium text-warn">
+          {i18n.t(NATIVE_NOTE[note])}
+        </p>
       )}
+      {steps.length > 0 &&
+        (stepsOpen ? (
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-foreground">
+            {steps.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ol>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenSteps}
+            className="text-sm font-semibold text-primary-ink underline-offset-2 hover:underline"
+          >
+            {i18n.t("hr.useSettingsInstead")}
+          </button>
+        ))}
       {/* A retry that found the same problem says so. The old card went back
           to exactly how it looked, which read as a button that did nothing. */}
       {step.attempts > 0 && (

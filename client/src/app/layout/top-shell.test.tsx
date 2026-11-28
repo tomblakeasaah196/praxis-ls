@@ -318,6 +318,18 @@ describe("title bar strip", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Feedback and Reload left the phone's floating menu for the account menu
+   * (owner's decision, 28 Nov 2026): things a person does now and then, not
+   * daily. They must still be reachable, so their new home is pinned.
+   */
+  it("carries Send Feedback and Reload App in the account menu", async () => {
+    renderShell();
+    await userEvent.click(screen.getByRole("button", { name: /^Account:/ }));
+    expect(await screen.findByRole("menuitem", { name: /Send Feedback/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Reload App/ })).toBeInTheDocument();
+  });
+
   it("renders it on an ordinary screen too", () => {
     renderShell();
     expect(

@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
-import { ClockPunchChip } from "@/components/clock-punch";
+import { ClockPunch, ClockPunchChip } from "@/components/clock-punch";
 import { hoursFmt, timerFmt } from "@/lib/clock-format";
 import { ToastProvider } from "@/components/ui/toast";
 import * as api from "@/lib/hr-api";
@@ -419,5 +419,37 @@ describe("the punch underneath (14403)", () => {
     const { container } = render(<ClockPunchChip />);
     await screen.findByRole("button", { name: "Clock In" });
     expect(await axe(container)).toHaveNoViolations();
+  });
+});
+
+/**
+ * The phone's clock: the first, highlighted row of the floating menu (owner's
+ * decision, 28 Nov 2026), with the same three faces as the title-bar chip.
+ */
+describe("the menu row", () => {
+  it("leads with Clock In, filled, and one tap clocks in", async () => {
+    render(<ClockPunch />);
+    const row = await screen.findByRole("button", { name: "Clock In" });
+    expect(row.className).toContain("bg-primary");
+    await userEvent.click(row);
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: /Clock Out\. On the clock/ })).toHaveTextContent(/\d{2}:\d{2}:\d{2}/);
+  });
+
+  it("on a finished day: disabled, with Undo while it lasts", async () => {
+    mocked.clockState.mockResolvedValue(state({
+      done: { attendance_id: "a1", clock_in_at: new Date(Date.now() - 2 * HOUR).toISOString(), clock_out_at: new Date().toISOString() },
+      undo_until: new Date(Date.now() + 60_000).toISOString(),
+    }));
+    render(<ClockPunch />);
+    expect(await screen.findByRole("button", { name: /Done · 2h/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+  });
+
+  it("is not there at all for somebody who is not an employee", async () => {
+    mocked.clockState.mockResolvedValue(state({ linked: false }));
+    const { container } = render(<ClockPunch />);
+    await waitFor(() => expect(mocked.clockState).toHaveBeenCalled());
+    expect(container.querySelector("button")).toBeNull();
   });
 });
