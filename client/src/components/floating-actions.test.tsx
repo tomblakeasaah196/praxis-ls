@@ -13,7 +13,8 @@ import * as React from "react";
  * every other screen falls through to the 6rem it has always used.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { FloatingActions } from "@/components/floating-actions";
 import { useFabFloor } from "@/lib/fab-floor";
@@ -49,6 +50,61 @@ describe("FloatingActions anchors above whatever is docked below it", () => {
   it("carries the unread badge, capped", () => {
     wrap(<FloatingActions badge={140} />);
     expect(screen.getByText("99+")).toBeInTheDocument();
+  });
+});
+
+/**
+ * The menu after the owner's review (28 Nov 2026): "too populated", two bells,
+ * and Feedback and Reload in a daily menu. One plain list now, opened by a tap.
+ */
+describe("the quick-actions menu", () => {
+  const trigger = () => screen.getByRole("button", { name: /Quick actions/ });
+
+  it("opens on a tap into one list, without Notifications, Feedback or Reload", async () => {
+    wrap(<FloatingActions />);
+    await userEvent.click(trigger());
+    expect(trigger()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Praxis AI" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
+    // The top bar's bell is the one door to notifications.
+    expect(screen.queryByRole("button", { name: /Notifications/ })).toBeNull();
+    // Both moved to the account menu.
+    expect(screen.queryByRole("button", { name: /Feedback/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Reload/ })).toBeNull();
+  });
+
+  it("stays open through the hover and focus a touchscreen tap also fires", () => {
+    // A tap sends a compatibility mouseenter and focuses the button before the
+    // click. When those opened the menu too, the click shut it straight away.
+    wrap(<FloatingActions />);
+    const fab = trigger();
+    fireEvent.mouseEnter(fab.parentElement!);
+    fireEvent.focus(fab);
+    fireEvent.click(fab);
+    expect(fab).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("closes on a tap outside and on Escape", async () => {
+    wrap(<FloatingActions />);
+    await userEvent.click(trigger());
+    fireEvent.pointerDown(document.body);
+    expect(trigger()).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(trigger());
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(trigger()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("is one surface with no blur: a blurred ancestor kills the browser's location button", async () => {
+    const { container } = wrap(<FloatingActions />);
+    await userEvent.click(trigger());
+    const all = [container, document.body].flatMap((root) => Array.from(root.querySelectorAll("[class]")));
+    expect(all.some((el) => /backdrop-blur/.test(String(el.getAttribute("class"))))).toBe(false);
+  });
+
+  it("counts unread messages on the Messages row", async () => {
+    wrap(<FloatingActions messageBadge={3} />);
+    await userEvent.click(trigger());
+    expect(screen.getByRole("button", { name: "Messages, 3 unread" })).toBeInTheDocument();
   });
 });
 

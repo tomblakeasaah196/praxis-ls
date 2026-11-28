@@ -43,7 +43,13 @@ const MAX_PER_SESSION = 50;
 const seen = new Map<string, number>();
 let sentThisSession = 0;
 
-type Kind = "render" | "window" | "unhandledrejection";
+/**
+ * `diagnostic` is not a crash: it is a record the app asked for on purpose,
+ * where a browser refuses something silently and the reason only exists on the
+ * person's device (the clock's location button, 28 Nov 2026). The server keeps
+ * `kind` as a free string, so it files under the same feed, findable by kind.
+ */
+type Kind = "render" | "window" | "unhandledrejection" | "diagnostic";
 
 export type ClientErrorReport = {
   message: string;

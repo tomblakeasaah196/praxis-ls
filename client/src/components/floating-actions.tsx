@@ -1,8 +1,28 @@
 /**
- * Floating action cluster (Pixie "Hub" floatbar) — a primary FAB, bottom-right,
- * that expands into round quick-action buttons: Praxis AI (opens the copilot),
- * Messages (Smart Comms), and Help. The primary button carries an unread badge.
+ * Floating action cluster — a primary FAB, bottom-right, that opens ONE plain
+ * list card: the clock first, then Praxis AI (opens the copilot), Messages
+ * (Smart Comms) and Help. The primary button carries the unread-messages badge.
  * The AI action only appears when the tenant's AI is enabled.
+ *
+ * WHAT IT IS NOT ANY MORE (owner's review, 28 Nov 2026: "too populated"). It
+ * carried seven entries, each drawn as two floating shapes (a label pill and a
+ * round button) with its own shadow and ring, on a blurred card: fourteen
+ * elevated objects for seven destinations. Three of those destinations did not
+ * belong here:
+ *
+ *   Notifications  the top bar's bell is the same screen with the same count;
+ *                  the FAB's badge now counts messages alone, which is what
+ *                  opening this menu can actually clear;
+ *   Feedback       moved to the account menu (Send Feedback). The desktop rail
+ *                  keeps it, from the shared quick-action list;
+ *   Reload         moved to the account menu (Reload App), still the full
+ *                  service-worker handover. Pull-to-refresh and the new-version
+ *                  banner cover the daily cases.
+ *
+ * And the blur went with them, for a reason beyond weight: a backdrop blur on
+ * an ancestor makes the browser refuse every tap on its own location button
+ * (`<geolocation>`, Chromium 158: `intersection_occluded_or_distorted`), and
+ * the clock's location card used to sit inside this card.
  *
  * TOUCH ONLY, as of Phase 5 (audit F9). The cluster is `md:hidden`; on desktop
  * the same list renders in `<IconRail>`'s tail.
@@ -33,10 +53,8 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
 import { ClockPunch } from "@/components/clock-punch";
 import { useQuickActions } from "@/components/quick-actions";
-import { applyPendingUpdate, useUpdateReady } from "@/lib/pwa-update";
 import { cn } from "@/lib/cn";
 
 type IP = React.SVGProps<SVGSVGElement>;
@@ -58,35 +76,17 @@ const BurstIcon = (p: IP) => (
     <circle cx="12" cy="12" r="2.5" />
   </svg>
 );
-const ReloadIcon = (p: IP) => (
-  <svg {...s(p)}>
-    <path d="M21 12a9 9 0 1 1-2.6-6.4" />
-    <path d="M21 3v7h-7" />
-  </svg>
-);
-const BellIcon = (p: IP) => (
-  <svg {...s(p)}>
-    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-  </svg>
-);
-
 export function FloatingActions({
   badge = 0,
   messageBadge = 0,
-  notificationBadge = 0,
 }: {
+  /** On the closed FAB. Unread messages: the one count this menu can clear. */
   badge?: number;
-  /** Unread messages specifically — shown as a badge on the Messages action when open. */
+  /** Unread messages specifically — shown on the Messages row when open. */
   messageBadge?: number;
-  /** Unread notifications — shown on the Notifications row when open so the 43 on the FAB is accountable inside. */
-  notificationBadge?: number;
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
-  const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const navigate = useNavigate();
-  const updateReady = useUpdateReady();
 
   // Draggable position (FAB top-left, viewport px). null → default bottom-right
   // anchor. Persisted so it stays where the user drops it.
@@ -167,77 +167,46 @@ export function FloatingActions({
     };
   }, [pos]);
 
-  // Open on hover (with a short grace delay so moving between buttons doesn't
-  // snap it shut); click still toggles for touch/keyboard. Suppressed mid-drag so
-  // the cluster doesn't expand while you're moving it.
-  const openNow = () => {
-    if (draggedRef.current) return;
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpen(true);
-  };
-  const closeSoon = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setOpen(false), 220);
-  };
-
+  /*
+   * TAP TO OPEN, TAP OUTSIDE OR ESCAPE TO CLOSE. Nothing else.
+   *
+   * It used to open on hover and on focus as well as toggle on click. On a
+   * touchscreen a single tap fires all three (the browser sends the
+   * compatibility `mouseenter` and focuses the button before the `click`), so
+   * the menu opened and the click shut it again: Playwright's tap measured it
+   * staying closed. A component that only ever renders below `md` has no hover
+   * to serve. `pointerdown` rather than `mousedown` for outside taps, because
+   * on touch the compatibility mouse events come late or not at all.
+   */
   React.useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", onDown);
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
-      if (closeTimer.current) clearTimeout(closeTimer.current);
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [open]);
 
   const close = React.useCallback(() => setOpen(false), []);
-  const actions = useQuickActions(close);
-
-  const handleReload = React.useCallback(() => {
-    close();
-    // Full service-worker reload — the same handover the "New version available"
-    // toast and the desktop NavRefresh hard-reload use. If a build is staged
-    // (`updateReady`) we ask the waiting worker to take over; otherwise a plain
-    // hard reload is exactly right. See lib/pwa-update.ts for the guarantee
-    // that this always ends in a reload even when the worker is gone.
-    if (updateReady) applyPendingUpdate();
-    else window.location.reload();
-  }, [close, updateReady]);
-
-  const handleNotifications = React.useCallback(() => {
-    close();
-    navigate("/notifications");
-  }, [close, navigate]);
+  // Feedback is in the account menu on a phone (owner's decision, 28 Nov
+  // 2026); the shared list still offers it to the desktop rail.
+  const actions = useQuickActions(close).filter((a) => a.key !== "feedback");
 
   // Portal to <body> so position:fixed is viewport-relative. A transformed page
   // ancestor would otherwise become the containing block, so the drag math (which
   // uses viewport-relative pointer + rect coords) would land the FAB in the wrong
   // place and it would drift away from the cursor.
   return createPortal(
-    /*
-     * A hover container wrapping real buttons.
-     *
-     * `onFocus`/`onBlur` are the keyboard equivalent of the hover pair, and they
-     * were genuinely missing: the cluster opened on hover and closed on
-     * mouse-leave, so a keyboard user who tabbed in saw nothing change and one
-     * who tabbed away left it hanging open. React's onFocus/onBlur bubble (the
-     * native events do not), so one pair on the container covers every child.
-     *
-     * eslint-disable, with the reason, rather than a role: this div is a layout
-     * wrapper whose every child is already a real <button>, and the FAB itself
-     * toggles on click/Enter. Giving it an interactive role would add a tab stop
-     * that opens nothing and announce a control that is not one.
-     */
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={ref}
       style={containerStyle}
-      onMouseEnter={openNow}
-      onMouseLeave={closeSoon}
-      onFocus={openNow}
-      onBlur={closeSoon}
       /*
        * `md:hidden` is the Phase 5 change: on desktop this cluster covered the
        * bottom-right of every table, and dragging it was the workaround rather
@@ -255,99 +224,43 @@ export function FloatingActions({
       className="fixed bottom-[max(6rem,var(--fab-floor,0px))] right-5 z-50 flex flex-col items-end gap-3 md:hidden"
     >
       {open && (
-        <div className="flex flex-col items-end gap-2.5 rounded-2xl border bg-card/95 p-3 shadow-2xl backdrop-blur-xl">
-          {actions.map((a, i) => {
-            const isMessages = a.key === "msg";
-            const showBadge = isMessages && messageBadge > 0;
+        /*
+         * ONE surface: a solid card, one shadow, rows inside it. No blur (see
+         * the header), no shadow or ring per row.
+         */
+        <div
+          id="quick-actions-menu"
+          className="w-64 rounded-2xl border bg-card p-1.5 shadow-[var(--shadow-l)] animate-fade-in"
+        >
+          {/* The clock first and highlighted: it is the one thing every
+              employee does here every day. Renders nothing for somebody who is
+              not an employee, so its divider comes with it. */}
+          <ClockPunch />
+          {actions.map((a) => {
+            const showBadge = a.key === "msg" && messageBadge > 0;
             return (
-              <div
+              <button
                 key={a.key}
-                className="flex items-center gap-3 animate-fade-in"
-                style={{ animationDelay: `${i * 30}ms` }}
+                type="button"
+                onClick={a.onSelect}
+                aria-label={showBadge ? `${a.label}, ${messageBadge} unread` : a.label}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:bg-accent"
               >
-                <span className="inline-flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 text-sm font-semibold leading-none text-foreground shadow-lg ring-1 ring-black/5 backdrop-blur-sm">
-                  {a.label}
-                  {showBadge && (
-                    <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand-blue-deep px-1.5 text-[11px] font-bold leading-none text-white">
-                      {messageBadge > 99 ? "99+" : messageBadge}
-                    </span>
-                  )}
-                </span>
-                <button
-                  onClick={a.onSelect}
-                  title={a.label}
-                  aria-label={
-                    showBadge ? `${a.label}, ${messageBadge} unread` : a.label
-                  }
-                  className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-background bg-popover text-foreground shadow-xl ring-1 ring-black/10 transition-colors duration-150 hover:bg-accent hover:text-primary-ink"
-                >
+                <span aria-hidden className="text-muted-foreground">
                   <a.Icon />
-                  {showBadge && (
-                    <span
-                      aria-hidden
-                      className="absolute -right-1.5 -top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-brand-blue-deep px-1 text-[10px] font-bold leading-none text-white ring-2 ring-background"
-                    >
-                      {messageBadge > 99 ? "99+" : messageBadge}
-                    </span>
-                  )}
-                </button>
-              </div>
+                </span>
+                <span className="flex-1">{a.label}</span>
+                {showBadge && (
+                  <span
+                    aria-hidden
+                    className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand-blue-deep px-1.5 text-[11px] font-bold leading-none text-white"
+                  >
+                    {messageBadge > 99 ? "99+" : messageBadge}
+                  </span>
+                )}
+              </button>
             );
           })}
-          {/* ── Reload: full service-worker handover, like Ctrl+F5 / desktop NavRefresh hard reload ── */}
-          <div
-            className="flex items-center gap-3 animate-fade-in"
-            style={{ animationDelay: `${actions.length * 30}ms` }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 text-sm font-semibold leading-none text-foreground shadow-lg ring-1 ring-black/5 backdrop-blur-sm">
-              Reload
-              {updateReady && (
-                <span className="inline-flex h-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold leading-none text-primary-foreground">
-                  New
-                </span>
-              )}
-            </span>
-            <button
-              onClick={handleReload}
-              title={updateReady ? "Reload into new version" : "Reload app — hard reload"}
-              aria-label={updateReady ? "Reload into new version" : "Reload app"}
-              className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-background bg-popover text-foreground shadow-xl ring-1 ring-black/10 transition-colors duration-150 hover:bg-accent hover:text-primary-ink"
-            >
-              <ReloadIcon />
-            </button>
-          </div>
-          {/* ── Notifications: so the 43 on the FAB is accountable inside ── */}
-          <div
-            className="flex items-center gap-3 animate-fade-in"
-            style={{ animationDelay: `${(actions.length + 1) * 30}ms` }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 text-sm font-semibold leading-none text-foreground shadow-lg ring-1 ring-black/5 backdrop-blur-sm">
-              Notifications
-              {notificationBadge > 0 && (
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold leading-none text-primary-foreground">
-                  {notificationBadge > 99 ? "99+" : notificationBadge}
-                </span>
-              )}
-            </span>
-            <button
-              onClick={handleNotifications}
-              title="Notifications"
-              aria-label={notificationBadge > 0 ? `Notifications, ${notificationBadge} unread` : "Notifications"}
-              className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-background bg-popover text-foreground shadow-xl ring-1 ring-black/10 transition-colors duration-150 hover:bg-accent hover:text-primary-ink"
-            >
-              <BellIcon />
-              {notificationBadge > 0 && (
-                <span
-                  aria-hidden
-                  className="absolute -right-1.5 -top-1.5 grid h-5 min-w-[20px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground ring-2 ring-background"
-                >
-                  {notificationBadge > 99 ? "99+" : notificationBadge}
-                </span>
-              )}
-            </button>
-          </div>
-          {/* Clock-in lives inside the expanded cluster, not always-on. */}
-          <ClockPunch />
         </div>
       )}
       <button
@@ -358,6 +271,7 @@ export function FloatingActions({
         }}
         aria-label="Quick actions (drag to move)"
         aria-expanded={open}
+        aria-controls={open ? "quick-actions-menu" : undefined}
         className={cn(
           // `hover:scale-105` removed (F17). The rotation stays — it is not
           // decoration, it turns the burst into a close glyph and is the only

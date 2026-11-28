@@ -48,6 +48,7 @@ import { getOutbox, subscribeOutbox } from "@/lib/outbox";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { ClockIcon } from "@/components/ui/icons";
 import { ClockInDialog, type ClockInStep, type LocationAsk } from "@/components/clock-in-dialog";
 import i18n from "@/lib/i18n";
 import { hoursFmt, timerFmt } from "@/lib/clock-format";
@@ -744,10 +745,8 @@ function ClockOutDialog({ clock }: { clock: ClockState }) {
  * The one control, in its three faces. Both homes render this — the title bar
  * on desktop, the floating toolbar on a phone — so they cannot drift apart.
  */
-function ClockPill({ clock, touch = false }: { clock: ClockState; touch?: boolean }) {
-  const shape = touch
-    ? "h-11 rounded-full px-4 text-sm shadow-lg bg-card"
-    : "h-9 rounded-md px-3 text-xs";
+function ClockPill({ clock }: { clock: ClockState }) {
+  const shape = "h-9 rounded-md px-3 text-xs";
   const base = cn(
     "inline-flex items-center justify-center border font-semibold tabular-nums transition-colors disabled:cursor-not-allowed",
     shape,
@@ -802,8 +801,7 @@ function ClockPill({ clock, touch = false }: { clock: ClockState; touch?: boolea
             type="button"
             onClick={() => void clock.undo()}
             className={cn(
-              "rounded-md px-2 font-semibold text-primary-ink hover:underline",
-              touch ? "h-11 text-sm" : "h-9 text-xs",
+              "h-9 rounded-md px-2 text-xs font-semibold text-primary-ink hover:underline",
             )}
           >
             {i18n.t("hr.undoButton")}
@@ -842,7 +840,16 @@ export function ClockPunchChip() {
   );
 }
 
-/** The phone's home for the clock: the same pill, in the floating toolbar. */
+/**
+ * The phone's home for the clock: the FIRST ROW of the floating menu, and the
+ * highlighted one (owner's decision, 28 Nov 2026). Everything else in that menu
+ * is somewhere a person goes now and then; this is what every employee does
+ * every day, so it leads, it is filled with the brand colour while there is a
+ * shift to start, and a divider separates it from the rest.
+ *
+ * The same three faces as the title-bar chip, as rows: Clock In; the running
+ * time, which asks before clocking out; and Done with the two-minute Undo.
+ */
 export function ClockPunch() {
   const clock = useClockPunch();
 
@@ -856,13 +863,67 @@ export function ClockPunch() {
   if (clock.phase === "loading" || clock.phase === "unlinked") return null;
 
   return (
-    // Nothing is anchored to the toolbar any more. Its backdrop blur is what
-    // made the browser's own location button inside the old card refuse every
-    // tap; the clock-in dialog is centred, with nothing blurred above it.
-    <div className="flex items-center gap-2 animate-fade-in">
+    <div className="mb-1.5 border-b pb-1.5">
       {clock.ownsDialog && <ClockInFlow clock={clock} />}
       {clock.ownsDialog && <ClockOutDialog clock={clock} />}
-      <ClockPill clock={clock} touch />
+      <ClockRow clock={clock} />
+    </div>
+  );
+}
+
+const ROW = "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-colors";
+
+function ClockRow({ clock }: { clock: ClockState }) {
+  if (clock.phase === "in") {
+    return (
+      <button
+        type="button"
+        onClick={() => void clock.clockIn()}
+        disabled={clock.busy}
+        className={cn(ROW, "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60")}
+      >
+        <ClockIcon aria-hidden />
+        <span className="flex-1">{i18n.t("hr.clockInButton")}</span>
+      </button>
+    );
+  }
+  if (clock.phase === "on") {
+    return (
+      <button
+        type="button"
+        onClick={clock.askClockOut}
+        disabled={clock.busy}
+        // Named with the state, not just the digits: a screen-reader user
+        // should hear that tapping clocks them out.
+        aria-label={`${i18n.t("hr.clockOutButton")}. ${i18n.t("hr.onTheClock")}`}
+        className={cn(ROW, "bg-ok-fill/10 text-[rgb(var(--ok))] hover:bg-ok-fill/15 disabled:opacity-60")}
+      >
+        <ClockIcon aria-hidden />
+        <span className="flex-1">{i18n.t("hr.onTheClock")}</span>
+        <span className="num tabular-nums">
+          <Elapsed since={clock.shift?.clock_in_at} />
+        </span>
+      </button>
+    );
+  }
+  const worked = minutesBetween(clock.shift?.clock_in_at, clock.shift?.clock_out_at);
+  return (
+    <div className="flex items-center gap-1">
+      <button type="button" disabled className={cn(ROW, "flex-1 text-muted-foreground")}>
+        <ClockIcon aria-hidden />
+        <span className="flex-1">
+          {i18n.t("hr.doneLabel")} · {hoursFmt(worked)}
+        </span>
+      </button>
+      {clock.canUndo && (
+        <button
+          type="button"
+          onClick={() => void clock.undo()}
+          className="rounded-xl px-3 py-3 text-sm font-semibold text-primary-ink hover:bg-accent"
+        >
+          {i18n.t("hr.undoButton")}
+        </button>
+      )}
     </div>
   );
 }

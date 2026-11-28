@@ -1810,7 +1810,12 @@ Opt-in on `<DataList>` / `<ListPage>`, because each costs something:
 - **The FAB is touch-only.** `<FloatingActions>` is `md:hidden`; on desktop the same list
   renders in `<IconRail>`'s tail. A fixed bottom-right cluster covers the last rows and
   the pager of every list screen, and making it draggable was the workaround, not the fix.
-  Both surfaces read `useQuickActions()` so they cannot drift.
+  Both surfaces read `useQuickActions()` so they cannot drift. On a phone it opens on a
+  TAP (no hover or focus opening: a tap fires both, and they toggled it shut again) into
+  ONE plain list card: the clock first and highlighted, then the quick actions. No
+  notifications (the top bar's bell), no Feedback or Reload (the account menu), and no
+  `backdrop-blur` anywhere in it: a blurred ancestor makes the browser refuse every tap on
+  its own `<geolocation>` button (`e2e/clock-in-phone.spec.ts` pins both).
 - **A drag on a phone is a HOLD, and it may not take the scroll.** A touch screen has one
   thumb, and on a kanban board the board itself is what that thumb scrolls — so a card
   cannot claim the gesture at `touchstart`. `touch-action: none` on the card (the usual way

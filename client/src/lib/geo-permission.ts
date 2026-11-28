@@ -146,61 +146,88 @@ export function deviceLocationSteps(ua = typeof navigator === "undefined" ? "" :
     return [
       "Open Settings, then Privacy & Security.",
       "Turn on Location Services, and allow it for your browser.",
-      "Come back here and tap Retry.",
+      "Come back here and tap Try Again.",
     ];
   }
   if (/Android/i.test(ua)) {
     return [
       "Swipe down from the top of the screen.",
       "Tap Location to turn it on.",
-      "Come back here and tap Retry.",
+      "Come back here and tap Try Again.",
     ];
   }
   if (/Windows/i.test(ua)) {
     return [
       "Open Windows Settings, then Privacy & security, then Location.",
       "Turn on Location services and Let desktop apps access your location.",
-      "Come back here and tap Retry.",
+      "Come back here and tap Try Again.",
     ];
   }
   if (/Mac OS X|Macintosh/i.test(ua)) {
     return [
       "Open System Settings, then Privacy & Security, then Location Services.",
       "Turn on Location Services, and turn it on for your browser.",
-      "Come back here and tap Retry.",
+      "Come back here and tap Try Again.",
     ];
   }
   return [
     "Open your computer's privacy settings.",
     "Turn on location services for this browser.",
-    "Come back here and tap Retry.",
+    "Come back here and tap Try Again.",
   ];
 }
 
-/** OS/browser steps when the permission was revoked. Plain words, no markup. */
-export function geoRecoverySteps(ua = typeof navigator === "undefined" ? "" : navigator.userAgent): string[] {
+/**
+ * OS/browser steps when the SITE is blocked. Plain words, no markup.
+ *
+ * WHERE THE PERSON IS decides the steps, not only which phone (28 Nov 2026).
+ * The installed app has no address bar and no three-dot menu, so "open this
+ * site's lock icon" pointed at nothing for everybody clocking in from the home
+ * screen, which is most people. There, the site's permission is changed from
+ * inside the Chrome app itself, and the site is found by its address under
+ * Blocked, so the address is named.
+ */
+export function geoRecoverySteps(
+  ua = typeof navigator === "undefined" ? "" : navigator.userAgent,
+  { standalone = false, host = typeof location === "undefined" ? "" : location.host }: { standalone?: boolean; host?: string } = {},
+): string[] {
   const ios = /iPhone|iPad|iPod/i.test(ua);
   const android = /Android/i.test(ua);
+  const site = host || "this site";
   if (ios) {
     return [
       "Open Settings on this iPhone or iPad.",
       "Scroll to Safari (or the browser you used to install the app).",
-      "Tap Location and choose While Using the App.",
-      "Come back here and tap Retry.",
+      "Tap Location and choose Allow or Ask.",
+      "Come back here and tap Try Again.",
+    ];
+  }
+  if (android && standalone) {
+    return [
+      "Open the Chrome app.",
+      "Tap the three dots, then Settings, then Site settings, then Location.",
+      `Under Blocked, tap ${site} and choose Allow.`,
+      "Come back here and tap Try Again.",
     ];
   }
   if (android) {
     return [
-      "Open this site's lock icon or the three-dot menu.",
+      "Tap the icon to the left of the address at the top of Chrome.",
       "Tap Permissions or Site settings.",
       "Set Location to Allow.",
-      "Come back here and tap Retry.",
+      "Come back here and tap Try Again.",
+    ];
+  }
+  if (standalone) {
+    return [
+      "Click the three dots at the top of this window, then App info.",
+      "Set Location to Allow.",
+      "Come back here and click Try Again.",
     ];
   }
   return [
     "Click the lock or tune icon in the address bar.",
     "Set Location to Allow.",
-    "If it still fails, install the app so the permission can stay granted.",
-    "Come back here and tap Retry.",
+    "Come back here and click Try Again.",
   ];
 }

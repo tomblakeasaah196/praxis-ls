@@ -24,6 +24,26 @@ describe("geoRecoverySteps", () => {
     expect(steps.join(" ")).toMatch(/Permissions|Site settings/i);
   });
 
+  it("in the INSTALLED app on Android, goes through the Chrome app and names the site to find", () => {
+    // The installed app has no address bar and no menu: "open this site's lock
+    // icon" pointed at nothing for everybody clocking in from the home screen.
+    const steps = geoRecoverySteps(
+      "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 Chrome/144.0.0.0 Mobile",
+      { standalone: true, host: "jbs.praxis-ls.com" },
+    ).join(" ");
+    expect(steps).toMatch(/Open the Chrome app/);
+    expect(steps).toMatch(/Under Blocked, tap jbs\.praxis-ls\.com/);
+    expect(steps).not.toMatch(/address|lock icon/i);
+  });
+
+  it("every set ends on the button the dialog actually has", () => {
+    for (const ua of ["iPhone OS 17", "Android 14", "Windows NT 10.0"]) {
+      for (const standalone of [false, true]) {
+        expect(geoRecoverySteps(ua, { standalone, host: "x.test" }).at(-1)).toMatch(/Try Again\.$/);
+      }
+    }
+  });
+
   it("falls back to the address-bar lock on desktop", () => {
     const steps = geoRecoverySteps(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0",
