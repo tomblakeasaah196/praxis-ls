@@ -15,5 +15,7 @@ export function SitePill({
   if (s === "unfenced") return <Pill tone="mute">{i18n.t("hr.noWorksite")}</Pill>;
   // 14403: a reading that arrived after the tap. Shown, never a verdict.
   if (s === "delayed_gps") return <Pill tone="warn">{i18n.t("hr.delayedGps")}</Pill>;
-  return <Pill tone="bad">{i18n.t("hr.noGps")}</Pill>;
+  // "Location Not Verified" (owner's word, 28 Nov 2026): the punch counts, it
+  // simply carried no location to check. A flag to look at, not a fault.
+  return <Pill tone="warn">{i18n.t("hr.noGps")}</Pill>;
 }

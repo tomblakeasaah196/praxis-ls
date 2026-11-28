@@ -221,8 +221,8 @@ export async function captureForPunch(): Promise<Capture> {
 }
 
 /**
- * Ask for location now, from a button the person pressed (the primer card,
- * Retry). Resolves with the reason it failed, or null when it worked.
+ * Ask for location now, from a button the person pressed (the clock-in dialog's
+ * Allow Location and Try Again). Resolves with the reason it failed, or null when it worked.
  */
 export async function askForLocation(): Promise<LocationError | null> {
   const g = geo();

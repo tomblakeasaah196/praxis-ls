@@ -39,6 +39,7 @@ jest.mock("../../src/modules/hr/attendance/attendance.repo", () => ({
   dayReconciled: jest.fn(async () => false),
   employeeForClock: jest.fn(async () => ({ employee_id: "emp-1", entity_id: null, work_schedule: null })),
   getDevice: jest.fn(async () => null),
+  deviceForEmployee: jest.fn(async () => null),
 }));
 jest.mock("../../src/modules/hr/attendance/attendance.reconcile", () => ({
   reconcileDate: jest.fn(async () => ({})),
@@ -373,6 +374,32 @@ describe("me (14403, one shift a day)", () => {
     expect(out).toMatchObject({ linked: true, open: null, done: null, undo_until: null });
     // A working day with no schedule anywhere is a plain eight hours.
     expect([480, null]).toContain(out.expected_minutes);
+  });
+
+  it("says whether THIS browser is on the caller's register, so the clock can ask its name first", async () => {
+    repo.employeeIdForUser.mockResolvedValue("emp-1");
+    repo.openForEmployee.mockResolvedValue(null);
+    repo.lastForEmployee.mockResolvedValue(null);
+    try {
+      // No device id sent: nothing to answer, and the register is not read.
+      expect((await service.me(client, { actor })).device).toBeNull();
+      expect(repo.deviceForEmployee).not.toHaveBeenCalled();
+
+      repo.deviceForEmployee.mockResolvedValueOnce(null);
+      expect((await service.me(client, { actor, fingerprint: "abcdef0123456789" })).device).toEqual({
+        known: false, hr_device_id: null, label: null, status: null,
+      });
+      expect(repo.deviceForEmployee).toHaveBeenLastCalledWith(client, "emp-1", "abcdef0123456789");
+
+      repo.deviceForEmployee.mockResolvedValueOnce({ hr_device_id: "dev-1", label: "My phone", status: "PENDING" });
+      expect((await service.me(client, { actor, fingerprint: "abcdef0123456789" })).device).toEqual({
+        known: true, hr_device_id: "dev-1", label: "My phone", status: "PENDING",
+      });
+    } finally {
+      repo.employeeIdForUser.mockReset();
+      repo.openForEmployee.mockReset().mockResolvedValue(null);
+      repo.lastForEmployee.mockReset().mockResolvedValue(null);
+    }
   });
 
   it("reports today's finished shift, with the device's name, and the undo window while it lasts", async () => {

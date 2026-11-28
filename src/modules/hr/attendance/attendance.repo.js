@@ -159,6 +159,17 @@ module.exports = {
       )
       .then((r) => r.rows[0]);
   },
+  /** One employee's register row for one browser, or null. Read-only: unlike
+   *  `upsertDevice` it never puts a row down, because asking "do I know this
+   *  device?" must not be what registers it. */
+  deviceForEmployee(client, employeeId, fingerprint) {
+    return client
+      .query(
+        `SELECT hr_device_id, label, status FROM hr_device WHERE employee_id = $1 AND fingerprint = $2`,
+        [employeeId, fingerprint],
+      )
+      .then((r) => r.rows[0] || null);
+  },
   listDevices(client, { employeeId = null } = {}) {
     const params = [];
     let where = "";

@@ -9,12 +9,13 @@
  *         clocked in from, and on what.
  *   done  disabled for the rest of the day, with a two-minute Undo.
  *
- * And the location rules from 14403 still hold underneath: a failed location
- * never stops the punch, and the card names its real cause.
+ * And underneath (14403, reworked 28 Nov 2026): location and a new device are
+ * asked for in a dialog BEFORE the punch, the dialog always offers to clock in
+ * without location, and nothing fails out of sight.
  */
 import * as React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
+import { act, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { ClockPunchChip } from "@/components/clock-punch";
@@ -211,25 +212,78 @@ describe("the punch underneath (14403)", () => {
     expect(body.client_ref).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("still punches with no location, sends why, and names a blocked site", async () => {
+  it("a blocked site opens the dialog BEFORE the punch, and clocking in without location sends why", async () => {
     mloc.captureForPunch.mockResolvedValue({ fix: null, error: "denied", late: none });
     await ready();
     await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/blocked for this site/i)).toBeInTheDocument();
+    // The steps are on the dialog, always: never only a button that may not work.
+    expect(within(dialog).getByText(/Set Location to Allow/i)).toBeInTheDocument();
+    expect(mocked.punchIn).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Clock In Without Location" }));
     await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
     const body = mocked.punchIn.mock.calls[0][0];
     expect(body.latitude).toBeUndefined();
     expect(body.location_error).toBe("denied");
-    expect(await screen.findByText(/blocked for this site/i)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /restore later/i }));
-    expect(screen.queryByText(/blocked for this site/i)).toBeNull();
+    expect(await screen.findByText(/location not verified/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Clock Out\. On the clock/ })).toBeInTheDocument();
   });
 
   it("names the DEVICE, not the site, when the site is allowed and the device refuses", async () => {
     mloc.captureForPunch.mockResolvedValue({ fix: null, error: "os_off", late: none });
     await ready();
     await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
-    expect(await screen.findByText(/off on this device/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Set Location to Allow/i)).toBeNull();
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/off on this device/i)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Set Location to Allow/i)).toBeNull();
+    expect(mocked.punchIn).not.toHaveBeenCalled();
+  });
+
+  it("Try Again that finds the same problem says so, and a fixed one goes on to punch", async () => {
+    mloc.captureForPunch.mockResolvedValueOnce({ fix: null, error: "os_off", late: none });
+    mloc.askForLocation.mockResolvedValueOnce("os_off");
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Try Again" }));
+    expect(await within(dialog).findByText(/Still not working/i)).toBeInTheDocument();
+    expect(mocked.punchIn).not.toHaveBeenCalled();
+
+    // The person turned Location on: the next try reads, then punches with it.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Try Again" }));
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    expect(mocked.punchIn.mock.calls[0][0]).toEqual(expect.objectContaining({ latitude: 4.05, longitude: 9.76 }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("two retries fired at once (the browser's button sends more than one event) punch once", async () => {
+    mloc.captureForPunch.mockResolvedValueOnce({ fix: null, error: "denied", late: none });
+    let grant!: (v: null) => void;
+    mloc.askForLocation.mockImplementation(() => new Promise((r) => (grant = r)));
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    const tryAgain = within(await screen.findByRole("dialog")).getByRole("button", { name: "Try Again" });
+    await act(async () => {
+      tryAgain.click();
+      tryAgain.click();
+    });
+    await act(async () => grant(null));
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mloc.askForLocation).toHaveBeenCalledTimes(1);
+    expect(mocked.punchIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("closing the dialog sends nothing", async () => {
+    mloc.captureForPunch.mockResolvedValue({ fix: null, error: "unavailable", late: none });
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mocked.punchIn).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Clock In" })).toBeInTheDocument();
   });
 
   it("does not wait on a slow GPS: it punches, then attaches the reading quietly", async () => {
@@ -265,14 +319,45 @@ describe("the punch underneath (14403)", () => {
     expect(await screen.findByRole("button", { name: "Clock In" })).toBeInTheDocument();
   });
 
-  it("offers to name a device it has never seen, and the punch stands either way", async () => {
-    mocked.punchIn.mockResolvedValue(sent({ clock_in_at: new Date().toISOString(), hr_device_id: "d1", device_new: true }));
+  it("asks for a name before the first punch from a device it has never seen, and sends it", async () => {
+    mocked.clockState.mockResolvedValue(state({ device: { known: false, hr_device_id: null, label: null, status: null } }));
     await ready();
     await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
-    const input = await screen.findByLabelText("Device name");
-    await userEvent.type(input, "Yard tablet");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(mocked.renameOwnDevice).toHaveBeenCalledWith("d1", "Yard tablet"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Name This Device")).toBeInTheDocument();
+    expect(mocked.punchIn).not.toHaveBeenCalled();
+
+    // A name is asked for, not assumed.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Clock In" }));
+    expect(await within(dialog).findByText(/Give this device a name/i)).toBeInTheDocument();
+    expect(mocked.punchIn).not.toHaveBeenCalled();
+
+    await userEvent.type(within(dialog).getByLabelText(/Device Name/), "Yard tablet");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Clock In" }));
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    expect(mocked.punchIn.mock.calls[0][0].device).toEqual(expect.objectContaining({ ...DEVICE, label: "Yard tablet" }));
+  });
+
+  it("does not ask for a name for a device the register already knows", async () => {
+    mocked.clockState.mockResolvedValue(state({ device: { known: true, hr_device_id: "d1", label: "My phone", status: "TRUSTED" } }));
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocked.punchIn.mock.calls[0][0].device?.label).toBeUndefined();
+  });
+
+  it("a refused punch is shown in the dialog with the reason, and Try Again resends the SAME punch", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    mocked.punchIn.mockRejectedValueOnce(new ApiError("EMPLOYEE_INACTIVE", "Employee is deactivated", 422));
+    await ready();
+    await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Employee is deactivated")).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Try Again" }));
+    await waitFor(() => expect(mocked.punchIn).toHaveBeenCalledTimes(2));
+    expect(mocked.punchIn.mock.calls[1][0].client_ref).toBe(mocked.punchIn.mock.calls[0][0].client_ref);
   });
 
   it("asks for location on a tap before the first punch, never on page load", async () => {
@@ -286,10 +371,45 @@ describe("the punch underneath (14403)", () => {
     });
     try {
       await ready();
-      expect(await screen.findByText(/Allow location for clocking in/i)).toBeInTheDocument();
+      // Nothing on page load: no card, no dialog, no request.
+      await screen.findByRole("button", { name: "Clock In" });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByText(/Allow location for clocking in/i)).toBeNull();
       expect(mloc.askForLocation).not.toHaveBeenCalled();
-      await userEvent.click(screen.getByRole("button", { name: "Allow Location" }));
+      expect(mloc.captureForPunch).not.toHaveBeenCalled();
+
+      await waitFor(() => expect(mloc.setLocationPermission).toHaveBeenCalledWith("prompt"));
+      await userEvent.click(screen.getByRole("button", { name: "Clock In" }));
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByText(/Allow location for clocking in/i)).toBeInTheDocument();
+      expect(mocked.punchIn).not.toHaveBeenCalled();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Allow Location" }));
       expect(mloc.askForLocation).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(mocked.punchIn).toHaveBeenCalled());
+      expect(mocked.punchIn.mock.calls[0][0]).toEqual(expect.objectContaining({ latitude: 4.05 }));
+    } finally {
+      Object.defineProperty(navigator, "permissions", { configurable: true, value: perms });
+    }
+  });
+
+  it("a site already known to be blocked opens the dialog without trying a reading", async () => {
+    const perms = navigator.permissions;
+    Object.defineProperty(navigator, "geolocation", { configurable: true, value: {} });
+    Object.defineProperty(navigator, "permissions", {
+      configurable: true,
+      value: {
+        query: async () => ({ state: "denied", addEventListener: () => undefined, removeEventListener: () => undefined }),
+      },
+    });
+    try {
+      await ready();
+      await waitFor(() => expect(mloc.setLocationPermission).toHaveBeenCalledWith("denied"));
+      // Nothing at app open: the old card appeared here, before anybody reached for the clock.
+      expect(screen.queryByText(/blocked for this site/i)).toBeNull();
+      await userEvent.click(await screen.findByRole("button", { name: "Clock In" }));
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByText(/blocked for this site/i)).toBeInTheDocument();
+      expect(mloc.captureForPunch).not.toHaveBeenCalled();
     } finally {
       Object.defineProperty(navigator, "permissions", { configurable: true, value: perms });
     }

@@ -542,7 +542,7 @@ Recorded, deliberately NOT renamed: a code a client already switches on cannot b
 | `PAYLOAD_TOO_LARGE` | 413 | 1× | — |
 | `PERIOD_CLOSED` | 422 | 1× | — |
 | `PERIOD_NOT_OPEN` | 422 | 1× | — |
-| `PERMISSION_DENIED` | 403 | 11× | — |
+| `PERMISSION_DENIED` | 403 | 12× | — |
 | `PERSONAL_MAILBOX` | — | 1× | — |
 | `PERSONAL_MAILBOX_EXISTS` | — | 1× | — |
 | `PIN_EXPIRED` | 422 | 1× | — |
