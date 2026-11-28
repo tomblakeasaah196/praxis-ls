@@ -206,8 +206,8 @@ async function filmShot(browser, shot, dir, { origin, password, emailOf }) {
     acceptDownloads: true,
     // No service worker: its "Ready to work offline" toast is not what a person sees on a day-to-day visit.
     serviceWorkers: "block",
-    // The browser's location is allowed and fixed on Douala, as a person's is after answering the clock's offer once:
-    // left unanswered, the first screen carries a "Location is blocked for this site" warning over the Control Tower.
+    // The browser's location is allowed and fixed on Douala, as a person's is after answering the clock once:
+    // left unanswered, a tap on Clock In opens the location step of the clock-in dialog before the punch.
     permissions: ["geolocation", ...(phone ? [] : ["clipboard-read", "clipboard-write"])],
     geolocation: { latitude: 4.0511, longitude: 9.7679 },
     ...(shot.still ? { reducedMotion: "reduce" } : {}),
