@@ -184,8 +184,17 @@ export type ClockState = {
   done: AttendanceRow | null;
   expected_minutes: number | null;
   undo_until: string | null;
+  /** Is THIS browser on the caller's device register? Null when the browser
+   *  keeps no device id. The clock asks for a name before the first punch
+   *  from a device it does not know. */
+  device?: { known: boolean; hr_device_id: string | null; label: string | null; status: HrDevice["status"] | null } | null;
 };
-export const clockState = () => tenant<ClockState>("/attendance/me");
+/** The clock's state for the caller, with this browser's device id so the
+ *  answer can say whether the device is registered yet. */
+export const clockState = () => {
+  const id = deviceId();
+  return tenant<ClockState>("/attendance/me" + qs({ device: id || undefined }));
+};
 /** Take back a clock-out made in the last two minutes. */
 export const undoClockOut = () =>
   tenant<AttendanceRow>("/attendance/undo-clock-out", { method: "POST", body: {} });

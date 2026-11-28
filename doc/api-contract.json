@@ -2,11 +2,11 @@
   "generated_by": "scripts/check-api-contract.js",
   "api_version": "v1",
   "modules_mounted": 141,
-  "route_count": 1917,
+  "route_count": 1918,
   "tiers": {
     "public": 89,
-    "self-scoped": 117,
-    "gated": 1711
+    "self-scoped": 122,
+    "gated": 1707
   },
   "routes": {
     "DELETE /api/platform/escalation/rules/:id": {
@@ -3105,6 +3105,12 @@
       "validated": false,
       "tier": "gated"
     },
+    "GET /api/tenant/mail/thread/:id/remote-image": {
+      "auth": true,
+      "rbac": true,
+      "validated": false,
+      "tier": "gated"
+    },
     "GET /api/tenant/mail/thread/:id/source": {
       "auth": true,
       "rbac": true,
@@ -5855,9 +5861,9 @@
     },
     "PATCH /api/tenant/attendance/devices/:deviceId/name": {
       "auth": true,
-      "rbac": true,
+      "rbac": false,
       "validated": false,
-      "tier": "gated"
+      "tier": "self-scoped"
     },
     "PATCH /api/tenant/attendance/work-sites/:siteId": {
       "auth": true,
@@ -7097,15 +7103,15 @@
     },
     "POST /api/tenant/attendance/clock-in": {
       "auth": true,
-      "rbac": true,
+      "rbac": false,
       "validated": false,
-      "tier": "gated"
+      "tier": "self-scoped"
     },
     "POST /api/tenant/attendance/clock-out": {
       "auth": true,
-      "rbac": true,
+      "rbac": false,
       "validated": false,
-      "tier": "gated"
+      "tier": "self-scoped"
     },
     "POST /api/tenant/attendance/days/:dayId/justify": {
       "auth": true,
@@ -7121,9 +7127,9 @@
     },
     "POST /api/tenant/attendance/fix": {
       "auth": true,
-      "rbac": true,
+      "rbac": false,
       "validated": false,
-      "tier": "gated"
+      "tier": "self-scoped"
     },
     "POST /api/tenant/attendance/reconcile": {
       "auth": true,
@@ -7133,9 +7139,9 @@
     },
     "POST /api/tenant/attendance/undo-clock-out": {
       "auth": true,
-      "rbac": true,
+      "rbac": false,
       "validated": false,
-      "tier": "gated"
+      "tier": "self-scoped"
     },
     "POST /api/tenant/attendance/weekly-summaries": {
       "auth": true,

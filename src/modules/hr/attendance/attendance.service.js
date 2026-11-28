@@ -674,9 +674,9 @@ module.exports = {
    * location. No grant beyond being signed in, for the same reason as the
    * `/mine` routes — it only ever describes the caller.
    */
-  async me(client, { actor = {} }) {
+  async me(client, { actor = {}, fingerprint = null }) {
     const empId = actor && actor.user_id ? await repo.employeeIdForUser(client, actor.user_id) : null;
-    if (!empId) return { linked: false, open: null, done: null, expected_minutes: null, undo_until: null };
+    if (!empId) return { linked: false, open: null, done: null, expected_minutes: null, undo_until: null, device: null };
     const open = await repo.openForEmployee(client, empId);
     /*
      * The day is the OPEN shift's day when there is one — a night shift that
@@ -693,12 +693,27 @@ module.exports = {
         if (until > Date.now()) undoUntil = new Date(until).toISOString();
       }
     }
+    /*
+     * Is THIS browser on the caller's register yet (28 Nov 2026)? The clock
+     * asks for a name before the first punch from a device, not after it, so
+     * it has to know before the tap. Keyed by (employee, fingerprint), exactly
+     * as the register is: a shared yard tablet is a new device to each person
+     * who picks it up. Null when the browser sent no id: nothing to answer.
+     */
+    let device = null;
+    if (fingerprint) {
+      const row = await repo.deviceForEmployee(client, empId, fingerprint);
+      device = row
+        ? { known: true, hr_device_id: row.hr_device_id, label: row.label, status: row.status }
+        : { known: false, hr_device_id: null, label: null, status: null };
+    }
     return {
       linked: true,
       open: await forClock(client, open),
       done,
       expected_minutes: day.expectedMinutes,
       undo_until: undoUntil,
+      device,
     };
   },
 

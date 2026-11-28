@@ -9,25 +9,29 @@
  * showing the time worked against the day's target. The clock is the same in
  * LIVE and TEST because the server always keeps it in LIVE.
  *
- * NOTHING STOPS THE FIRST PUNCH OF THE DAY (14403). Not a missing location, not
- * a slow GPS, not a dead network, not a tenant's `block` policy:
+ * NOTHING STOPS THE FIRST PUNCH OF THE DAY (14403), AND NOTHING FAILS OUT OF
+ * SIGHT (28 Nov 2026). Not a missing location, not a slow GPS, not a dead
+ * network, not a tenant's `block` policy, and not the person's role:
  *
+ *   no location    the clock-in dialog asks for it, or names the cause with its
+ *                  fix, BEFORE the punch; "Clock In Without Location" is always
+ *                  on it, and that punch is recorded as Location Not Verified;
+ *   new device     the dialog asks for its name, then the punch goes;
  *   slow GPS       the tap waits at most five seconds, punches, and attaches
  *                  the reading when it lands (lib/clock-location);
- *   no location    the punch goes, carrying WHY, and the card that follows
- *                  names the actual cause, with the fix for that cause;
  *   no network     the punch is held on the phone with the moment it was
  *                  tapped and goes out by itself on reconnect (lib/outbox);
- *   block policy   the server holds the punch for a manager instead of a 422.
+ *   block policy   the server holds the punch for a manager instead of a 422;
+ *   any role       the clock routes take no grant: a linked employee is enough.
+ *
+ * Every outcome is said: a refused punch opens the dialog with the reason and
+ * Try Again, a held or unverified one says so in a toast.
  */
 import * as React from "react";
 import { cn } from "@/lib/cn";
 import * as api from "@/lib/hr-api";
 import { ApiError, isNetworkError } from "@/lib/api-client";
 import {
-  geoRecoverySteps,
-  deviceLocationSteps,
-  supportsGeolocationElement,
   watchGeoPermission,
   type GeoPermission,
   type LocationError,
@@ -35,61 +39,61 @@ import {
 import {
   askForLocation,
   captureForPunch,
-  onWarmError,
   setLocationPermission,
   warmGps,
+  type Capture,
   type LateResult,
 } from "@/lib/clock-location";
 import { getOutbox, subscribeOutbox } from "@/lib/outbox";
-import { openInstallUi } from "@/lib/pwa-install";
-import { Callout } from "@/components/ui/callout";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import { GeolocationAllow } from "@/components/geolocation-allow";
+import { ClockInDialog, type ClockInStep, type LocationAsk } from "@/components/clock-in-dialog";
 import i18n from "@/lib/i18n";
 import { hoursFmt, timerFmt } from "@/lib/clock-format";
 
 /**
- * The location card the clock is showing, if any.
- *
- * `primer` asks BEFORE the first punch, on a button the person presses — the
- * only kind of location request browsers treat as wanted. The others name a
- * cause, and only causes the person can do something about get a card at all:
- * a slow GPS (`timeout`) and a browser with no geolocation (`unsupported`) are
- * reported on the punch and to the manager, never as homework.
- *
- * `context` is where the card came from. After a punch it says the punch is
- * saved, because that is the first thing somebody wants to know; at app open
- * it says what will happen to the next one.
+ * The location failures the person can do something about, and so the ones
+ * that open the dialog BEFORE the punch. A slow GPS (`timeout`) is not one:
+ * the punch goes and the reading follows it. A browser with no geolocation at
+ * all (`unsupported`) is not one either: there is nothing to fix.
  */
-export type LocationNotice = {
-  kind: "primer" | "denied" | "os_off" | "unavailable";
-  context: "punch" | "open";
-};
-
-const CARD_KINDS: ReadonlySet<LocationError> = new Set(["denied", "os_off", "unavailable"]);
+const FIXABLE: ReadonlySet<LocationError> = new Set(["denied", "os_off", "unavailable"]);
 
 /** How long after clocking out the Undo is offered. The server allows the same. */
 const UNDO_MS = 2 * 60_000;
 
-const PRIMER_KEY = "praxis.clock.locationPrimer";
-const BLOCKED_SEEN_KEY = "praxis.clock.blockedShown";
-const DEVICE_OFF_SEEN_KEY = "praxis.clock.deviceOffShown";
+/**
+ * How long a clock-in keeps the moment of its first tap. A detour through the
+ * dialog (allowing location, naming the device) should not cost the person the
+ * seconds it took, so the punch is stamped at the tap. Past this the server
+ * would read the gap as a punch held offline (its LIVE_GAP_MS is a minute), so
+ * a longer detour is stamped at the moment it was sent.
+ */
+const TAP_HOLD_MS = 50_000;
 
-function readFlag(store: "local" | "session", key: string): boolean {
+/**
+ * Set once this device has produced a location. Browsers that report `prompt`
+ * every visit (Safari set to Ask) then go straight to the reading, which puts
+ * their own prompt up on the tap, instead of through the dialog every morning.
+ */
+const LOCATION_OK_KEY = "praxis.clock.locationOk";
+
+const NO_LATE: Promise<LateResult> = Promise.resolve({ fix: null, error: null });
+
+function readFlag(key: string): boolean {
   try {
-    return (store === "local" ? window.localStorage : window.sessionStorage).getItem(key) === "1";
+    return window.localStorage.getItem(key) === "1";
   } catch {
-    /* @silent:storage — private mode: the card may simply show again */
+    /* @silent:storage — private mode: the dialog may simply ask again */
     return false;
   }
 }
-function writeFlag(store: "local" | "session", key: string): void {
+function writeFlag(key: string): void {
   try {
-    (store === "local" ? window.localStorage : window.sessionStorage).setItem(key, "1");
+    window.localStorage.setItem(key, "1");
   } catch {
-    /* @silent:storage — private mode: the card may simply show again */
+    /* @silent:storage — private mode: the dialog may simply ask again */
   }
 }
 
@@ -149,9 +153,10 @@ export function ClockPunchProvider({ children }: { children: React.ReactNode }) 
   return (
     <ClockContext.Provider value={state}>
       {children}
-      {/* ONE clock-out dialog for the shell. It renders into a portal, so a
-          copy per surface would open twice: the title-bar chip is hidden with
-          CSS on a phone, not unmounted. */}
+      {/* ONE clock-in and ONE clock-out dialog for the shell. They render into
+          a portal, so a copy per surface would open twice: the title-bar chip
+          is hidden with CSS on a phone, not unmounted. */}
+      <ClockInFlow clock={state} />
       <ClockOutDialog clock={state} />
     </ClockContext.Provider>
   );
@@ -208,17 +213,38 @@ function useClockState(enabled: boolean) {
   const [busy, setBusy] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   /**
-   * The device this punch just registered, when it had never been seen before.
+   * Is this browser on the person's device register? From `/attendance/me`,
+   * so the clock knows BEFORE the tap whether to ask for a name. Null when it
+   * cannot tell (no device id, an older server, offline): then it does not
+   * ask, and the punch registers the device under its generated label.
    *
-   * Held so the clock can offer "name this device?" ONCE, on the punch that
-   * created it. The employee is the only person who knows the answer — a
-   * manager renaming it later is guessing which of two "Windows · Chrome"
-   * rows is the yard tablet — but they are also mid-clock-in, so this is an
-   * offer beside a completed punch, never a gate in front of one.
+   * The employee is the only person who knows the answer — a manager renaming
+   * it later is guessing which of two "Windows · Chrome" rows is the yard
+   * tablet — so the name is asked once, on the first punch from the device.
    */
-  const [newDevice, setNewDevice] = React.useState<string | null>(null);
-  const [notice, setNotice] = React.useState<LocationNotice | null>(null);
+  const [deviceKnown, setDeviceKnown] = React.useState<boolean | null>(null);
   const [permission, setPermission] = React.useState<GeoPermission | null>(null);
+  /** The clock-in dialog's step; null while it is closed. */
+  const [step, setStep] = React.useState<ClockInStep | null>(null);
+  /**
+   * The clock-in in progress. A new object per tap, and every await in the flow
+   * checks it is still the current one, so a Cancel while a reading is pending
+   * cannot be followed by a punch nobody is waiting for.
+   */
+  const attempt = React.useRef<{
+    startedAt: number;
+    ref: string;
+    cap: Capture | null;
+    label: string | null;
+    /**
+     * Re-entry guards, on the attempt rather than in state: the browser's own
+     * location button can fire two of its events for one tap, both inside one
+     * render, and `busy` would read false for both. Two sends of one punch
+     * would race on its reference and the loser would come back as an error.
+     */
+    asking?: boolean;
+    sending?: boolean;
+  } | null>(null);
 
   /** Server state, with any punch still queued on this phone laid over it. */
   const refresh = React.useCallback(async () => {
@@ -226,6 +252,7 @@ function useClockState(enabled: boolean) {
       const st = await api.clockState();
       setLinked(st.linked);
       setExpected(st.expected_minutes ?? null);
+      setDeviceKnown(st.device ? st.device.known : null);
       const q = st.linked ? queuedPunch() : null;
       if (q) {
         setPunch(q.state === "in" ? q.row : null);
@@ -293,33 +320,19 @@ function useClockState(enabled: boolean) {
    * employee: the old clock started a high-accuracy watch on page load for
    * EVERY signed-in user, and a location request nobody tapped for is the kind
    * browsers quietly turn down and, after a few dismissals, block on their own.
+   *
+   * Nothing is SHOWN from here any more. The app-open cards this used to raise
+   * appeared before anybody had reached for the clock, covered the toolbar, and
+   * on a phone could not be acted on; the clock-in dialog asks at the tap.
    */
   React.useEffect(() => {
     if (!enabled || !linked) return;
     let live = true;
-    /*
-     * The case the old card got wrong. The site is allowed, so the browser has
-     * nothing to fix, but the computer or phone refuses every reading (Windows
-     * or macOS location services off, or the phone's switch). Caught on the
-     * warm-up, so the person hears about it BEFORE they punch, once a session.
-     */
-    onWarmError((why) => {
-      if (!live || why !== "os_off") return;
-      if (!readFlag("session", DEVICE_OFF_SEEN_KEY)) {
-        writeFlag("session", DEVICE_OFF_SEEN_KEY);
-        setNotice((n) => n ?? { kind: "os_off", context: "open" });
-      }
-    });
     const stop = watchGeoPermission((s) => {
       if (!live) return;
       setPermission(s);
       setLocationPermission(s);
-      if (s === "granted") {
-        warmGps();
-        // Granting the SITE fixes only the cards about the site. A device whose
-        // own location is off is still off, and its card must stay.
-        setNotice((n) => (n && (n.kind === "denied" || n.kind === "primer") ? null : n));
-      }
+      if (s === "granted") warmGps();
     });
     const onVisible = () => {
       if (document.visibilityState === "visible") warmGps();
@@ -328,27 +341,9 @@ function useClockState(enabled: boolean) {
     return () => {
       live = false;
       stop();
-      onWarmError(null);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [enabled, linked]);
-
-  /*
-   * Ask before it matters. A person who has never been asked gets the primer
-   * once per device; a person whose site is blocked is told once per session.
-   * Both are offers beside the clock, never in front of it.
-   */
-  React.useEffect(() => {
-    if (!enabled || !linked || notice) return;
-    if (permission === "prompt" && !readFlag("local", PRIMER_KEY)) {
-      setNotice({ kind: "primer", context: "open" });
-    } else if (permission === "denied" && !readFlag("session", BLOCKED_SEEN_KEY)) {
-      writeFlag("session", BLOCKED_SEEN_KEY);
-      setNotice({ kind: "denied", context: "open" });
-    }
-    // `notice` is read, not watched: dismissing a card must not re-raise it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, linked, permission]);
 
   const phase: ClockPhase =
     linked === null ? "loading"
@@ -363,7 +358,9 @@ function useClockState(enabled: boolean) {
    * Addressed by the punch's `client_ref`, so it works for a punch that was
    * queued offline and has no server id yet. Through the outbox too, so a
    * reading that lands in a dead zone follows the punch out instead of being
-   * dropped. Silent either way: the clock shows a state, not a commentary.
+   * dropped. A reading that lands quietly stays quiet; one that never lands,
+   * or cannot be attached, is SAID (owner's rule: no failure out of sight),
+   * because it changes what the punch shows: Location Not Verified.
    */
   const follow = React.useCallback(
     async (late: Promise<LateResult>, target: { client_ref?: string; attendance_id?: string; phase: "in" | "out" }) => {
@@ -378,15 +375,13 @@ function useClockState(enabled: boolean) {
             fix_at: new Date(r.fix.at).toISOString(),
           });
         } catch {
-          /* @silent:teardown — the punch stands without it, and the server already records why it had none */
+          toast.info(i18n.t("hr.clockedInUnverified"));
         }
         return;
       }
-      if (r.error && CARD_KINDS.has(r.error)) {
-        setNotice({ kind: r.error as LocationNotice["kind"], context: "punch" });
-      }
+      if (target.phase === "in") toast.info(i18n.t("hr.clockedInUnverified"));
     },
-    [],
+    [toast],
   );
 
   /** The two refusals that are not refusals: the clock was simply out of date. */
@@ -406,56 +401,169 @@ function useClockState(enabled: boolean) {
     toast.error(e instanceof Error ? e.message : i18n.t("hr.punchFailed"));
   }
 
-  /** Clock in: no confirmation, straight to the timer. */
+  /**
+   * The tap on Clock In. Straight to the punch when location is available and
+   * the device is known; otherwise the dialog opens on the first thing that
+   * needs the person, and the punch waits for them.
+   */
   async function clockIn() {
     if (phase !== "in" || busy) return;
+    const a: NonNullable<typeof attempt.current> = { startedAt: Date.now(), ref: newRef(), cap: null, label: null };
+    attempt.current = a;
+    // Known blocked: a reading would fail at once, so ask without trying.
+    if (permission === "denied") {
+      setStep({ kind: "location", cause: "denied", attempts: 0 });
+      return;
+    }
+    // Never asked on this device: say what the browser is about to ask, first.
+    if (permission === "prompt" && !readFlag(LOCATION_OK_KEY)) {
+      setStep({ kind: "location", cause: "prompt", attempts: 0 });
+      return;
+    }
     setBusy(true);
-    if (notice?.kind === "primer") setNotice(null);
-    const tappedAt = new Date().toISOString();
     const cap = await captureForPunch();
-    const finding = !cap.fix && cap.error === "timeout";
-    const ref = newRef();
+    if (attempt.current !== a) return;
+    if (!cap.fix && cap.error && FIXABLE.has(cap.error)) {
+      setBusy(false);
+      setStep({ kind: "location", cause: cap.error as LocationAsk, attempts: 0 });
+      return;
+    }
+    await afterLocation(cap);
+  }
+
+  /**
+   * From the dialog: ask the browser for location on this tap (the prompt, or
+   * a retry after the person changed a setting). A tap is what browsers treat
+   * as wanted, and on the browser's own `<geolocation>` button it can even
+   * re-ask a blocked site.
+   */
+  async function retryLocation() {
+    const a = attempt.current;
+    if (!a || a.asking || a.sending) return;
+    a.asking = true;
+    setBusy(true);
+    const err = await askForLocation().finally(() => {
+      a.asking = false;
+    });
+    if (attempt.current !== a) return;
+    if (!err) {
+      // The reading `askForLocation` took is fresh, so this returns at once.
+      const cap = await captureForPunch();
+      if (attempt.current !== a) return;
+      await afterLocation(cap);
+      return;
+    }
+    setBusy(false);
+    const cause: LocationAsk = err === "denied" || err === "os_off" ? err : "unavailable";
+    setStep((prev) => ({
+      kind: "location",
+      cause,
+      attempts: (prev && prev.kind === "location" ? prev.attempts : 0) + 1,
+    }));
+  }
+
+  /** From the dialog: punch now, recorded as Location Not Verified, saying why. */
+  function withoutLocation() {
+    const cause = step && step.kind === "location" ? step.cause : null;
+    // `prompt` is not a failure: nothing was refused, the person chose not to
+    // be asked. The punch carries no reason rather than a wrong one.
+    const why: LocationError | null = cause && cause !== "prompt" ? cause : null;
+    void afterLocation({ fix: null, error: why, late: NO_LATE });
+  }
+
+  /** Location is settled one way or the other: the device next, then the punch. */
+  async function afterLocation(cap: Capture) {
+    const a = attempt.current;
+    if (!a) return;
+    a.cap = cap;
+    if (cap.fix) writeFlag(LOCATION_OK_KEY);
+    if (deviceKnown === false && !a.label) {
+      setBusy(false);
+      setStep({ kind: "device" });
+      return;
+    }
+    await send();
+  }
+
+  /** From the dialog: the new device's name. It rides with the punch. */
+  function nameDevice(label: string) {
+    const a = attempt.current;
+    if (!a) return;
+    a.label = label;
+    void send();
+  }
+
+  /** Send the punch, and say how it went. Try Again resends the same one. */
+  async function send() {
+    const a = attempt.current;
+    if (!a || !a.cap || a.sending) return;
+    a.sending = true;
+    const cap = a.cap;
+    setBusy(true);
+    const tappedAt = new Date(Date.now() - a.startedAt <= TAP_HOLD_MS ? a.startedAt : Date.now()).toISOString();
     let following = false;
     try {
-      // The device rides with the punch, not as a separate registration call:
-      // registering has to happen on first use or a tenant on `block` would
-      // have nothing to hold — the server puts the row down either way.
+      // The device rides with the punch, not as a separate registration call,
+      // and its name with it on the first punch from it: the server puts the
+      // row down at every policy, so there is always one for a manager to see.
       const device = api.deviceInfo();
       const r = await api.punchIn({
         ...(cap.fix || {}),
         device: device
-          ? { ...device, ...(permission ? { location_permission: permission } : {}) }
+          ? {
+              ...device,
+              ...(a.label ? { label: a.label } : {}),
+              ...(permission ? { location_permission: permission } : {}),
+            }
           : null,
-        client_ref: ref,
+        // The same reference on every try: a resend of a punch that did land
+        // is answered with that punch, not refused as a second one.
+        client_ref: a.ref,
         tapped_at: tappedAt,
         ...(cap.error ? { location_error: cap.error } : {}),
       });
+      if (attempt.current === a) attempt.current = null;
+      setStep(null);
       setDone(null);
       setUndoUntil(null);
+      if (device) setDeviceKnown(true);
       if (r.status === "queued") {
-        setPunch({ attendance_id: `queued:${ref}`, client_ref: ref, clock_in_at: tappedAt, punched_offline: true });
+        setPunch({ attendance_id: `queued:${a.ref}`, client_ref: a.ref, clock_in_at: tappedAt, punched_offline: true });
         toast.info(i18n.t("hr.savedOffline"));
       } else {
         const row = r.data;
         setPunch(row);
-        // Offered only on the punch that created the row — `device_new` is
-        // transient and true exactly once, so this cannot become a nag.
-        if (row.device_new && row.hr_device_id) setNewDevice(row.hr_device_id);
         if (row.review_status === "PENDING") toast.info(i18n.t("hr.clockedInHeld"));
         else if (row.within_geofence === false || row.location_status === "off_site") {
           toast.info(i18n.t("hr.clockedInOffSite"));
+        } else if (!cap.fix && cap.error !== "timeout") {
+          toast.info(i18n.t("hr.clockedInUnverified"));
         }
       }
-      following = finding;
-      if (cap.error && CARD_KINDS.has(cap.error)) {
-        setNotice({ kind: cap.error as LocationNotice["kind"], context: "punch" });
-      }
+      following = !cap.fix && cap.error === "timeout";
     } catch (e) {
-      await handleRefusal(e);
+      const code = e instanceof ApiError ? e.code : "";
+      if (code === "ALREADY_CLOCKED_IN" || code === "NO_OPEN_SHIFT" || code === "SHIFT_DONE_TODAY") {
+        if (attempt.current === a) attempt.current = null;
+        setStep(null);
+        await handleRefusal(e);
+      } else {
+        // In the dialog, with the reason and Try Again. A toast that faded
+        // over a toolbar is how "No permission for MOD-14.create" went unread.
+        setStep({ kind: "failed", message: e instanceof Error && e.message ? e.message : i18n.t("hr.punchFailed") });
+      }
     } finally {
+      a.sending = false;
       setBusy(false);
     }
-    if (following) void follow(cap.late, { client_ref: ref, phase: "in" });
+    if (following) void follow(cap.late, { client_ref: a.ref, phase: "in" });
+  }
+
+  /** The dialog was closed: the attempt is dropped and nothing is sent. */
+  function cancelClockIn() {
+    attempt.current = null;
+    setStep(null);
+    setBusy(false);
   }
 
   /** Clock out, after the person confirmed it in the dialog. */
@@ -528,222 +636,30 @@ function useClockState(enabled: boolean) {
     cancelClockOut: () => setConfirming(false),
     clockOut,
     undo,
-    newDevice,
-    dismissNewDevice: () => setNewDevice(null),
-    notice,
-    dismissNotice: () => {
-      if (notice?.kind === "primer") writeFlag("local", PRIMER_KEY);
-      setNotice(null);
-    },
-    replaceNotice: (n: LocationNotice | null) => setNotice(n),
+    /** The clock-in dialog: its step, and what each of its buttons does. */
+    step,
+    cancelClockIn,
+    retryLocation,
+    withoutLocation,
+    nameDevice,
+    tryAgain: () => void send(),
     /** The person reached for the clock: warm the GPS for the tap that follows. */
     warm: () => warmGps(),
   };
 }
 
-/**
- * The location card: ask first, or name what is wrong and how to fix it.
- *
- * Each cause has its own way out, and the card offers only that one:
- *
- *   primer       a button that puts the browser's own prompt up, on a tap;
- *   denied       the browser's `<geolocation>` button where it exists (one tap,
- *                even after a block), otherwise the site-settings steps;
- *   os_off       the phone's own Location switch, which no browser can flip;
- *   unavailable  nothing is blocked, so just Retry.
- */
-function LocationNoticeCard({
-  notice,
-  onDone,
-  onReplace,
-}: {
-  notice: LocationNotice;
-  onDone: () => void;
-  onReplace: (n: LocationNotice | null) => void;
-}) {
-  const [busy, setBusy] = React.useState(false);
-  const native = notice.kind === "denied" && supportsGeolocationElement();
-  const steps = React.useMemo(
-    () =>
-      notice.kind === "denied" && !native
-        ? geoRecoverySteps()
-        : notice.kind === "os_off" || notice.kind === "unavailable"
-          ? // "Unavailable" with the site allowed is, more often than not, the
-            // same system switch. The steps are harmless when it is not.
-            deviceLocationSteps()
-          : [],
-    [notice.kind, native],
-  );
-
-  async function retry() {
-    setBusy(true);
-    const err = await askForLocation();
-    setBusy(false);
-    if (!err) {
-      warmGps();
-      onReplace(null);
-      return;
-    }
-    // A different answer than the one this card was raised for is a different
-    // card: allowing the site and finding the phone's switch off is progress.
-    const next = err === "denied" || err === "os_off" || err === "unavailable" ? err : "unavailable";
-    if (next !== notice.kind) onReplace({ kind: next, context: notice.context });
-  }
-
-  const title =
-    notice.kind === "primer"
-      ? i18n.t("hr.locationPrimerLead")
-      : notice.kind === "denied"
-        ? i18n.t("hr.locationBlockedLead")
-        : notice.kind === "os_off"
-          ? i18n.t("hr.locationDeviceOffLead")
-          : i18n.t("hr.locationUnavailableLead");
-  const body =
-    notice.kind === "primer"
-      ? i18n.t("hr.locationPrimerBody")
-      : notice.context === "punch"
-        ? i18n.t("hr.locationSavedBody")
-        : i18n.t("hr.locationNextBody");
-
+/** The clock-in dialog, wired to one clock. Rendered once per shell, like the clock-out one. */
+function ClockInFlow({ clock }: { clock: ClockState }) {
   return (
-    <div className="w-80 space-y-2 rounded-lg border bg-popover p-3 shadow-[var(--shadow-l)]">
-      <Callout tone={notice.kind === "primer" ? "info" : "warn"} title={title}>
-        {body}
-      </Callout>
-      {steps.length > 0 && (
-        <ol className="list-decimal space-y-0.5 pl-5 text-xs text-foreground">
-          {steps.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-      )}
-      {native && (
-        <div className="flex justify-center py-1">
-          <GeolocationAllow onSettled={() => void retry()} />
-        </div>
-      )}
-      <div className="flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={onDone}
-          className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          {notice.kind === "primer" ? i18n.t("hr.notNow") : i18n.t("hr.restoreLater")}
-        </button>
-        {notice.kind === "denied" && !native && (
-          <button
-            type="button"
-            onClick={() => openInstallUi()}
-            className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            {i18n.t("hr.installTheApp")}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => void retry()}
-          disabled={busy}
-          className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
-        >
-          {busy
-            ? i18n.t("hr.checkingLocation")
-            : notice.kind === "primer"
-              ? i18n.t("hr.allowLocation")
-              : i18n.t("hr.retryLocation")}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * "Name this device?" — offered once, beside a punch that already succeeded.
- *
- * WHY THE EMPLOYEE AND NOT THE MANAGER. The server can only derive a browser
- * category from the user agent, so every laptop in the company auto-labels
- * identically and it appends four characters of the fingerprint to keep the rows
- * distinct. Distinct is not recognisable. The person holding the device is the
- * only one who can say "my phone" or "yard tablet"; a manager renaming it later
- * is guessing which of two near-identical rows is which.
- *
- * WHY IT IS AN OFFER, NOT A STEP. They are clocking in. The punch is recorded
- * before this appears and stays recorded if they ignore it — a naming dialog in
- * front of a time clock would be dismissed by everyone in a hurry, which is
- * everyone. Skipping leaves the generated label, which the manager can still fix.
- */
-function NameDeviceOffer({ deviceId, onDone }: { deviceId: string; onDone: () => void }) {
-  const [value, setValue] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    const label = value.trim();
-    if (!label) return onDone();
-    setBusy(true);
-    setError(null);
-    try {
-      await api.renameOwnDevice(deviceId, label);
-      onDone();
-    } catch (err) {
-      // Named rather than swallowed: the punch is safe either way, but somebody
-      // who typed a name and saw it vanish would reasonably think it saved.
-      setError(err instanceof Error ? err.message : "Couldn't save that name.");
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form
-      onSubmit={save}
-      /*
-       * POSITION-AGNOSTIC. The caller places it, because the two surfaces need
-       * opposite anchors: the title-bar chip drops it downward, the touch
-       * cluster — already pinned to the bottom of the screen — opens it upward.
-       * Baking `top-full` in here would put it off-screen on a phone.
-       *
-       * Anchored to the control either way rather than centred as a modal: it
-       * belongs to the thing that raised it, and a dialog would take the whole
-       * screen for a question the person did not ask.
-       */
-      className="w-72 rounded-lg border bg-popover p-3 shadow-[var(--shadow-l)]"
-    >
-      <p className="text-sm font-medium text-foreground">Name this device</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        First time clocking in from here. A name helps your manager tell your devices apart.
-      </p>
-      <input
-        // Focus follows a prompt the person did not ask for, so it must not
-        // steal the caret from anything they were typing — it only appears
-        // after their own click on the clock.
-        // eslint-disable-next-line jsx-a11y/no-autofocus
-        autoFocus
-        value={value}
-        onChange={(ev) => setValue(ev.target.value)}
-        maxLength={80}
-        aria-label="Device name"
-        placeholder="My phone, Yard tablet…"
-        className="mt-2 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-      />
-      {error && <p className="mt-1 text-xs text-[rgb(var(--bad))]">{error}</p>}
-      <div className="mt-2 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onDone}
-          disabled={busy}
-          className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          Not now
-        </button>
-        <button
-          type="submit"
-          disabled={busy || !value.trim()}
-          className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-60"
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
-      </div>
-    </form>
+    <ClockInDialog
+      step={clock.step}
+      busy={clock.busy}
+      onCancel={clock.cancelClockIn}
+      onRetryLocation={() => void clock.retryLocation()}
+      onWithoutLocation={clock.withoutLocation}
+      onNameDevice={clock.nameDevice}
+      onTryAgain={clock.tryAgain}
+    />
   );
 }
 
@@ -914,29 +830,14 @@ export function ClockPunchChip() {
 
   return (
     /*
-     * `relative` so the offers can anchor to the chip — the title bar is a
-     * drag region (`.wco`), and a popover that escaped this wrapper would be
-     * positioned against the window rather than the control that raised it.
-     *
      * THE BREAKPOINT LIVES HERE, NOT ONLY ON THE BUTTON. This wrapper is a flex
      * child of a `gap-2` row, so a hidden control must take no space at all,
      * including the space BETWEEN it and its neighbour.
      */
-    <span className="relative hidden sm:inline-flex">
+    <span className="hidden sm:inline-flex">
       <ClockPill clock={clock} />
+      {clock.ownsDialog && <ClockInFlow clock={clock} />}
       {clock.ownsDialog && <ClockOutDialog clock={clock} />}
-      {clock.newDevice && (
-        <div className="absolute right-0 top-full z-50 mt-2">
-          <NameDeviceOffer deviceId={clock.newDevice} onDone={clock.dismissNewDevice} />
-        </div>
-      )}
-      {/* `md:block`: between `sm` and `md` the floating toolbar is ALSO on
-          screen and reads the same clock, and one card is enough. */}
-      {clock.notice && !clock.newDevice && (
-        <div className="absolute right-0 top-full z-50 mt-2 hidden md:block">
-          <LocationNoticeCard notice={clock.notice} onDone={clock.dismissNotice} onReplace={clock.replaceNotice} />
-        </div>
-      )}
     </span>
   );
 }
@@ -955,19 +856,11 @@ export function ClockPunch() {
   if (clock.phase === "loading" || clock.phase === "unlinked") return null;
 
   return (
-    // `relative`: the offers anchor to the toolbar. On touch they sit above it,
-    // which is where there is room — the toolbar is at the bottom of the screen.
-    <div className="relative flex items-center gap-2 animate-fade-in">
-      {clock.newDevice && (
-        <div className="absolute bottom-full right-0 z-50 mb-2">
-          <NameDeviceOffer deviceId={clock.newDevice} onDone={clock.dismissNewDevice} />
-        </div>
-      )}
-      {clock.notice && !clock.newDevice && (
-        <div className="absolute bottom-full right-0 z-50 mb-2">
-          <LocationNoticeCard notice={clock.notice} onDone={clock.dismissNotice} onReplace={clock.replaceNotice} />
-        </div>
-      )}
+    // Nothing is anchored to the toolbar any more. Its backdrop blur is what
+    // made the browser's own location button inside the old card refuse every
+    // tap; the clock-in dialog is centred, with nothing blurred above it.
+    <div className="flex items-center gap-2 animate-fade-in">
+      {clock.ownsDialog && <ClockInFlow clock={clock} />}
       {clock.ownsDialog && <ClockOutDialog clock={clock} />}
       <ClockPill clock={clock} touch />
     </div>

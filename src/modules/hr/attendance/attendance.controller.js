@@ -73,14 +73,35 @@ module.exports = {
   clockIn: asyncHandler(async (req, res) => {
     // Same rule as registerDevice: the header is the browser's own claim and
     // wins over anything the body says about itself.
-    const body = req.body.device
-      ? { ...req.body, device: { ...req.body.device, user_agent: req.get("user-agent") || req.body.device.user_agent || null } }
-      : req.body;
+    //
+    // `employee_id` is dropped: the route takes no grant, so the punch is the
+    // CALLER's, always. (The service never read the snake_case key anyway; this
+    // makes that a rule rather than an accident of naming.)
+    const rest = { ...req.body };
+    delete rest.employee_id;
+    const body = rest.device
+      ? { ...rest, device: { ...rest.device, user_agent: req.get("user-agent") || rest.device.user_agent || null } }
+      : rest;
     const row = await clockDb(req, (c) => service.clockIn(c, { ...body, actor: actor(req) }));
     res.status(201).json({ data: row });
   }),
+  /**
+   * Clock out. The caller's own open shift needs no grant; naming a shift
+   * (`id`) or an employee asks for MOD-14 `edit` first, because closing
+   * somebody else's shift is a correction to their attendance, the same
+   * authority as Reopen. Without this the ungated route would let anyone close
+   * any shift whose id they held.
+   */
   clockOut: asyncHandler(async (req, res) => {
-    const row = await clockDb(req, (c) => service.clockOut(c, { ...req.body, actor: actor(req) }));
+    const { id = null, employee_id: employeeId = null, ...rest } = req.body;
+    if ((id || employeeId) && !(await hasGrant(req, "MOD-14", "can_update"))) {
+      throw new AppError(
+        "PERMISSION_DENIED",
+        "Only your own shift can be clocked out here. Closing someone else's needs the Attendance edit permission.",
+        403,
+      );
+    }
+    const row = await clockDb(req, (c) => service.clockOut(c, { ...rest, id, employeeId, actor: actor(req) }));
     res.json({ data: row });
   }),
   attachFix: asyncHandler(async (req, res) => {
@@ -95,8 +116,17 @@ module.exports = {
     }));
     res.json({ data: row });
   }),
-  me: asyncHandler(async (req, res) =>
-    res.json({ data: await clockDb(req, (c) => service.me(c, { actor: actor(req) })) })),
+  /**
+   * `?device=` is this browser's device id, so the clock knows BEFORE the tap
+   * whether to ask for a name. Bounded the way the punch's `fingerprint` is;
+   * anything else is treated as no device rather than refused, because this
+   * read decides whether the clock is drawn at all.
+   */
+  me: asyncHandler(async (req, res) => {
+    const d = req.query && typeof req.query.device === "string" ? req.query.device.trim() : "";
+    const fingerprint = d.length >= 8 && d.length <= 200 ? d : null;
+    res.json({ data: await clockDb(req, (c) => service.me(c, { actor: actor(req), fingerprint })) });
+  }),
   undoClockOut: asyncHandler(async (req, res) =>
     res.json({ data: await clockDb(req, (c) => service.undoClockOut(c, { actor: actor(req) })) })),
   reopen: asyncHandler(async (req, res) =>
